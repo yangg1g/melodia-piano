@@ -2,6 +2,14 @@ import type { Hand } from './midiScore';
 
 const WHITE_PC = new Set([0, 2, 4, 5, 7, 9, 11]);
 
+/** 与 DOM 中白键 / 黑键尺寸一致，供下落音符等对齐键盘用 */
+export const PIANO_LAYOUT = {
+  whiteW: 28,
+  whiteH: 120,
+  blackW: 18,
+  blackH: 72,
+} as const;
+
 const VISUAL_CLASSES = ['expect-lh', 'expect-rh', 'active-lh', 'active-rh', 'pressed', 'expected', 'active'] as const;
 
 export function isWhiteKey(midi: number): boolean {
@@ -13,6 +21,42 @@ function prevWhiteMidi(m: number, startMidi: number): number | null {
     if (isWhiteKey(x)) return x;
   }
   return null;
+}
+
+/** 键盘内层坐标系下该 MIDI 音的中心 x（像素）；超出范围返回 null */
+export function keyCenterXInKeyboard(midi: number, startMidi: number, endMidi: number): number | null {
+  if (midi < startMidi || midi > endMidi) return null;
+  const { whiteW, blackW } = PIANO_LAYOUT;
+  let wi = 0;
+  for (let m = startMidi; m <= endMidi; m++) {
+    if (isWhiteKey(m)) {
+      if (m === midi) return wi * whiteW + whiteW / 2;
+      wi++;
+    }
+  }
+  const prev = prevWhiteMidi(midi, startMidi);
+  if (prev === null) return null;
+  wi = 0;
+  for (let m = startMidi; m <= endMidi; m++) {
+    if (isWhiteKey(m)) {
+      if (m === prev) {
+        const left = (wi + 0.58) * whiteW - blackW / 2;
+        return left + blackW / 2;
+      }
+      wi++;
+    }
+  }
+  return null;
+}
+
+/** 与 {@link createPianoKeyboard} 中 `.piano-inner` 同宽 */
+export function keyboardInnerWidthPx(startMidi: number, endMidi: number): number {
+  const { whiteW } = PIANO_LAYOUT;
+  let n = 0;
+  for (let m = startMidi; m <= endMidi; m++) {
+    if (isWhiteKey(m)) n++;
+  }
+  return n * whiteW;
 }
 
 /** 约三个八度（默认 MIDI 48–84），白键横向排列，黑键叠在上层 */
@@ -33,10 +77,7 @@ export function createPianoKeyboard(
     }
   }
 
-  const whiteW = 28;
-  const whiteH = 120;
-  const blackW = 18;
-  const blackH = 72;
+  const { whiteW, whiteH, blackW, blackH } = PIANO_LAYOUT;
 
   const inner = document.createElement('div');
   inner.className = 'piano-inner';

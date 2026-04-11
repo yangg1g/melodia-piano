@@ -11,6 +11,7 @@ import {
   type MeasureContext,
 } from './midiScore';
 import { playheadXInMeasureOverlay, renderGrandStaffRow, type GrandStaffColumn } from './renderScore';
+import { createFallingNotesLane } from './fallingNotes';
 import { applyKeyVisuals, createPianoKeyboard } from './pianoKeyboard';
 import { playNotes, type PlaybackController } from './playback';
 import { startKeyboardPractice } from './keyboardPractice';
@@ -52,7 +53,9 @@ app.innerHTML = `
     </div>
     <section class="keyboard-section">
       <p class="hint" id="keyboard-hint">根据 MIDI 生成的五线谱（高音 / 低音谱表）与键盘高亮</p>
-      <div id="keyboard-host"></div>
+      <div id="keyboard-stack" class="keyboard-stack">
+        <div id="keyboard-host"></div>
+      </div>
     </section>
   </main>
 `;
@@ -67,7 +70,9 @@ const fileInput = document.querySelector<HTMLInputElement>('#midi-file')!;
 const btnDemo = document.querySelector<HTMLButtonElement>('#btn-demo')!;
 const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
 const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
+const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
+const fallingNotes = createFallingNotesLane(keyboardStack);
 const midiRow = document.querySelector<HTMLDivElement>('#midi-row')!;
 const midiInputSelect = document.querySelector<HTMLSelectElement>('#midi-input')!;
 const btnMidiRefresh = document.querySelector<HTMLButtonElement>('#btn-midi-refresh')!;
@@ -87,7 +92,7 @@ function getPlayMode(): 'auto' | 'keyboard' {
 function updateKeyboardHint() {
   keyboardHint.textContent =
     getPlayMode() === 'auto'
-      ? '根据 MIDI 生成的五线谱（高音 / 低音谱表）。键盘：左手（低音谱）绿色、右手（高音谱）蓝色表示正在发声的音。'
+      ? '根据 MIDI 生成的五线谱（高音 / 低音谱表）。琴键上方为下落式音符（绿左 / 蓝右；白键稍亮、黑键更深），落到底端时与发声对齐。键盘高亮同上。'
       : 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；紫红色外圈为键盘上正在按下的键；弹对后才会发声并前进，错音不出声。';
 }
 
@@ -304,6 +309,9 @@ function renderAll(midi: Midi) {
 
   const range = noteRange(flatNotes);
   keyEls = createPianoKeyboard(keyboardHost, range.min, range.max);
+  fallingNotes.setRange(range.min, range.max);
+  fallingNotes.setSource(flatNotes, midi);
+  fallingNotes.clear();
 }
 
 function goScorePage(delta: number) {
@@ -337,6 +345,7 @@ function stopPlayback() {
   playback?.stop();
   playback = null;
   hideScorePlayhead();
+  fallingNotes.clear();
   applyKeyVisuals(keyEls, {});
   btnPlay.disabled = false;
   btnStop.disabled = true;
@@ -381,6 +390,7 @@ btnPlay.addEventListener('click', async () => {
 
   const onPlaybackEnded = () => {
     hideScorePlayhead();
+    fallingNotes.clear();
     btnPlay.disabled = false;
     btnStop.disabled = true;
     playback = null;
@@ -407,7 +417,10 @@ btnPlay.addEventListener('click', async () => {
       currentMidi.duration,
       (active) => applyKeyVisuals(keyEls, { active }),
       onPlaybackEnded,
-      (t) => updateScorePlayhead(t),
+      (t) => {
+        updateScorePlayhead(t);
+        fallingNotes.update(t);
+      },
     );
     return;
   }

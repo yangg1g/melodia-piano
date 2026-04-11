@@ -270,6 +270,71 @@ body {
   padding: 12px 0 24px;
 }
 
+.keyboard-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+}
+
+.falling-lane {
+  position: relative;
+  width: 100%;
+  min-height: 160px;
+  padding: 8px 4px 6px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, #f0f2f8 0%, #e8ebf4 100%);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  box-sizing: border-box;
+}
+
+.falling-lane-inner {
+  position: relative;
+  min-height: 140px;
+  overflow: hidden;
+}
+
+.falling-note {
+  position: absolute;
+  border-radius: 4px;
+  pointer-events: none;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* 右手蓝：白键略浅、黑键更深 */
+.falling-note--rh.falling-note--key-white {
+  background: linear-gradient(180deg, #64b5f6 0%, #42a5f5 100%);
+  border: 1px solid #1565c0;
+  box-shadow: 0 1px 3px rgba(21, 101, 192, 0.28);
+}
+
+.falling-note--rh.falling-note--key-black {
+  background: linear-gradient(180deg, #1976d2 0%, #0d47a1 100%);
+  border: 1px solid #01579b;
+  box-shadow: 0 2px 4px rgba(13, 71, 161, 0.35);
+}
+
+/* 左手绿：白键略浅、黑键更深 */
+.falling-note--lh.falling-note--key-white {
+  background: linear-gradient(180deg, #81c784 0%, #66bb6a 100%);
+  border: 1px solid #388e3c;
+  box-shadow: 0 1px 3px rgba(56, 142, 60, 0.28);
+}
+
+.falling-note--lh.falling-note--key-black {
+  background: linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%);
+  border: 1px solid #0d3d10;
+  box-shadow: 0 2px 4px rgba(27, 94, 32, 0.35);
+}
+
+.keyboard-stack .piano-keyboard {
+  border-radius: 0 0 10px 10px;
+  border-top: none;
+}
+
 .hint {
   margin: 0 0 10px;
   font-size: 0.85rem;
