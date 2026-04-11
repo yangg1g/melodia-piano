@@ -10,6 +10,9 @@ export interface FlatNote {
   midi: number;
   time: number;
   duration: number;
+  /** 与 MIDI 文件一致；用于按 tick 切分小节，避免仅用秒+BPM 时在 6/8 等拍号下浮点漂移 */
+  ticks: number;
+  durationTicks: number;
   trackIndex: number;
   vexKey: string;
 }
@@ -17,7 +20,10 @@ export interface FlatNote {
 export interface MeasureContext {
   bpm: number;
   timeSig: [number, number];
+  /** 每小节所占四分音符数（与 PPQ 一致） */
   beatsPerMeasure: number;
+  /** 每小节 tick 数（整数，与 Tone.js Header 一致） */
+  ticksPerMeasure: number;
   secPerMeasure: number;
   timeSigStr: string;
 }
@@ -25,15 +31,38 @@ export interface MeasureContext {
 export function getMeasureContext(midi: Midi): MeasureContext {
   const bpm = midi.header.tempos[0]?.bpm ?? 120;
   const ts = (midi.header.timeSignatures[0]?.timeSignature ?? [4, 4]) as [number, number];
-  const beatsPerMeasure = ts[0] * (4 / ts[1]);
-  const secPerMeasure = beatsPerMeasure * (60 / bpm);
+  const den = ts[1] > 0 ? ts[1] : 4;
+  const beatsPerMeasure = ts[0] * (4 / den);
+  const ppq = midi.header.ppq;
+  const ticksPerMeasure = (ts[0] * 4 * ppq) / den;
+  const tAfter = midi.header.ticksToSeconds(ticksPerMeasure);
+  const t0 = midi.header.ticksToSeconds(0);
+  const secPerMeasure = Math.max(1e-6, tAfter - t0);
   return {
     bpm,
-    timeSig: ts,
+    timeSig: [ts[0], den],
     beatsPerMeasure,
+    ticksPerMeasure,
     secPerMeasure,
-    timeSigStr: `${ts[0]}/${ts[1]}`,
+    timeSigStr: `${ts[0]}/${den}`,
   };
+}
+
+/**
+ * VexFlow Voice 的拍号决定小节总 tick 的“节拍网格”。本项目的时值拆分以四分音符为 1 beat（与 MIDI PPQ、{@link secToBeats} 一致）。
+ * 对 6/8 等拍号，Voice 用字面 "6/8" 时以八分音符为 beat，虽总 tick 与 3/4 等价，但易与 formatter / tick 对齐不一致；故在总时值恰为整数个四分音符时改用等价的 x/4。
+ * 谱表上的拍号仍用 {@link MeasureContext.timeSigStr} 显示原拍号。
+ */
+export function vexVoiceTimeStr(timeSig: [number, number]): string {
+  const [n, d] = timeSig;
+  if (!Number.isFinite(n) || !Number.isFinite(d) || d <= 0 || n <= 0) {
+    return '4/4';
+  }
+  const quarters = (n * 4) / d;
+  if (Number.isInteger(quarters) && quarters > 0) {
+    return `${quarters}/4`;
+  }
+  return `${Math.trunc(n)}/${Math.trunc(d)}`;
 }
 
 function tracksWithNotes(midi: Midi): number[] {
@@ -62,6 +91,8 @@ export function flattenNotes(midi: Midi): FlatNote[] {
         midi: n.midi,
         time: n.time,
         duration: n.duration,
+        ticks: n.ticks,
+        durationTicks: n.durationTicks,
         trackIndex,
         vexKey: noteToVexKey(n),
       });
@@ -98,6 +129,29 @@ function clipNote(n: FlatNote, measureStart: number, measureEnd: number, bpm: nu
   };
 }
 
+/** 按 MIDI tick 切分小节内片段，网格为 1/16 个四分音符（与 GRID 一致） */
+function clipNoteByTicks(
+  n: FlatNote,
+  measureStartTick: number,
+  measureEndTick: number,
+  ppq: number,
+): SliceNote | null {
+  const t0 = Math.max(n.ticks, measureStartTick);
+  const t1 = Math.min(n.ticks + n.durationTicks, measureEndTick);
+  if (t1 <= t0) return null;
+  const tickGrid = ppq / 16;
+  const rel0 = t0 - measureStartTick;
+  const rel1 = t1 - measureStartTick;
+  const q0 = Math.round(rel0 / tickGrid) * tickGrid;
+  const q1 = Math.round(rel1 / tickGrid) * tickGrid;
+  if (q1 <= q0) return null;
+  return {
+    start: q0 / ppq,
+    end: q1 / ppq,
+    vexKey: n.vexKey,
+  };
+}
+
 export interface VoiceAtom {
   keys: string[];
   duration: string;
@@ -105,14 +159,21 @@ export interface VoiceAtom {
   rest?: boolean;
 }
 
-/** 从大到小贪心拆分；须含 64 分音符，避免剩余时值强行写成 16 分导致总拍数大于真实时值 */
-const DUR_ROWS: { beats: number; code: string }[] = [
+/** 从大到小贪心拆分；附点时值 = 本音 + 其一半；须含 64 分及附点 64 分，避免剩余时值被高估 */
+const DUR_ROWS: { beats: number; code: string; dots?: number }[] = [
+  { beats: 6, code: 'w', dots: 1 },
   { beats: 4, code: 'w' },
+  { beats: 3, code: 'h', dots: 1 },
   { beats: 2, code: 'h' },
+  { beats: 1.5, code: 'q', dots: 1 },
   { beats: 1, code: 'q' },
+  { beats: 0.75, code: '8', dots: 1 },
   { beats: 0.5, code: '8' },
+  { beats: 0.375, code: '16', dots: 1 },
   { beats: 0.25, code: '16' },
+  { beats: 0.1875, code: '32', dots: 1 },
   { beats: 0.125, code: '32' },
+  { beats: 0.09375, code: '64', dots: 1 },
   { beats: 0.0625, code: '64' },
 ];
 
@@ -121,7 +182,7 @@ function decomposeBeats(beats: number): { duration: string; dots?: number }[] {
   const out: { duration: string; dots?: number }[] = [];
   for (const row of DUR_ROWS) {
     while (left >= row.beats - 1e-5) {
-      out.push({ duration: row.code });
+      out.push({ duration: row.code, dots: row.dots });
       left -= row.beats;
     }
   }
@@ -177,12 +238,18 @@ export function buildAtomsForHand(
   ctx: MeasureContext,
   measureIndex: number,
 ): VoiceAtom[] {
-  const start = measureIndex * ctx.secPerMeasure;
-  const end = start + ctx.secPerMeasure;
+  const measureStartTick = measureIndex * ctx.ticksPerMeasure;
+  const measureEndTick = (measureIndex + 1) * ctx.ticksPerMeasure;
+  const secStart = measureIndex * ctx.secPerMeasure;
+  const secEnd = secStart + ctx.secPerMeasure;
+  const ppq = midi.header.ppq;
   const slices: SliceNote[] = [];
   for (const n of flat) {
     if (assignHandForNote(n, midi) !== hand) continue;
-    const sl = clipNote(n, start, end, ctx.bpm);
+    const sl =
+      Number.isFinite(n.ticks) && Number.isFinite(n.durationTicks) && n.durationTicks >= 0
+        ? clipNoteByTicks(n, measureStartTick, measureEndTick, ppq)
+        : clipNote(n, secStart, secEnd, ctx.bpm);
     if (sl) slices.push(sl);
   }
   const chords = slicesToChordEvents(slices);
@@ -211,6 +278,7 @@ export function buildAtomsForHand(
 }
 
 export function measureCount(midi: Midi, ctx: MeasureContext): number {
-  const dur = midi.duration;
-  return Math.max(1, Math.ceil(dur / ctx.secPerMeasure - 1e-6));
+  const ticks = midi.durationTicks;
+  if (ticks <= 0) return 1;
+  return Math.max(1, Math.ceil(ticks / ctx.ticksPerMeasure - 1e-9));
 }

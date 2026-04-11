@@ -158,6 +158,13 @@ body {
   gap: 4px;
 }
 
+/** 一行乐谱：内含一张横向相接的 SVG（.score-row-host） */
+.score-measure-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .score.score--paginated {
   gap: 16px;
 }

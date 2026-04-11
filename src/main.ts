@@ -10,7 +10,7 @@ import {
   type FlatNote,
   type MeasureContext,
 } from './midiScore';
-import { renderGrandStaffMeasure } from './renderScore';
+import { renderGrandStaffRow, type GrandStaffColumn } from './renderScore';
 import { createPianoKeyboard, setActiveKeys } from './pianoKeyboard';
 import { playNotes, type PlaybackController } from './playback';
 
@@ -104,7 +104,7 @@ function updateScorePlayhead(timeSec: number) {
   ensureMeasurePageVisible(m);
   const local = timeSec - m * spm;
   const progress = Math.min(1, Math.max(0, local / spm));
-  const w = st.width;
+  const w = st.measureWidth;
   for (const row of scoreEl.querySelectorAll<HTMLElement>('.score-measure')) {
     const ph = row.querySelector<HTMLElement>('.playhead');
     if (!ph) continue;
@@ -114,7 +114,8 @@ function updateScorePlayhead(timeSec: number) {
       continue;
     }
     const hasHeader = row.dataset.hasStaffHeader === '1';
-    ph.style.left = `${playheadXInScorePx(w, progress, hasHeader)}px`;
+    const colOff = Number(row.dataset.columnOffsetPx || 0);
+    ph.style.left = `${colOff + playheadXInScorePx(w, progress, hasHeader)}px`;
     ph.classList.add('is-visible');
   }
 }
@@ -123,16 +124,56 @@ interface ScorePagerState {
   ctx: MeasureContext;
   midi: Midi;
   nMeas: number;
+  measuresPerRow: number;
   perPage: number;
   totalPages: number;
   currentPage: number;
   width: number;
+  measureWidth: number;
 }
 
 let scorePagerState: ScorePagerState | null = null;
 
-/** 每页显示的小节数（默认两行大谱表） */
-const MEASURES_PER_PAGE = 2;
+/** 乐谱版面：改这里即可调整每行、每页小节数 */
+const SCORE_LAYOUT = {
+  /** 同一行（同一系统）内并排的小节数 */
+  measuresPerRow: 2,
+  /** 分页时每页的小节总数（应 ≥ measuresPerRow，且建议为 measuresPerRow 的整数倍以便排满行） */
+  measuresPerPage: 4,
+} as const;
+
+/** 每小节占位宽度（同一行内小节在一张 SVG 中相接，不再预留 HTML 间隙） */
+function measureWidthForRow(totalWidthPx: number, measuresPerRow: number): number {
+  const n = Math.max(1, measuresPerRow);
+  return Math.max(160, Math.floor(totalWidthPx / n));
+}
+
+function renderScoreMeasuresInRows(
+  parent: HTMLElement,
+  fromIdx: number,
+  toIdxExclusive: number,
+  measuresPerRow: number,
+  measureWidth: number,
+  ctx: MeasureContext,
+  midi: Midi,
+) {
+  for (let start = fromIdx; start < toIdxExclusive; start += measuresPerRow) {
+    const rowWrap = document.createElement('div');
+    rowWrap.className = 'score-measure-row';
+    parent.appendChild(rowWrap);
+    const end = Math.min(toIdxExclusive, start + measuresPerRow);
+    const columns: GrandStaffColumn[] = [];
+    for (let i = start; i < end; i++) {
+      columns.push({
+        measureIndex: i,
+        trebleAtoms: buildAtomsForHand(flatNotes, midi, 'treble', ctx, i),
+        bassAtoms: buildAtomsForHand(flatNotes, midi, 'bass', ctx, i),
+        showStaffHeader: i === start,
+      });
+    }
+    renderGrandStaffRow(rowWrap, columns, ctx, measureWidth);
+  }
+}
 
 function updateScorePagerUi() {
   const st = scorePagerState;
@@ -151,7 +192,7 @@ function updateScorePagerUi() {
 function renderCurrentScorePage() {
   const st = scorePagerState;
   if (!st) return;
-  const { ctx, midi, nMeas, perPage, currentPage, width } = st;
+  const { ctx, midi, nMeas, measuresPerRow, perPage, currentPage, measureWidth } = st;
   scoreEl.innerHTML = '';
   const start = currentPage * perPage;
   const end = Math.min(nMeas, start + perPage);
@@ -164,12 +205,7 @@ function renderCurrentScorePage() {
     inner.className = 'score-page-measures';
     wrap.appendChild(inner);
     scoreEl.appendChild(wrap);
-    for (let i = start; i < end; i++) {
-      const showStaffHeader = i === start;
-      const treble = buildAtomsForHand(flatNotes, midi, 'treble', ctx, i);
-      const bass = buildAtomsForHand(flatNotes, midi, 'bass', ctx, i);
-      renderGrandStaffMeasure(inner, i, ctx, treble, bass, width, showStaffHeader);
-    }
+    renderScoreMeasuresInRows(inner, start, end, measuresPerRow, measureWidth, ctx, midi);
   }
 
   updateScorePagerUi();
@@ -182,27 +218,27 @@ function renderAll(midi: Midi) {
   const ctx = getMeasureContext(midi);
   const nMeas = measureCount(midi, ctx);
   const w = Math.min(760, Math.floor(window.innerWidth - 40));
-  const perPage = MEASURES_PER_PAGE;
+  const measuresPerRow = Math.max(1, SCORE_LAYOUT.measuresPerRow);
+  const perPage = Math.max(1, SCORE_LAYOUT.measuresPerPage);
+  const measureWidth = measureWidthForRow(w, measuresPerRow);
   const totalPages = Math.max(1, Math.ceil(nMeas / perPage));
 
   scorePagerState = {
     ctx,
     midi,
     nMeas,
+    measuresPerRow,
     perPage,
     totalPages,
     currentPage: 0,
     width: w,
+    measureWidth,
   };
 
   scoreEl.innerHTML = '';
   if (totalPages <= 1) {
     scoreEl.classList.remove('score--paginated');
-    for (let i = 0; i < nMeas; i++) {
-      const treble = buildAtomsForHand(flatNotes, midi, 'treble', ctx, i);
-      const bass = buildAtomsForHand(flatNotes, midi, 'bass', ctx, i);
-      renderGrandStaffMeasure(scoreEl, i, ctx, treble, bass, w, i === 0);
-    }
+    renderScoreMeasuresInRows(scoreEl, 0, nMeas, measuresPerRow, measureWidth, ctx, midi);
     updateScorePagerUi();
   } else {
     renderCurrentScorePage();

@@ -1,5 +1,5 @@
-import { Factory, Voice, VoiceMode } from 'vexflow';
-import type { Hand, MeasureContext, VoiceAtom } from './midiScore';
+import { Dot, Factory, Voice, VoiceMode } from 'vexflow';
+import { vexVoiceTimeStr, type Hand, type MeasureContext, type VoiceAtom } from './midiScore';
 
 const BASE_SCORE_HEIGHT = 220;
 const BASE_SYSTEM_Y = 12;
@@ -41,25 +41,34 @@ function canvasPaddingForAtoms(treble: VoiceAtom[], bass: VoiceAtom[]): { padTop
 
 function atomToNote(factory: Factory, atom: VoiceAtom, clef: Hand) {
   const keys = atom.rest ? atom.keys : [...atom.keys].sort();
-  if (atom.rest) {
-    return factory.StaveNote({
-      keys,
-      duration: atom.duration,
-      dots: atom.dots,
-      type: 'r',
-      clef,
-    });
+  const note = atom.rest
+    ? factory.StaveNote({
+        keys,
+        duration: atom.duration,
+        dots: atom.dots,
+        type: 'r',
+        clef,
+      })
+    : factory.StaveNote({
+        keys,
+        duration: atom.duration,
+        dots: atom.dots,
+        clef,
+      });
+
+  /** VexFlow 5：`dots` 只参与时值 tick；可见附点需挂 {@link Dot} 修饰符（与 EasyScore 一致） */
+  const nDots = atom.dots ?? 0;
+  if (nDots > 0) {
+    const dotAttachOpts = !atom.rest && keys.length > 1 ? ({ all: true } as const) : undefined;
+    for (let i = 0; i < nDots; i++) {
+      Dot.buildAndAttach([note], dotAttachOpts);
+    }
   }
-  return factory.StaveNote({
-    keys,
-    duration: atom.duration,
-    dots: atom.dots,
-    clef,
-  });
+  return note;
 }
 
-function voiceFromAtoms(factory: Factory, atoms: VoiceAtom[], timeSigStr: string, clef: Hand): Voice {
-  const voice = factory.Voice({ time: timeSigStr });
+function voiceFromAtoms(factory: Factory, atoms: VoiceAtom[], timeSig: [number, number], clef: Hand): Voice {
+  const voice = factory.Voice({ time: vexVoiceTimeStr(timeSig) });
   voice.setMode(VoiceMode.SOFT);
   for (const atom of atoms) {
     voice.addTickables([atomToNote(factory, atom, clef)]);
@@ -67,65 +76,108 @@ function voiceFromAtoms(factory: Factory, atoms: VoiceAtom[], timeSigStr: string
   return voice;
 }
 
-export function renderGrandStaffMeasure(
+export type GrandStaffColumn = {
+  measureIndex: number;
+  trebleAtoms: VoiceAtom[];
+  bassAtoms: VoiceAtom[];
+  showStaffHeader: boolean;
+};
+
+/**
+ * 将一行内多小节画在同一张 SVG 里，小节 System 横向首尾相接（无 HTML 间隙）。
+ * `columnWidth` 为版面分配给每小节的宽度（与分页/播放头用的 measureWidth 一致）。
+ */
+export function renderGrandStaffRow(
   container: HTMLElement,
-  measureIndex: number,
+  columns: GrandStaffColumn[],
   ctx: MeasureContext,
-  trebleAtoms: VoiceAtom[],
-  bassAtoms: VoiceAtom[],
-  width = 720,
-  showStaffHeader = false,
+  columnWidth: number,
 ): number {
-  const row = document.createElement('div');
-  row.className = 'score-measure';
-  row.dataset.measureIndex = String(measureIndex);
-  row.dataset.hasStaffHeader = showStaffHeader ? '1' : '0';
+  const n = columns.length;
+  if (n === 0) return 0;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'score-measure-wrap';
+  let maxPadTop = 0;
+  let maxPadBottom = 0;
+  for (const c of columns) {
+    const p = canvasPaddingForAtoms(c.trebleAtoms, c.bassAtoms);
+    maxPadTop = Math.max(maxPadTop, p.padTop);
+    maxPadBottom = Math.max(maxPadBottom, p.padBottom);
+  }
 
-  const playhead = document.createElement('div');
-  playhead.className = 'playhead';
-  playhead.setAttribute('aria-hidden', 'true');
+  const y0 = BASE_SYSTEM_Y + maxPadTop;
+  const height = BASE_SCORE_HEIGHT + maxPadTop + maxPadBottom;
+  const totalWidth = n * columnWidth;
+  const segW = Math.max(40, Math.floor((totalWidth - 24) / n));
 
-  const el = document.createElement('div');
-  el.className = 'vf-wrap';
-  el.id = `vf-m${measureIndex}-${Math.random().toString(36).slice(2)}`;
-  wrap.appendChild(playhead);
-  wrap.appendChild(el);
-  row.appendChild(wrap);
-  container.appendChild(row);
+  const host = document.createElement('div');
+  host.className = 'score-row-host';
+  host.style.position = 'relative';
+  host.style.width = `${totalWidth}px`;
+  host.style.flexShrink = '0';
 
-  const { padTop, padBottom } = canvasPaddingForAtoms(trebleAtoms, bassAtoms);
-  const height = BASE_SCORE_HEIGHT + padTop + padBottom;
+  const vfId = `vf-row-${Math.random().toString(36).slice(2)}`;
+  const vfWrap = document.createElement('div');
+  vfWrap.className = 'vf-wrap';
+  vfWrap.id = vfId;
+  host.appendChild(vfWrap);
+
+  for (let i = 0; i < n; i++) {
+    const col = columns[i];
+    const overlay = document.createElement('div');
+    overlay.className = 'score-measure';
+    overlay.dataset.measureIndex = String(col.measureIndex);
+    overlay.dataset.hasStaffHeader = col.showStaffHeader ? '1' : '0';
+    overlay.dataset.columnOffsetPx = String(i * columnWidth);
+    overlay.style.cssText = `position:absolute;left:${i * columnWidth}px;top:0;width:${columnWidth}px;height:100%;pointer-events:none;box-sizing:border-box`;
+    const wrap = document.createElement('div');
+    wrap.className = 'score-measure-wrap';
+    wrap.style.cssText = 'position:relative;height:100%';
+    const playhead = document.createElement('div');
+    playhead.className = 'playhead';
+    playhead.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(playhead);
+    overlay.appendChild(wrap);
+    host.appendChild(overlay);
+  }
+
+  container.appendChild(host);
+
   const factory = new Factory({
-    renderer: { elementId: el.id, width, height },
+    renderer: { elementId: vfId, width: totalWidth, height },
   });
 
-  const system = factory.System({
-    x: 12,
-    y: BASE_SYSTEM_Y + padTop,
-    width: width - 24,
-    spaceBetweenStaves: 10,
-    formatOptions: { alignRests: true },
-  });
+  for (let i = 0; i < n; i++) {
+    const col = columns[i];
+    const sysX = 12 + i * segW;
+    const system = factory.System({
+      x: sysX,
+      y: y0,
+      width: segW,
+      spaceBetweenStaves: 10,
+      formatOptions: { alignRests: true },
+    });
 
-  const trebleVoice = voiceFromAtoms(factory, trebleAtoms, ctx.timeSigStr, 'treble');
-  const bassVoice = voiceFromAtoms(factory, bassAtoms, ctx.timeSigStr, 'bass');
+    const staveBarOpts = { leftBar: col.showStaffHeader, rightBar: true };
 
-  let trebleStave = system.addStave({ voices: [trebleVoice] });
-  if (showStaffHeader) {
-    trebleStave = trebleStave.addClef('treble').addTimeSignature(ctx.timeSigStr);
+    const trebleVoice = voiceFromAtoms(factory, col.trebleAtoms, ctx.timeSig, 'treble');
+    const bassVoice = voiceFromAtoms(factory, col.bassAtoms, ctx.timeSig, 'bass');
+
+    let trebleStave = system.addStave({ voices: [trebleVoice], options: staveBarOpts });
+    if (col.showStaffHeader) {
+      trebleStave = trebleStave.addClef('treble').addTimeSignature(ctx.timeSigStr);
+    }
+
+    let bassStave = system.addStave({ voices: [bassVoice], options: staveBarOpts });
+    if (col.showStaffHeader) {
+      bassStave = bassStave.addClef('bass').addTimeSignature(ctx.timeSigStr);
+    }
+
+    if (i === 0) {
+      system.addConnector('brace');
+    }
+    system.addConnector('singleRight');
+    system.addConnector('singleLeft');
   }
-
-  let bassStave = system.addStave({ voices: [bassVoice] });
-  if (showStaffHeader) {
-    bassStave = bassStave.addClef('bass').addTimeSignature(ctx.timeSigStr);
-  }
-
-  system.addConnector('brace');
-  system.addConnector('singleRight');
-  system.addConnector('singleLeft');
 
   factory.draw();
   return height + 8;
