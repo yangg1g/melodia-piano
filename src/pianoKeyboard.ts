@@ -1,4 +1,8 @@
+import type { Hand } from './midiScore';
+
 const WHITE_PC = new Set([0, 2, 4, 5, 7, 9, 11]);
+
+const VISUAL_CLASSES = ['expect-lh', 'expect-rh', 'active-lh', 'active-rh', 'pressed', 'expected', 'active'] as const;
 
 export function isWhiteKey(midi: number): boolean {
   return WHITE_PC.has(midi % 12);
@@ -85,8 +89,31 @@ export function createPianoKeyboard(
   return keyEls;
 }
 
-export function setActiveKeys(keyEls: Map<number, HTMLElement>, active: Set<number>) {
+function handToExpectClass(h: Hand): string {
+  return h === 'bass' ? 'expect-lh' : 'expect-rh';
+}
+
+function handToActiveClass(h: Hand): string {
+  return h === 'bass' ? 'active-lh' : 'active-rh';
+}
+
+/**
+ * 左手（低音谱 / bass）与右手（高音谱 / treble）用不同描边与填色；`pressed` 为 MIDI 当前按下的键（外圈高亮）。
+ */
+export function applyKeyVisuals(
+  keyEls: Map<number, HTMLElement>,
+  v: {
+    expected?: Map<number, Hand>;
+    active?: Map<number, Hand>;
+    pressed?: Set<number>;
+  },
+) {
   for (const [midi, el] of keyEls) {
-    el.classList.toggle('active', active.has(midi));
+    el.classList.remove(...VISUAL_CLASSES);
+    const exp = v.expected?.get(midi);
+    if (exp !== undefined) el.classList.add(handToExpectClass(exp));
+    const act = v.active?.get(midi);
+    if (act !== undefined) el.classList.add(handToActiveClass(act));
+    if (v.pressed?.has(midi)) el.classList.add('pressed');
   }
 }

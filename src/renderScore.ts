@@ -84,6 +84,28 @@ export type GrandStaffColumn = {
 };
 
 /**
+ * 与 {@link renderGrandStaffRow} 中 VexFlow System（x≈12、segW、行内相接）一致；
+ * 坐标为「单行内该小节 overlay 局部」，与绝对定位的 column 左缘对齐。
+ */
+export function playheadXInMeasureOverlay(
+  measuresInRow: number,
+  columnWidth: number,
+  columnIndexInRow: number,
+  hasStaffHeader: boolean,
+  progress01: number,
+): number {
+  const n = Math.max(1, measuresInRow);
+  const totalW = n * columnWidth;
+  const segW = Math.max(40, Math.floor((totalW - 24) / n));
+  const systemLocalLeft = 12 + columnIndexInRow * (segW - columnWidth);
+  const innerLeft = hasStaffHeader ? 84 : 14;
+  const rightPad = 12;
+  const span = Math.max(12, segW - innerLeft - rightPad);
+  const p = Math.min(1, Math.max(0, progress01));
+  return systemLocalLeft + innerLeft + p * span;
+}
+
+/**
  * 将一行内多小节画在同一张 SVG 里，小节 System 横向首尾相接（无 HTML 间隙）。
  * `columnWidth` 为版面分配给每小节的宽度（与分页/播放头用的 measureWidth 一致）。
  */
@@ -127,7 +149,6 @@ export function renderGrandStaffRow(
     overlay.className = 'score-measure';
     overlay.dataset.measureIndex = String(col.measureIndex);
     overlay.dataset.hasStaffHeader = col.showStaffHeader ? '1' : '0';
-    overlay.dataset.columnOffsetPx = String(i * columnWidth);
     overlay.style.cssText = `position:absolute;left:${i * columnWidth}px;top:0;width:${columnWidth}px;height:100%;pointer-events:none;box-sizing:border-box`;
     const wrap = document.createElement('div');
     wrap.className = 'score-measure-wrap';

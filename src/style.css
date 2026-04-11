@@ -69,6 +69,41 @@ body {
   align-items: center;
 }
 
+.toolbar .mode-group,
+.toolbar .midi-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.toolbar .mode-group label,
+.toolbar .midi-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.toolbar .midi-row select {
+  min-width: 160px;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--toolbar-text);
+  font-size: 0.85rem;
+}
+
+.toolbar .midi-row .btn.secondary {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
 .btn {
   border: none;
   border-radius: 8px;
@@ -223,9 +258,11 @@ body {
   display: block;
 }
 
-.vf-wrap svg {
+/* 勿缩小 SVG：小节 overlay 按未缩放像素对齐，否则播放头错位 */
+.score-row-host .vf-wrap svg {
   display: block;
-  max-width: 100%;
+  max-width: none;
+  width: auto;
   height: auto;
 }
 
@@ -291,10 +328,49 @@ body {
   border-radius: 0 0 4px 4px;
 }
 
-.piano-key.active.white {
-  background: linear-gradient(180deg, #bfe6ff 0%, #7cc8ff 100%);
+/* 待弹 / 正发声：左手（低音谱）绿、右手（高音谱）蓝 */
+.piano-key.expect-lh.white {
+  box-shadow: inset 0 0 0 3px #2e7d32;
 }
 
-.piano-key.active.black {
-  background: linear-gradient(180deg, #4a8cc7 0%, #1a5a94 100%);
+.piano-key.expect-rh.white {
+  box-shadow: inset 0 0 0 3px #1565c0;
+}
+
+.piano-key.expect-lh.black {
+  box-shadow: inset 0 0 0 2px #66bb6a;
+}
+
+.piano-key.expect-rh.black {
+  box-shadow: inset 0 0 0 2px #42a5f5;
+}
+
+.piano-key.active-lh.white {
+  background: linear-gradient(180deg, #c8e6c9 0%, #81c784 100%);
+}
+
+.piano-key.active-rh.white {
+  background: linear-gradient(180deg, #bbdefb 0%, #64b5f6 100%);
+}
+
+.piano-key.active-lh.black {
+  background: linear-gradient(180deg, #43a047 0%, #2e7d32 100%);
+}
+
+.piano-key.active-rh.black {
+  background: linear-gradient(180deg, #1e88e5 0%, #0d47a1 100%);
+}
+
+/* MIDI 当前按下（可与上两类叠加） */
+.piano-key.pressed.white {
+  outline: 3px solid #c2185b;
+  outline-offset: 1px;
+  z-index: 2;
+  position: relative;
+}
+
+.piano-blacks .piano-key.pressed.black {
+  outline: 2px solid #ec407a;
+  outline-offset: 1px;
+  z-index: 4;
 }

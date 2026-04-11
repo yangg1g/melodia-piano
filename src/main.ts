@@ -10,9 +10,10 @@ import {
   type FlatNote,
   type MeasureContext,
 } from './midiScore';
-import { renderGrandStaffRow, type GrandStaffColumn } from './renderScore';
-import { createPianoKeyboard, setActiveKeys } from './pianoKeyboard';
+import { playheadXInMeasureOverlay, renderGrandStaffRow, type GrandStaffColumn } from './renderScore';
+import { applyKeyVisuals, createPianoKeyboard } from './pianoKeyboard';
 import { playNotes, type PlaybackController } from './playback';
+import { startKeyboardPractice } from './keyboardPractice';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -20,6 +21,16 @@ app.innerHTML = `
   <header class="toolbar">
     <h1 class="title">MIDI 乐谱</h1>
     <div class="toolbar-actions">
+      <div class="mode-group">
+        <span>模式</span>
+        <label><input type="radio" name="play-mode" value="auto" checked /> 自动播放</label>
+        <label><input type="radio" name="play-mode" value="keyboard" /> MIDI 跟弹</label>
+      </div>
+      <div id="midi-row" class="midi-row" hidden>
+        <label for="midi-input">MIDI 输入</label>
+        <select id="midi-input" aria-label="MIDI 输入设备"></select>
+        <button type="button" id="btn-midi-refresh" class="btn secondary">刷新设备</button>
+      </div>
       <label class="file-btn">
         打开 MIDI
         <input type="file" id="midi-file" accept=".mid,.midi,audio/midi" hidden />
@@ -39,7 +50,7 @@ app.innerHTML = `
       <div id="score" class="score"></div>
     </div>
     <section class="keyboard-section">
-      <p class="hint">根据 MIDI 生成的五线谱（高音 / 低音谱表）与键盘高亮</p>
+      <p class="hint" id="keyboard-hint">根据 MIDI 生成的五线谱（高音 / 低音谱表）与键盘高亮</p>
       <div id="keyboard-host"></div>
     </section>
   </main>
@@ -56,18 +67,60 @@ const btnDemo = document.querySelector<HTMLButtonElement>('#btn-demo')!;
 const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
 const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
+const midiRow = document.querySelector<HTMLDivElement>('#midi-row')!;
+const midiInputSelect = document.querySelector<HTMLSelectElement>('#midi-input')!;
+const btnMidiRefresh = document.querySelector<HTMLButtonElement>('#btn-midi-refresh')!;
+const keyboardHint = document.querySelector<HTMLParagraphElement>('#keyboard-hint')!;
 
 let currentMidi: Midi | null = null;
 let flatNotes: FlatNote[] = [];
 let keyEls = createPianoKeyboard(keyboardHost);
 let playback: PlaybackController | null = null;
+let midiAccess: MIDIAccess | null = null;
 
-/** 与 VexFlow System(x≈12、有/无谱号区) 大致对齐的横向映射 */
-function playheadXInScorePx(scoreWidth: number, progress01: number, hasStaffHeader: boolean): number {
-  const left = hasStaffHeader ? 96 : 14;
-  const right = 18;
-  const span = Math.max(12, scoreWidth - left - right);
-  return left + Math.min(1, Math.max(0, progress01)) * span;
+function getPlayMode(): 'auto' | 'keyboard' {
+  const el = document.querySelector<HTMLInputElement>('input[name="play-mode"]:checked');
+  return el?.value === 'keyboard' ? 'keyboard' : 'auto';
+}
+
+function updateKeyboardHint() {
+  keyboardHint.textContent =
+    getPlayMode() === 'auto'
+      ? '根据 MIDI 生成的五线谱（高音 / 低音谱表）。键盘：左手（低音谱）绿色、右手（高音谱）蓝色表示正在发声的音。'
+      : 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；紫红色外圈为键盘上正在按下的键；弹对后才会发声并前进，错音不出声。';
+}
+
+function syncModeUi() {
+  midiRow.hidden = getPlayMode() !== 'keyboard';
+  updateKeyboardHint();
+}
+
+async function ensureMidiAccess(): Promise<MIDIAccess | null> {
+  if (!navigator.requestMIDIAccess) return null;
+  try {
+    const access = await navigator.requestMIDIAccess({ sysex: false });
+    midiAccess = access;
+    access.onstatechange = () => refillMidiSelect();
+    return access;
+  } catch {
+    return null;
+  }
+}
+
+function refillMidiSelect() {
+  const sel = midiInputSelect;
+  const prev = sel.value;
+  sel.innerHTML = '';
+  if (!midiAccess) return;
+  midiAccess.inputs.forEach((input) => {
+    const opt = document.createElement('option');
+    opt.value = input.id;
+    opt.textContent = input.name || input.id || 'MIDI 输入';
+    sel.appendChild(opt);
+  });
+  if (prev && [...sel.options].some((o) => o.value === prev)) {
+    sel.value = prev;
+  }
 }
 
 function hideScorePlayhead() {
@@ -97,14 +150,19 @@ function updateScorePlayhead(timeSec: number) {
     hideScorePlayhead();
     return;
   }
-  const spm = st.ctx.secPerMeasure;
-  let m = Math.floor(timeSec / spm);
+  const ctx = st.ctx;
+  const ticks = midi.header.secondsToTicks(Math.max(0, timeSec));
+  let m = Math.floor(ticks / ctx.ticksPerMeasure);
   if (m < 0) m = 0;
   if (m >= st.nMeas) m = st.nMeas - 1;
   ensureMeasurePageVisible(m);
-  const local = timeSec - m * spm;
-  const progress = Math.min(1, Math.max(0, local / spm));
+  const measureStartTick = m * ctx.ticksPerMeasure;
+  const progress = Math.min(
+    1,
+    Math.max(0, (ticks - measureStartTick) / ctx.ticksPerMeasure),
+  );
   const w = st.measureWidth;
+  const colInRow = m % st.measuresPerRow;
   for (const row of scoreEl.querySelectorAll<HTMLElement>('.score-measure')) {
     const ph = row.querySelector<HTMLElement>('.playhead');
     if (!ph) continue;
@@ -114,8 +172,7 @@ function updateScorePlayhead(timeSec: number) {
       continue;
     }
     const hasHeader = row.dataset.hasStaffHeader === '1';
-    const colOff = Number(row.dataset.columnOffsetPx || 0);
-    ph.style.left = `${colOff + playheadXInScorePx(w, progress, hasHeader)}px`;
+    ph.style.left = `${playheadXInMeasureOverlay(st.measuresPerRow, w, colInRow, hasHeader, progress)}px`;
     ph.classList.add('is-visible');
   }
 }
@@ -279,10 +336,26 @@ function stopPlayback() {
   playback?.stop();
   playback = null;
   hideScorePlayhead();
-  setActiveKeys(keyEls, new Set());
+  applyKeyVisuals(keyEls, {});
   btnPlay.disabled = false;
   btnStop.disabled = true;
 }
+
+for (const r of document.querySelectorAll<HTMLInputElement>('input[name="play-mode"]')) {
+  r.addEventListener('change', () => {
+    stopPlayback();
+    syncModeUi();
+  });
+}
+
+btnMidiRefresh.addEventListener('click', async () => {
+  const access = await ensureMidiAccess();
+  if (!access) {
+    alert('无法访问 MIDI（浏览器不支持或权限被拒绝）。建议使用 Chrome / Edge。');
+    return;
+  }
+  refillMidiSelect();
+});
 
 fileInput.addEventListener('change', async () => {
   const f = fileInput.files?.[0];
@@ -299,27 +372,70 @@ btnDemo.addEventListener('click', () => {
   renderAll(createDemoMidi());
 });
 
-btnPlay.addEventListener('click', () => {
+btnPlay.addEventListener('click', async () => {
   if (!currentMidi || flatNotes.length === 0) return;
   stopPlayback();
   btnPlay.disabled = true;
   btnStop.disabled = false;
-  const sorted = [...flatNotes].sort((a, b) => {
-    const ha = assignHandForNote(a, currentMidi!);
-    const hb = assignHandForNote(b, currentMidi!);
-    if (ha !== hb) return ha === 'treble' ? -1 : 1;
-    return a.time - b.time || a.midi - b.midi;
-  });
-  playback = playNotes(
-    sorted,
-    currentMidi.duration,
-    (active) => setActiveKeys(keyEls, active),
-    () => {
-      hideScorePlayhead();
-      btnPlay.disabled = false;
-      btnStop.disabled = true;
-      playback = null;
-    },
+
+  const onPlaybackEnded = () => {
+    hideScorePlayhead();
+    btnPlay.disabled = false;
+    btnStop.disabled = true;
+    playback = null;
+  };
+
+  if (getPlayMode() === 'auto') {
+    const sorted = [...flatNotes].sort((a, b) => {
+      const ha = assignHandForNote(a, currentMidi!);
+      const hb = assignHandForNote(b, currentMidi!);
+      if (ha !== hb) return ha === 'treble' ? -1 : 1;
+      return a.time - b.time || a.midi - b.midi;
+    });
+    playback = playNotes(
+      sorted,
+      currentMidi,
+      currentMidi.duration,
+      (active) => applyKeyVisuals(keyEls, { active }),
+      onPlaybackEnded,
+      (t) => updateScorePlayhead(t),
+    );
+    return;
+  }
+
+  const access = await ensureMidiAccess();
+  if (!access) {
+    alert('当前浏览器不支持 Web MIDI，或用户拒绝了权限。请使用 Chrome / Edge 等浏览器。');
+    onPlaybackEnded();
+    return;
+  }
+  refillMidiSelect();
+  let input: MIDIInput | undefined;
+  const id = midiInputSelect.value;
+  if (id) input = access.inputs.get(id);
+  if (!input) {
+    const first = [...access.inputs.values()][0];
+    input = first;
+  }
+  if (!input) {
+    alert('未检测到 MIDI 输入设备。请先连接键盘，或点击「刷新设备」后再试。');
+    onPlaybackEnded();
+    return;
+  }
+  try {
+    await input.open();
+  } catch {
+    alert('无法打开所选 MIDI 输入端口。');
+    onPlaybackEnded();
+    return;
+  }
+
+  playback = startKeyboardPractice(
+    flatNotes,
+    currentMidi,
+    keyEls,
+    input,
+    onPlaybackEnded,
     (t) => updateScorePlayhead(t),
   );
 });
@@ -328,4 +444,5 @@ btnStop.addEventListener('click', () => {
   stopPlayback();
 });
 
+syncModeUi();
 renderAll(createDemoMidi());

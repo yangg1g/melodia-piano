@@ -1,21 +1,23 @@
-import type { FlatNote } from './midiScore';
+import type { Midi } from '@tonejs/midi';
+import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 
 export interface PlaybackController {
   stop: () => void;
   isPlaying: () => boolean;
 }
 
-/** 极简复音：三角波 + 包络；用 setTimeout 对齐 note on/off 以高亮键盘 */
+/** 极简复音：三角波 + 包络；用 setTimeout 对齐 note on/off 以高亮键盘（按左右手上色） */
 export function playNotes(
   notes: FlatNote[],
+  midiFile: Midi,
   durationSec: number,
-  onKeys: (active: Set<number>) => void,
+  onKeys: (active: Map<number, Hand>) => void,
   onEnded?: () => void,
   onTimeSec?: (sec: number) => void,
 ): PlaybackController {
   const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   const ctx = new AudioCtx();
-  const active = new Set<number>();
+  const active = new Map<number, Hand>();
   const timers: number[] = [];
   let stopped = false;
 
@@ -45,8 +47,8 @@ export function playNotes(
     timers.push(
       scheduleAt(tOn, () => {
         if (stopped) return;
-        active.add(n.midi);
-        onKeys(new Set(active));
+        active.set(n.midi, assignHandForNote(n, midiFile));
+        onKeys(new Map(active));
 
         const t = ctx.currentTime;
         const osc = ctx.createOscillator();
@@ -73,7 +75,7 @@ export function playNotes(
       scheduleAt(tOff, () => {
         if (stopped) return;
         active.delete(n.midi);
-        onKeys(new Set(active));
+        onKeys(new Map(active));
       }),
     );
   }
