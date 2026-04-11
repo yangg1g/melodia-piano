@@ -92,8 +92,8 @@ function getPlayMode(): 'auto' | 'keyboard' {
 function updateKeyboardHint() {
   keyboardHint.textContent =
     getPlayMode() === 'auto'
-      ? '根据 MIDI 生成的五线谱（高音 / 低音谱表）。琴键上方为下落式音符（绿左 / 蓝右；白键稍亮、黑键更深），落到底端时与发声对齐。键盘高亮同上。'
-      : 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；紫红色外圈为键盘上正在按下的键；弹对后才会发声并前进，错音不出声。';
+      ? '根据 MIDI 生成的五线谱（高音 / 低音谱表）。琴键上方为下落式音符（绿左 / 蓝右；白键稍亮、黑键更深），与跟弹共用同一套下落与缩短节奏，落线时刻与发声对齐。键盘高亮同上。'
+      : 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；上方条先落到判定线再等你按键，弹对后条缩短并发声前进；紫红色外圈为正在按下的键，错音不出声。';
 }
 
 function syncModeUi() {
@@ -459,6 +459,7 @@ btnPlay.addEventListener('click', async () => {
     input,
     onPlaybackEnded,
     (t) => updateScorePlayhead(t),
+    (s) => fallingNotes.updateKeyboardPractice(s),
   );
 });
 

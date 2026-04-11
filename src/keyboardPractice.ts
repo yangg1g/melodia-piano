@@ -1,4 +1,5 @@
 import type { Midi } from '@tonejs/midi';
+import type { KeyboardFallingState } from './fallingNotes';
 import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 import { applyKeyVisuals } from './pianoKeyboard';
 import type { PlaybackController } from './playback';
@@ -69,6 +70,7 @@ export function startKeyboardPractice(
   midiInput: MIDIInput,
   onEnded?: () => void,
   onTimeSec?: (sec: number) => void,
+  onPracticePaint?: (state: KeyboardFallingState) => void,
 ): PlaybackController {
   const groups = groupByStartTick(flatNotes);
   let stopped = false;
@@ -97,6 +99,12 @@ export function startKeyboardPractice(
       active: flashActive ?? undefined,
       pressed: pressedMidis,
     });
+    onPracticePaint?.({
+      step,
+      group: step < groups.length ? groups[step] : [],
+      hit: new Map(hit),
+      groupCompleteFlash: flashActive !== null,
+    });
   };
 
   const applyUiForStep = () => {
@@ -105,6 +113,12 @@ export function startKeyboardPractice(
       pressedMidis.clear();
       flashActive = null;
       applyKeyVisuals(keyEls, {});
+      onPracticePaint?.({
+        step,
+        group: [],
+        hit: new Map(),
+        groupCompleteFlash: false,
+      });
       onTimeSec?.(flatNotes.length ? Math.max(...flatNotes.map((n) => n.time + n.duration)) : 0);
       finish();
       return;
@@ -123,6 +137,12 @@ export function startKeyboardPractice(
     pressedMidis.clear();
     flashActive = null;
     applyKeyVisuals(keyEls, {});
+    onPracticePaint?.({
+      step: groups.length,
+      group: [],
+      hit: new Map(),
+      groupCompleteFlash: false,
+    });
     releaseAllPiano();
     onEnded?.();
   };
@@ -190,6 +210,12 @@ export function startKeyboardPractice(
       pressedMidis.clear();
       flashActive = null;
       applyKeyVisuals(keyEls, {});
+      onPracticePaint?.({
+        step: groups.length,
+        group: [],
+        hit: new Map(),
+        groupCompleteFlash: false,
+      });
       releaseAllPiano();
     },
     isPlaying: () => !stopped,
