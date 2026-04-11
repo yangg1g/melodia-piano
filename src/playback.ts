@@ -1,12 +1,14 @@
 import type { Midi } from '@tonejs/midi';
+import { getContext } from 'tone';
 import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
+import { playPianoMidi, releaseAllPiano } from './salamanderPiano';
 
 export interface PlaybackController {
   stop: () => void;
   isPlaying: () => boolean;
 }
 
-/** 极简复音：三角波 + 包络；用 setTimeout 对齐 note on/off 以高亮键盘（按左右手上色） */
+/** 自动播放：Salamander 采样钢琴；用 setTimeout 对齐 note on/off 以高亮键盘（按左右手上色） */
 export function playNotes(
   notes: FlatNote[],
   midiFile: Midi,
@@ -15,8 +17,7 @@ export function playNotes(
   onEnded?: () => void,
   onTimeSec?: (sec: number) => void,
 ): PlaybackController {
-  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  const ctx = new AudioCtx();
+  const ctx = getContext();
   const active = new Map<number, Hand>();
   const timers: number[] = [];
   let stopped = false;
@@ -49,25 +50,7 @@ export function playNotes(
         if (stopped) return;
         active.set(n.midi, assignHandForNote(n, midiFile));
         onKeys(new Map(active));
-
-        const t = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.value = 440 * Math.pow(2, (n.midi - 69) / 12);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        const peak = 0.11;
-        const dur = Math.max(0.06, n.duration);
-        const rel = Math.min(0.28, dur * 0.45);
-
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.linearRampToValueAtTime(peak, t + 0.018);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur + rel);
-
-        osc.start(t);
-        osc.stop(t + dur + rel + 0.04);
+        playPianoMidi(n.midi, Math.max(0.06, n.duration), 0.78);
       }),
     );
 
@@ -88,7 +71,6 @@ export function playNotes(
       active.clear();
       onKeys(active);
       onEnded?.();
-      void ctx.close();
     },
     (durationSec + 0.6) * 1000,
   );
@@ -101,7 +83,7 @@ export function playNotes(
       clearTimeout(endId);
       active.clear();
       onKeys(active);
-      void ctx.close();
+      releaseAllPiano();
     },
     isPlaying: () => !stopped,
   };

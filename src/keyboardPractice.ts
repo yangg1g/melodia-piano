@@ -2,6 +2,7 @@ import type { Midi } from '@tonejs/midi';
 import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 import { applyKeyVisuals } from './pianoKeyboard';
 import type { PlaybackController } from './playback';
+import { playPianoMidi, releaseAllPiano } from './salamanderPiano';
 
 function groupByStartTick(notes: FlatNote[]): FlatNote[][] {
   const sorted = [...notes].sort((a, b) => a.ticks - b.ticks || a.midi - b.midi);
@@ -50,26 +51,6 @@ function parseNoteOn(data: Uint8Array): number | null {
   return null;
 }
 
-function playSynthChord(ctx: AudioContext, notes: FlatNote[]) {
-  const t = ctx.currentTime;
-  for (const n of notes) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = 440 * Math.pow(2, (n.midi - 69) / 12);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    const peak = 0.11;
-    const dur = Math.max(0.06, n.duration);
-    const rel = Math.min(0.28, dur * 0.45);
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.linearRampToValueAtTime(peak, t + 0.018);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur + rel);
-    osc.start(t);
-    osc.stop(t + dur + rel + 0.04);
-  }
-}
-
 function handsMapForGroup(group: FlatNote[], midiFile: Midi): Map<number, Hand> {
   const m = new Map<number, Hand>();
   for (const n of group) {
@@ -79,7 +60,7 @@ function handsMapForGroup(group: FlatNote[], midiFile: Midi): Map<number, Hand> 
 }
 
 /**
- * 同一 tick 为一组；弹对后发声前进。键盘描边区分左右手，MIDI 物理按下用 `pressed` 高亮。
+ * 同一 tick 为一组；弹对、弹错均发声（Salamander 采样钢琴），仅整组弹对后闪动并前进。
  */
 export function startKeyboardPractice(
   flatNotes: FlatNote[],
@@ -90,8 +71,6 @@ export function startKeyboardPractice(
   onTimeSec?: (sec: number) => void,
 ): PlaybackController {
   const groups = groupByStartTick(flatNotes);
-  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  const ctx = new AudioCtx();
   let stopped = false;
   let step = 0;
   const hit = new Map<number, number>();
@@ -144,7 +123,7 @@ export function startKeyboardPractice(
     pressedMidis.clear();
     flashActive = null;
     applyKeyVisuals(keyEls, {});
-    void ctx.close();
+    releaseAllPiano();
     onEnded?.();
   };
 
@@ -169,14 +148,22 @@ export function startKeyboardPractice(
     const g = groups[step];
     const req = requiredHitCounts(g);
     const need = req.get(note);
-    if (need === undefined) return;
+    if (need === undefined) {
+      playPianoMidi(note, 0.12, 0.42);
+      return;
+    }
 
     const cur = hit.get(note) ?? 0;
-    if (cur >= need) return;
+    if (cur >= need) {
+      playPianoMidi(note, 0.12, 0.42);
+      return;
+    }
+    const sameMidi = g.filter((n) => n.midi === note);
+    const flatForHit = sameMidi[cur];
+    if (flatForHit) playPianoMidi(flatForHit.midi, Math.max(0.06, flatForHit.duration), 0.82);
     hit.set(note, cur + 1);
 
     if (countsSatisfied(req, hit)) {
-      playSynthChord(ctx, g);
       flashActive = handsMapForGroup(g, midiFile);
       hit.clear();
       paint();
@@ -203,7 +190,7 @@ export function startKeyboardPractice(
       pressedMidis.clear();
       flashActive = null;
       applyKeyVisuals(keyEls, {});
-      void ctx.close();
+      releaseAllPiano();
     },
     isPlaying: () => !stopped,
   };

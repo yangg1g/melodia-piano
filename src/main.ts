@@ -14,6 +14,7 @@ import { playheadXInMeasureOverlay, renderGrandStaffRow, type GrandStaffColumn }
 import { applyKeyVisuals, createPianoKeyboard } from './pianoKeyboard';
 import { playNotes, type PlaybackController } from './playback';
 import { startKeyboardPractice } from './keyboardPractice';
+import { ensureSalamanderPiano } from './salamanderPiano';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -384,6 +385,14 @@ btnPlay.addEventListener('click', async () => {
     btnStop.disabled = true;
     playback = null;
   };
+
+  try {
+    await ensureSalamanderPiano();
+  } catch {
+    alert('钢琴音色采样加载失败，请检查网络后重试（需访问 Tone.js 的采样 CDN）。');
+    onPlaybackEnded();
+    return;
+  }
 
   if (getPlayMode() === 'auto') {
     const sorted = [...flatNotes].sort((a, b) => {
