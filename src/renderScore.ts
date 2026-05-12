@@ -48,12 +48,14 @@ function atomToNote(factory: Factory, atom: VoiceAtom, clef: Hand) {
         dots: atom.dots,
         type: 'r',
         clef,
+        auto_stem: true,
       })
     : factory.StaveNote({
         keys,
         duration: atom.duration,
         dots: atom.dots,
         clef,
+        auto_stem: true,
       });
 
   /** VexFlow 5：`dots` 只参与时值 tick；可见附点需挂 {@link Dot} 修饰符（与 EasyScore 一致） */

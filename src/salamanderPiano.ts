@@ -70,7 +70,8 @@ export async function ensureSalamanderPiano(): Promise<Sampler> {
 export function playPianoMidi(midi: number, durationSec: number, velocity: number): void {
   if (!piano) return;
   const note = Frequency(midi, 'midi').toNote();
-  const dur = Math.max(0.05, durationSec);
+  /** 仅避免 0 或负值让 Tone 行为异常，不按短音人为加长 */
+  const dur = Math.max(1e-4, durationSec);
   piano.triggerAttackRelease(note, dur, now(), velocity);
 }
 

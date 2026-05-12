@@ -43,14 +43,14 @@ export function playNotes(
 
   for (const n of notes) {
     const tOn = base + n.time;
-    const tOff = tOn + Math.max(0.04, n.duration);
+    const tOff = tOn + Math.max(0, n.duration);
 
     timers.push(
       scheduleAt(tOn, () => {
         if (stopped) return;
         active.set(n.midi, assignHandForNote(n, midiFile));
         onKeys(new Map(active));
-        playPianoMidi(n.midi, Math.max(0.06, n.duration), 0.78);
+        playPianoMidi(n.midi, Math.max(0, n.duration), 0.78);
       }),
     );
 

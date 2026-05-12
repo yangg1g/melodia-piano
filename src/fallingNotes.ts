@@ -13,7 +13,7 @@ export type KeyboardFallingState = {
   step: number;
   group: FlatNote[];
   hit: Map<number, number>;
-  /** 整组弹对后的闪动阶段：轨道内不画条，避免与键盘闪动叠影 */
+  /** 整组弹对后的键盘闪动阶段；轨道仍画缩短动画，避免一弹完条立刻被清空 */
   groupCompleteFlash: boolean;
 };
 
@@ -41,7 +41,7 @@ function durVisForNote(n: FlatNote): number {
  */
 function fallGeometryForNote(n: FlatNote, tSec: number, hitY: number): FallGeom {
   const hit = n.time;
-  const release = hit + Math.max(0.04, n.duration);
+  const release = hit + Math.max(0, n.duration);
   const la = NOTE_APPROACH_SEC;
   const durVis = durVisForNote(n);
 
@@ -101,6 +101,15 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
   inner.className = 'falling-lane-inner';
   lane.appendChild(inner);
 
+  /** 判定线：与 inner 底边对齐（坐标相对 inner，勿用 lane.clientHeight） */
+  const resolveHitY = (): number => {
+    const ih = inner.clientHeight;
+    if (ih > 8) return ih;
+    const pad = 14;
+    const lh = lane.clientHeight;
+    return Math.max(LANE_MIN_HEIGHT, lh > pad ? lh - pad : lh);
+  };
+
   outerHost.insertBefore(lane, outerHost.firstChild);
 
   let startMidi = 48;
@@ -144,14 +153,8 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       return;
     }
 
-    if (kbState.groupCompleteFlash) {
-      inner.replaceChildren();
-      return;
-    }
-
     const { whiteW, blackW } = PIANO_LAYOUT;
-    const h = Math.max(LANE_MIN_HEIGHT, lane.clientHeight || LANE_MIN_HEIGHT);
-    const hitY = h - 6;
+    const hitY = resolveHitY();
     const nowMs = performance.now();
 
     const frag = document.createDocumentFragment();
@@ -202,10 +205,11 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
         y = geom.y;
         height = geom.height;
         if (geom.kind === 'fall') needAnotherFrame = true;
-        if (geom.kind === 'sustain' && height >= 0.5) needAnotherFrame = true;
+        if (geom.kind === 'sustain') needAnotherFrame = true;
       }
 
-      if (height < 0.5) continue;
+      /* 勿用 height 阈值提前不画：否则缩短末尾会在顶端未贴齐判定线时就被裁掉 */
+      if (height <= 0) continue;
 
       el.style.left = `${cx - barW / 2}px`;
       el.style.top = `${y}px`;
@@ -244,8 +248,7 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
 
       const t = nowSec;
       const { whiteW, blackW } = PIANO_LAYOUT;
-      const h = Math.max(LANE_MIN_HEIGHT, lane.clientHeight || LANE_MIN_HEIGHT);
-      const hitY = h - 6;
+      const hitY = resolveHitY();
 
       const frag = document.createDocumentFragment();
 

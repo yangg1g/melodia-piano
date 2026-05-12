@@ -180,7 +180,7 @@ export function startKeyboardPractice(
     }
     const sameMidi = g.filter((n) => n.midi === note);
     const flatForHit = sameMidi[cur];
-    if (flatForHit) playPianoMidi(flatForHit.midi, Math.max(0.06, flatForHit.duration), 0.82);
+    if (flatForHit) playPianoMidi(flatForHit.midi, Math.max(0, flatForHit.duration), 0.82);
     hit.set(note, cur + 1);
 
     if (countsSatisfied(req, hit)) {
