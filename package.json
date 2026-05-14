@@ -4,9 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/calculate-difficulty.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-demo": "node scripts/generate-demo-midi.mjs",
+    "download-samples": "node scripts/download-samples.mjs",
+    "calc-difficulty": "node scripts/calculate-difficulty.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

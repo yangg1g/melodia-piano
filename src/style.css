@@ -44,6 +44,195 @@ body {
   overflow: hidden;
 }
 
+/* ── 页面容器 ── */
+[hidden] {
+  display: none !important;
+}
+
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 选歌页 ── */
+.song-list-page {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+}
+
+.song-list-header {
+  text-align: center;
+  padding: 48px 24px 32px;
+}
+
+.song-list-title {
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.song-list-subtitle {
+  margin: 10px 0 0;
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.song-list-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 0 48px 48px;
+  width: 100%;
+  max-width: 560px;
+  align-self: flex-end;
+}
+
+/* ── 歌曲列表（音游式） ── */
+.song-list {
+  flex: 1;
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  outline: none; /* focus 边框由外层接管 */
+  overflow-y: auto;
+}
+
+.song-list-loading,
+.song-list-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.song-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.2s;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  position: relative;
+}
+
+.song-list-item:hover {
+  background: var(--accent-dim);
+}
+
+.song-list-item.selected {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  box-shadow: 0 0 0 2px rgba(59, 108, 255, 0.2), 0 4px 12px rgba(59, 108, 255, 0.12);
+}
+
+.song-list-index {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.song-list-item.selected .song-list-index {
+  background: var(--accent);
+  color: #fff;
+}
+
+.song-list-body-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.song-list-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.song-list-stars {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.star-display {
+  color: #f59e0b;
+  letter-spacing: 0.02em;
+}
+
+.song-list-meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.song-list-arrow {
+  font-size: 0.85rem;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.song-list-item.selected .song-list-arrow {
+  opacity: 1;
+  animation: arrow-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes arrow-pulse {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+
+/* ── 选歌页底部操作区 ── */
+.song-list-actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.file-btn--local {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.file-btn--local:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -113,6 +302,24 @@ body {
 .toolbar .midi-row .btn.secondary {
   padding: 6px 12px;
   font-size: 0.8rem;
+}
+
+/* ── 歌曲选择器 ── */
+.song-select {
+  min-width: 130px;
+  max-width: 200px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--toolbar-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.song-select option {
+  background: #2a2833;
+  color: #f5f4fa;
 }
 
 /* ── 进度条 ── */
