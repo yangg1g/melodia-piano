@@ -1,35 +1,9 @@
 import type { Midi } from '@tonejs/midi';
-import type { KeyboardFallingState } from './fallingNotes';
+import type { KeyboardFallingState, NoteState } from './fallingNotes';
 import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 import { applyKeyVisuals } from './pianoKeyboard';
 import type { PlaybackController } from './playback';
 import { playPianoMidi, releaseAllPiano } from './salamanderPiano';
-
-function groupByStartTick(notes: FlatNote[]): FlatNote[][] {
-  const sorted = [...notes].sort((a, b) => a.ticks - b.ticks || a.midi - b.midi);
-  const groups: FlatNote[][] = [];
-  for (const n of sorted) {
-    const g = groups[groups.length - 1];
-    if (!g || g[0].ticks !== n.ticks) groups.push([n]);
-    else g.push(n);
-  }
-  return groups;
-}
-
-function requiredHitCounts(group: FlatNote[]): Map<number, number> {
-  const m = new Map<number, number>();
-  for (const n of group) {
-    m.set(n.midi, (m.get(n.midi) ?? 0) + 1);
-  }
-  return m;
-}
-
-function countsSatisfied(required: Map<number, number>, hit: Map<number, number>): boolean {
-  for (const [midi, need] of required) {
-    if ((hit.get(midi) ?? 0) < need) return false;
-  }
-  return true;
-}
 
 function parseMidiKey(data: Uint8Array): { note: number; down: boolean } | null {
   const st = data[0];
@@ -52,16 +26,8 @@ function parseNoteOn(data: Uint8Array): number | null {
   return null;
 }
 
-function handsMapForGroup(group: FlatNote[], midiFile: Midi): Map<number, Hand> {
-  const m = new Map<number, Hand>();
-  for (const n of group) {
-    m.set(n.midi, assignHandForNote(n, midiFile));
-  }
-  return m;
-}
-
 /**
- * 同一 tick 为一组；弹对、弹错均发声（Salamander 采样钢琴），仅整组弹对后闪动并前进。
+ * 所有音符同时加载、同时计时；弹对后记录击中时间。
  */
 export function startKeyboardPractice(
   flatNotes: FlatNote[],
@@ -72,76 +38,116 @@ export function startKeyboardPractice(
   onTimeSec?: (sec: number) => void,
   onPracticePaint?: (state: KeyboardFallingState) => void,
 ): PlaybackController {
-  const groups = groupByStartTick(flatNotes);
   let stopped = false;
-  let step = 0;
-  const hit = new Map<number, number>();
   const pressedMidis = new Set<number>();
-  let flashActive: Map<number, Hand> | null = null;
-  let pendingUi: ReturnType<typeof setTimeout> | null = null;
+  let animFrameId = 0;
 
-  const clearPendingUi = () => {
-    if (pendingUi !== null) {
-      clearTimeout(pendingUi);
-      pendingUi = null;
+  /** 时间轴基准：所有音符中最早的 time */
+  const firstNoteTime = flatNotes.length > 0
+    ? Math.min(...flatNotes.map((n) => n.time))
+    : 0;
+
+  /** 累加器：当前有效时间（从第一个音符前1.5秒开始） */
+  let accumulatedTimeSec = firstNoteTime - 1.5;
+  /** 上一帧的时间戳，用于计算帧间隔 */
+  let lastFrameTimeMs = performance.now();
+
+  /** 每个音符的状态 */
+  const noteStates: NoteState[] = flatNotes.map((note) => ({
+    note,
+    isHit: false,
+    hitTimeSec: null,
+  }));
+
+  const clearPendingUi = () => {};
+
+  const RELEASE_GRACE_SEC = 0.1;
+
+  /**
+   * 获取当前有效时间（累加器模式）
+   */
+  const getEffectiveTimeSec = (): number => {
+    return accumulatedTimeSec;
+  };
+
+  /**
+   * 更新累加器时间：
+   * - 如果有音符卡住（已过 hit 时间但未弹对），检查按键状态
+   * - 卡住的音符必须保持按下对应 MIDI 键，否则时间暂停
+   */
+  const updateAccumulatedTime = (): boolean => {
+    const nowMs = performance.now();
+    const deltaTimeSec = (nowMs - lastFrameTimeMs) / 1000;
+    lastFrameTimeMs = nowMs;
+
+    if (flatNotes.length === 0) {
+      accumulatedTimeSec += deltaTimeSec;
+      return false;
     }
+
+    for (const ns of noteStates) {
+      const noteEnd = ns.note.time + Math.max(0, ns.note.duration);
+      if (accumulatedTimeSec >= ns.note.time && accumulatedTimeSec < noteEnd - RELEASE_GRACE_SEC) {
+        if (!pressedMidis.has(ns.note.midi)) {
+          return true;
+        }
+      }
+    }
+
+    accumulatedTimeSec += deltaTimeSec;
+    return false;
+  };
+
+  const scheduleAnimFrame = () => {
+    if (animFrameId) return;
+    animFrameId = requestAnimationFrame(() => {
+      animFrameId = 0;
+      if (!stopped) {
+        paint();
+        scheduleAnimFrame();
+      }
+    });
   };
 
   const paint = () => {
+    updateAccumulatedTime();
+    const effectiveTimeSec = getEffectiveTimeSec();
+
     const expected = new Map<number, Hand>();
-    if (step < groups.length) {
-      for (const n of groups[step]) {
-        expected.set(n.midi, assignHandForNote(n, midiFile));
+    for (const ns of noteStates) {
+      if (effectiveTimeSec >= ns.note.time && effectiveTimeSec < ns.note.time + Math.max(0, ns.note.duration) - RELEASE_GRACE_SEC) {
+        expected.set(ns.note.midi, assignHandForNote(ns.note, midiFile));
       }
     }
+
     applyKeyVisuals(keyEls, {
       expected,
-      active: flashActive ?? undefined,
+      active: undefined,
       pressed: pressedMidis,
     });
-    onPracticePaint?.({
-      step,
-      group: step < groups.length ? groups[step] : [],
-      hit: new Map(hit),
-      groupCompleteFlash: flashActive !== null,
-    });
-  };
 
-  const applyUiForStep = () => {
-    if (stopped) return;
-    if (step >= groups.length) {
-      pressedMidis.clear();
-      flashActive = null;
-      applyKeyVisuals(keyEls, {});
-      onPracticePaint?.({
-        step,
-        group: [],
-        hit: new Map(),
-        groupCompleteFlash: false,
-      });
-      onTimeSec?.(flatNotes.length ? Math.max(...flatNotes.map((n) => n.time + n.duration)) : 0);
-      finish();
-      return;
-    }
-    hit.clear();
-    flashActive = null;
-    onTimeSec?.(groups[step][0].time);
-    paint();
+    onPracticePaint?.({
+      notes: noteStates,
+      currentTimeSec: effectiveTimeSec,
+    });
+
+    onTimeSec?.(effectiveTimeSec);
   };
 
   const finish = () => {
     if (stopped) return;
     clearPendingUi();
     stopped = true;
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = 0;
+    }
     midiInput.onmidimessage = null;
     pressedMidis.clear();
-    flashActive = null;
     applyKeyVisuals(keyEls, {});
     onPracticePaint?.({
-      step: groups.length,
-      group: [],
-      hit: new Map(),
-      groupCompleteFlash: false,
+      notes: noteStates,
+      currentTimeSec: getEffectiveTimeSec(),
     });
     releaseAllPiano();
     onEnded?.();
@@ -159,62 +165,56 @@ export function startKeyboardPractice(
       paint();
     }
 
-    if (flashActive !== null) return;
-
     const note = parseNoteOn(data);
     if (note === null) return;
-    if (step >= groups.length) return;
 
-    const g = groups[step];
-    const req = requiredHitCounts(g);
-    const need = req.get(note);
-    if (need === undefined) {
-      playPianoMidi(note, 0.12, 0.42);
+    const nowSec = getEffectiveTimeSec();
+
+    const matchingStates = noteStates.filter(
+      (ns) => ns.note.midi === note && !ns.isHit && Math.abs(ns.note.time - nowSec) < 0.15
+    );
+
+    if (matchingStates.length === 0) {
+      playPianoMidi(note, 0.3, 0.6);
       return;
     }
 
-    const cur = hit.get(note) ?? 0;
-    if (cur >= need) {
-      playPianoMidi(note, 0.12, 0.42);
-      return;
+    for (const ns of matchingStates) {
+      ns.isHit = true;
+      ns.hitTimeSec = nowSec;
+      playPianoMidi(ns.note.midi, Math.max(0, ns.note.duration), 0.82);
     }
-    const sameMidi = g.filter((n) => n.midi === note);
-    const flatForHit = sameMidi[cur];
-    if (flatForHit) playPianoMidi(flatForHit.midi, Math.max(0, flatForHit.duration), 0.82);
-    hit.set(note, cur + 1);
 
-    if (countsSatisfied(req, hit)) {
-      flashActive = handsMapForGroup(g, midiFile);
-      hit.clear();
-      paint();
-      clearPendingUi();
-      pendingUi = window.setTimeout(() => {
-        pendingUi = null;
-        if (stopped) return;
-        flashActive = null;
-        step += 1;
-        applyUiForStep();
-      }, 120);
+    paint();
+
+    const allDone = noteStates.every((ns) => {
+      return ns.note.time + Math.max(0, ns.note.duration) < nowSec;
+    });
+
+    if (allDone && flatNotes.length > 0) {
+      setTimeout(() => finish(), 500);
     }
   };
 
   midiInput.onmidimessage = onMidi;
-  applyUiForStep();
+  paint();
+  scheduleAnimFrame();
 
   return {
     stop: () => {
       if (stopped) return;
       clearPendingUi();
       stopped = true;
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = 0;
+      }
       midiInput.onmidimessage = null;
       pressedMidis.clear();
-      flashActive = null;
       applyKeyVisuals(keyEls, {});
       onPracticePaint?.({
-        step: groups.length,
-        group: [],
-        hit: new Map(),
-        groupCompleteFlash: false,
+        notes: noteStates,
+        currentTimeSec: getEffectiveTimeSec(),
       });
       releaseAllPiano();
     },

@@ -61,12 +61,8 @@ app.innerHTML = `
   </main>
 `;
 
-const scoreScroll = document.querySelector<HTMLDivElement>('#score-scroll')!;
 const scoreEl = document.querySelector<HTMLDivElement>('#score')!;
 const scorePagerEl = document.querySelector<HTMLDivElement>('#score-pager')!;
-const scorePageInfo = document.querySelector<HTMLSpanElement>('#score-page-info')!;
-const btnScorePrev = document.querySelector<HTMLButtonElement>('#score-prev')!;
-const btnScoreNext = document.querySelector<HTMLButtonElement>('#score-next')!;
 const fileInput = document.querySelector<HTMLInputElement>('#midi-file')!;
 const btnDemo = document.querySelector<HTMLButtonElement>('#btn-demo')!;
 const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
@@ -347,7 +343,7 @@ btnPlay.addEventListener('click', async () => {
   try {
     await ensureSalamanderPiano();
   } catch {
-    alert('钢琴音色采样加载失败，请检查网络后重试（需访问 Tone.js 的采样 CDN）。');
+    alert('音频引擎初始化失败，请刷新页面重试。');
     onPlaybackEnded();
     return;
   }
