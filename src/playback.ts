@@ -16,6 +16,8 @@ export function playNotes(
   onKeys: (active: Map<number, Hand>) => void,
   onEnded?: () => void,
   onTimeSec?: (sec: number) => void,
+  /** 从指定秒偏移处开始播放（用于进度条跳转） */
+  startOffset = 0,
 ): PlaybackController {
   const ctx = getContext();
   const active = new Map<number, Hand>();
@@ -33,7 +35,8 @@ export function playNotes(
   const tick = () => {
     if (stopped) return;
     if (onTimeSec) {
-      onTimeSec(Math.max(0, ctx.currentTime - base));
+      // 报告实际进度 = 流逝时间 + 偏移量
+      onTimeSec(Math.max(0, ctx.currentTime - base) + startOffset);
       raf = requestAnimationFrame(tick);
     }
   };
@@ -41,16 +44,23 @@ export function playNotes(
     raf = requestAnimationFrame(tick);
   }
 
-  for (const n of notes) {
-    const tOn = base + n.time;
-    const tOff = tOn + Math.max(0, n.duration);
+  // 只调度 startOffset 之后的音符
+  const filteredNotes = notes.filter((n) => n.time + n.duration >= startOffset);
+
+  for (const n of filteredNotes) {
+    // 音符从 startOffset 之后才开始发声
+    const playTime = Math.max(n.time, startOffset);
+    const releaseTime = n.time + Math.max(0, n.duration);
+
+    const tOn = base + (playTime - startOffset);
+    const tOff = base + (releaseTime - startOffset);
 
     timers.push(
       scheduleAt(tOn, () => {
         if (stopped) return;
         active.set(n.midi, assignHandForNote(n, midiFile));
         onKeys(new Map(active));
-        playPianoMidi(n.midi, Math.max(0, n.duration), 0.78);
+        playPianoMidi(n.midi, Math.max(0, n.duration - (playTime - n.time)), n.velocity);
       }),
     );
 
@@ -72,7 +82,7 @@ export function playNotes(
       onKeys(active);
       onEnded?.();
     },
-    (durationSec + 0.6) * 1000,
+    (durationSec - startOffset + 0.6) * 1000,
   );
 
   return {

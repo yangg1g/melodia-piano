@@ -15,6 +15,8 @@ export interface FlatNote {
   durationTicks: number;
   trackIndex: number;
   vexKey: string;
+  /** MIDI 力度 0‑1 */
+  velocity: number;
 }
 
 export interface MeasureContext {
@@ -95,6 +97,7 @@ export function flattenNotes(midi: Midi): FlatNote[] {
         durationTicks: n.durationTicks,
         trackIndex,
         vexKey: noteToVexKey(n),
+        velocity: 'velocity' in n ? (n.velocity as number) : 0.78,
       });
     });
   });

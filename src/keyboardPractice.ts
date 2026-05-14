@@ -17,11 +17,11 @@ function parseMidiKey(data: Uint8Array): { note: number; down: boolean } | null 
   return null;
 }
 
-function parseNoteOn(data: Uint8Array): number | null {
+function parseNoteOn(data: Uint8Array): { note: number; velocity: number } | null {
   const st = data[0];
   if (st >= 0x90 && st < 0xa0) {
     const vel = data[2];
-    if (vel > 0) return data[1];
+    if (vel > 0) return { note: data[1], velocity: vel / 127 };
   }
   return null;
 }
@@ -165,24 +165,24 @@ export function startKeyboardPractice(
       paint();
     }
 
-    const note = parseNoteOn(data);
-    if (note === null) return;
+    const noteEv = parseNoteOn(data);
+    if (noteEv === null) return;
 
     const nowSec = getEffectiveTimeSec();
 
     const matchingStates = noteStates.filter(
-      (ns) => ns.note.midi === note && !ns.isHit && Math.abs(ns.note.time - nowSec) < 0.15
+      (ns) => ns.note.midi === noteEv.note && !ns.isHit && Math.abs(ns.note.time - nowSec) < 0.15
     );
 
     if (matchingStates.length === 0) {
-      playPianoMidi(note, 0.3, 0.6);
+      playPianoMidi(noteEv.note, 0.3, noteEv.velocity);
       return;
     }
 
     for (const ns of matchingStates) {
       ns.isHit = true;
       ns.hitTimeSec = nowSec;
-      playPianoMidi(ns.note.midi, Math.max(0, ns.note.duration), 0.82);
+      playPianoMidi(ns.note.midi, Math.max(0, ns.note.duration), noteEv.velocity);
     }
 
     paint();

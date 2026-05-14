@@ -43,6 +43,10 @@ app.innerHTML = `
       <button type="button" id="btn-stop" class="btn secondary" disabled>停止</button>
     </div>
   </header>
+  <div class="progress-bar-wrap">
+    <input type="range" id="progress-bar" class="progress-bar" min="0" max="1000" value="0" step="1" aria-label="播放进度" />
+    <span id="progress-time" class="progress-time">0:00 / 0:00</span>
+  </div>
   <main class="main">
     <div id="score-scroll" class="score-scroll">
       <div id="score-pager" class="score-pager" hidden>
@@ -75,12 +79,37 @@ const midiInputSelect = document.querySelector<HTMLSelectElement>('#midi-input')
 const btnMidiRefresh = document.querySelector<HTMLButtonElement>('#btn-midi-refresh')!;
 const keyboardHint = document.querySelector<HTMLParagraphElement>('#keyboard-hint')!;
 const measureInfoEl = document.querySelector<HTMLSpanElement>('#measure-info')!;
+const progressBar = document.querySelector<HTMLInputElement>('#progress-bar')!;
+const progressTime = document.querySelector<HTMLSpanElement>('#progress-time')!;
 
 let currentMidi: Midi | null = null;
 let flatNotes: FlatNote[] = [];
 let keyEls = createPianoKeyboard(keyboardHost);
 let playback: PlaybackController | null = null;
 let midiAccess: MIDIAccess | null = null;
+let totalDurationSec = 0;
+let seeking = false;
+
+/* ── 进度条 ── */
+
+function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function updateProgressBar(timeSec: number) {
+  if (seeking) return; // 拖拽中不覆盖用户输入
+  const pct = totalDurationSec > 0 ? (timeSec / totalDurationSec) * 1000 : 0;
+  progressBar.value = String(Math.round(pct));
+  progressTime.textContent = `${formatTime(timeSec)} / ${formatTime(totalDurationSec)}`;
+}
+
+/** 在进度条靠近末尾时提前跳回 0 的小阈值 */
+function resetProgressBar() {
+  progressBar.value = '0';
+  progressTime.textContent = `0:00 / ${formatTime(totalDurationSec)}`;
+}
 
 function getPlayMode(): 'auto' | 'keyboard' {
   const el = document.querySelector<HTMLInputElement>('input[name="play-mode"]:checked');
@@ -282,6 +311,9 @@ function renderAll(midi: Midi) {
   fallingNotes.setRange(range.min, range.max);
   fallingNotes.setSource(flatNotes, midi);
   fallingNotes.clear();
+
+  totalDurationSec = midi.duration;
+  resetProgressBar();
 }
 
 function stopPlayback() {
@@ -293,6 +325,7 @@ function stopPlayback() {
   applyKeyVisuals(keyEls, {});
   btnPlay.disabled = false;
   btnStop.disabled = true;
+  resetProgressBar();
 }
 
 for (const r of document.querySelectorAll<HTMLInputElement>('input[name="play-mode"]')) {
@@ -328,6 +361,14 @@ btnDemo.addEventListener('click', () => {
 
 btnPlay.addEventListener('click', async () => {
   if (!currentMidi || flatNotes.length === 0) return;
+  startPlayFrom(0);
+});
+
+/** 从指定秒偏移处开始播放 */
+let lastAutoSorted: FlatNote[] = [];
+
+async function startPlayFrom(offsetSec: number) {
+  if (!currentMidi || flatNotes.length === 0) return;
   stopPlayback();
   btnPlay.disabled = true;
   btnStop.disabled = false;
@@ -338,6 +379,7 @@ btnPlay.addEventListener('click', async () => {
     btnPlay.disabled = false;
     btnStop.disabled = true;
     playback = null;
+    resetProgressBar();
   };
 
   try {
@@ -355,6 +397,8 @@ btnPlay.addEventListener('click', async () => {
       if (ha !== hb) return ha === 'treble' ? -1 : 1;
       return a.time - b.time || a.midi - b.midi;
     });
+    lastAutoSorted = sorted;
+
     playback = playNotes(
       sorted,
       currentMidi,
@@ -364,7 +408,9 @@ btnPlay.addEventListener('click', async () => {
       (t) => {
         updateScorePlayhead(t);
         fallingNotes.update(t);
+        updateProgressBar(t);
       },
+      offsetSec,
     );
     return;
   }
@@ -402,9 +448,29 @@ btnPlay.addEventListener('click', async () => {
     keyEls,
     input,
     onPlaybackEnded,
-    (t) => updateScorePlayhead(t),
+    (t) => {
+      updateScorePlayhead(t);
+      updateProgressBar(t);
+    },
     (s) => fallingNotes.updateKeyboardPractice(s),
   );
+}
+
+/* ── 进度条拖拽跳转 ── */
+
+progressBar.addEventListener('input', () => {
+  seeking = true;
+});
+
+progressBar.addEventListener('change', () => {
+  seeking = false;
+  if (!currentMidi || getPlayMode() !== 'auto' || flatNotes.length === 0) return;
+  const pct = Number(progressBar.value) / 1000;
+  const timeSec = pct * totalDurationSec;
+  updateProgressBar(timeSec);
+  if (playback) {
+    startPlayFrom(timeSec);
+  }
 });
 
 btnStop.addEventListener('click', () => {
