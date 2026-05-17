@@ -76,10 +76,13 @@ app.innerHTML = `
         <button type="button" id="btn-play" class="btn primary">播放</button>
         <button type="button" id="btn-stop" class="btn secondary" disabled>停止</button>
         <button type="button" id="btn-edit" class="btn secondary" hidden>编辑</button>
-        <button type="button" id="btn-finger" class="btn secondary" hidden>指法</button>
-        <button type="button" id="btn-slur" class="btn secondary" hidden>连音</button>
-        <button type="button" id="btn-tie" class="btn secondary" hidden>连尾</button>
-        <button type="button" id="btn-save-edits" class="btn secondary" hidden>保存</button>
+      </div>
+      <div class="edit-toolbar" hidden>
+        <button type="button" id="btn-finger" class="btn secondary">指法</button>
+        <button type="button" id="btn-slur" class="btn secondary">连音</button>
+        <button type="button" id="btn-tie" class="btn secondary">连尾</button>
+        <button type="button" id="btn-stem" class="btn secondary">符尾方向</button>
+        <button type="button" id="btn-save-edits" class="btn secondary">保存</button>
       </div>
     </header>
     <div class="progress-bar-wrap">
@@ -209,6 +212,8 @@ const btnEdit = document.querySelector<HTMLButtonElement>('#btn-edit')!;
 const btnFinger = document.querySelector<HTMLButtonElement>('#btn-finger')!;
 const btnSlur = document.querySelector<HTMLButtonElement>('#btn-slur')!;
 const btnTie = document.querySelector<HTMLButtonElement>('#btn-tie')!;
+const btnStem = document.querySelector<HTMLButtonElement>('#btn-stem')!;
+const editToolbar = document.querySelector<HTMLDivElement>('.edit-toolbar')!;
 const btnSaveEdits = document.querySelector<HTMLButtonElement>('#btn-save-edits')!;
 const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
@@ -522,6 +527,9 @@ async function enterPianoPageAndPlay(midi: Midi) {
         staffEditState.fingerNumbers = new Map(raw.fingerNumbers ?? []);
         staffEditState.slurs = raw.slurs ?? [];
         staffEditState.ties = raw.ties ?? [];
+        staffEditState.stemDirections = new Map((raw.stemDirections ?? []).map(
+          ([k, v]: [string, number]) => [k, v as 1 | -1],
+        ));
       } catch { /* ignore */ }
     }
   }
@@ -959,7 +967,11 @@ function renderStaffImage(stripEl: HTMLElement, midi: Midi) {
       showStaffHeader: i === 0,
     });
   }
-  const { height: stripHeight } = renderGrandStaffRow(stripEl, columns, ctx, measureWidth, true);
+  const { height: stripHeight } = renderGrandStaffRow(
+    stripEl, columns, ctx, measureWidth, true,
+    staffEditState,
+    editModeActive ? selectedNoteKeys : undefined,
+  );
 
   scorePagerState = { ctx, midi, nMeas, measureWidth };
   stripEl.style.minHeight = `${stripHeight}px`;
@@ -1030,7 +1042,7 @@ function renderStaffOriginal(parent: HTMLElement, midi: Midi) {
     }
     renderGrandStaffRowSVG(
       rowWrap, columns, ctx, measureWidth,
-      editModeActive ? staffEditState : undefined,
+      staffEditState,
       editModeActive ? selectedNoteKeys : undefined,
     );
   }
@@ -1378,7 +1390,21 @@ btnTie.addEventListener('click', () => {
   selectedNoteKeys.clear();
   syncEditModeUI();
   renderAll(currentMidi!);
-  keyboardHint.textContent = '连尾编辑：依次单击两个相同音高的音符创建延音线';
+  keyboardHint.textContent = '连尾编辑：依次单击两个相邻音符将其符杆/符尾相连';
+});
+
+btnStem.addEventListener('click', () => {
+  if (selectedNoteKeys.size === 0) return;
+  // 检查选中音符是否有任一为 DOWN，有则全部切为 UP，否则全部 DOWN
+  let hasDown = false;
+  for (const nk of selectedNoteKeys) {
+    if (staffEditState.stemDirections.get(nk) === -1) { hasDown = true; break; }
+  }
+  const dir: 1 | -1 = hasDown ? 1 : -1;
+  for (const nk of selectedNoteKeys) {
+    staffEditState.stemDirections.set(nk, dir);
+  }
+  renderAll(currentMidi!);
 });
 
 btnSaveEdits.addEventListener('click', () => {
@@ -1388,6 +1414,7 @@ btnSaveEdits.addEventListener('click', () => {
     fingerNumbers: [...staffEditState.fingerNumbers.entries()],
     slurs: staffEditState.slurs,
     ties: staffEditState.ties,
+    stemDirections: [...staffEditState.stemDirections.entries()],
   });
   localStorage.setItem(key, json);
   btnSaveEdits.textContent = '✓ 已保存';
@@ -1399,10 +1426,7 @@ function syncEditModeUI() {
   btnEdit.textContent = show ? '✓ 编辑' : '编辑';
   btnEdit.classList.toggle('primary', show);
   btnEdit.classList.toggle('secondary', !show);
-  btnFinger.hidden = !show;
-  btnSlur.hidden = !show;
-  btnTie.hidden = !show;
-  btnSaveEdits.hidden = !show;
+  editToolbar.hidden = !show;
 
   btnFinger.classList.toggle('primary', editTool === 'select');
   btnFinger.classList.toggle('secondary', editTool !== 'select');
@@ -1450,6 +1474,7 @@ document.addEventListener('keydown', (e) => {
       staffEditState.ties = staffEditState.ties.filter(
         (t) => t.from !== nk && t.to !== nk,
       );
+      staffEditState.stemDirections.delete(nk);
     }
     selectedNoteKeys.clear();
     renderAll(currentMidi!);

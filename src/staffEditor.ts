@@ -27,20 +27,22 @@ export interface StaffEditState {
   fingerNumbers: Map<NoteKey, number>;
   /** 连音线（从 → 到） */
   slurs: Array<{ from: NoteKey; to: NoteKey }>;
-  /** 延音线（连尾，从 → 到） */
+  /** 连尾（从 → 到） */
   ties: Array<{ from: NoteKey; to: NoteKey }>;
+  /** 符尾方向：1=向上，-1=向下 */
+  stemDirections: Map<NoteKey, 1 | -1>;
 }
 
 /** 创建一个空编辑状态 */
 export function createStaffEditState(): StaffEditState {
-  return { fingerNumbers: new Map(), slurs: [], ties: [] };
+  return { fingerNumbers: new Map(), slurs: [], ties: [], stemDirections: new Map() };
 }
 
 /**
  * 编辑模式工具类型
  * - 'select': 选择/设置指法
  * - 'slur':  添加连音线
- * - 'tie':   添加延音线（连尾）
+ * - 'tie':   添加连尾
  */
 export type EditTool = 'select' | 'slur' | 'tie';
 
@@ -50,15 +52,22 @@ export type EditTool = 'select' | 'slur' | 'tie';
 export function serializeEditState(state: StaffEditState): string {
   const fArr: [string, number][] = [];
   state.fingerNumbers.forEach((v, k) => fArr.push([k, v]));
-  return JSON.stringify({ fingerNumbers: fArr, slurs: state.slurs, ties: state.ties });
+  const sdArr: [string, number][] = [];
+  state.stemDirections.forEach((v, k) => sdArr.push([k, v]));
+  return JSON.stringify({ fingerNumbers: fArr, slurs: state.slurs, ties: state.ties, stemDirections: sdArr });
 }
 
 export function deserializeEditState(json: string): StaffEditState {
   try {
     const raw = JSON.parse(json);
+    const sdEntries: [string, 1 | -1][] = (raw.stemDirections ?? []).map(
+      ([k, v]: [string, number]) => [k, v as 1 | -1],
+    );
     return {
       fingerNumbers: new Map<NoteKey, number>(raw.fingerNumbers ?? []),
       slurs: raw.slurs ?? [],
+      ties: raw.ties ?? [],
+      stemDirections: new Map<NoteKey, 1 | -1>(sdEntries),
     };
   } catch {
     return createStaffEditState();
@@ -70,6 +79,8 @@ export function cloneEditState(state: StaffEditState): StaffEditState {
   return {
     fingerNumbers: new Map(state.fingerNumbers),
     slurs: state.slurs.map((s) => ({ ...s })),
+    ties: state.ties.map((t) => ({ ...t })),
+    stemDirections: new Map(state.stemDirections),
   };
 }
 

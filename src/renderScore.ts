@@ -1,4 +1,4 @@
-import { Dot, Factory, Voice, VoiceMode } from 'vexflow';
+import { Dot, Factory, VoiceMode } from 'vexflow';
 import { vexVoiceTimeStr, type Hand, type MeasureContext, type VoiceAtom } from './midiScore';
 import type { NoteKey, StaffEditState } from './staffEditor';
 
@@ -69,16 +69,6 @@ function atomToNote(factory: Factory, atom: VoiceAtom, clef: Hand) {
   }
   return note;
 }
-
-function voiceFromAtoms(factory: Factory, atoms: VoiceAtom[], timeSig: [number, number], clef: Hand): Voice {
-  const voice = factory.Voice({ time: vexVoiceTimeStr(timeSig) });
-  voice.setMode(VoiceMode.SOFT);
-  for (const atom of atoms) {
-    voice.addTickables([atomToNote(factory, atom, clef)]);
-  }
-  return voice;
-}
-
 export type GrandStaffColumn = {
   measureIndex: number;
   trebleAtoms: VoiceAtom[];
@@ -120,6 +110,8 @@ export function renderGrandStaffRow(
   ctx: MeasureContext,
   columnWidth: number,
   hideOverlays = false,
+  editState?: StaffEditState,
+  selectedNoteKeys?: Set<NoteKey>,
 ): { height: number; totalWidth: number } {
   const n = columns.length;
   if (n === 0) return { height: 0, totalWidth: 0 };
@@ -177,6 +169,8 @@ export function renderGrandStaffRow(
     renderer: { elementId: canvasId, width: totalWidth, height },
   });
 
+  const noteMap = new Map<NoteKey, { note: import('vexflow').StaveNote; keyIdx: number }>();
+
   for (let i = 0; i < n; i++) {
     const col = columns[i];
     const sysX = 12 + i * segW;
@@ -190,8 +184,31 @@ export function renderGrandStaffRow(
 
     const staveBarOpts = { leftBar: col.showStaffHeader, rightBar: true };
 
-    const trebleVoice = voiceFromAtoms(factory, col.trebleAtoms, ctx.timeSig, 'treble');
-    const bassVoice = voiceFromAtoms(factory, col.bassAtoms, ctx.timeSig, 'bass');
+    // 高音谱——捕获 StaveNote 引用
+    const trebleVoice = factory.Voice({ time: vexVoiceTimeStr(ctx.timeSig) });
+    trebleVoice.setMode(VoiceMode.SOFT);
+    for (let ai = 0; ai < col.trebleAtoms.length; ai++) {
+      const sn = atomToNote(factory, col.trebleAtoms[ai], 'treble');
+      trebleVoice.addTickables([sn]);
+      if (editState && !col.trebleAtoms[ai].rest) {
+        for (let ki = 0; ki < sn.getKeys().length; ki++) {
+          noteMap.set(`${col.measureIndex}:treble:${ai}:${ki}` as NoteKey, { note: sn, keyIdx: ki });
+        }
+      }
+    }
+
+    // 低音谱——捕获 StaveNote 引用
+    const bassVoice = factory.Voice({ time: vexVoiceTimeStr(ctx.timeSig) });
+    bassVoice.setMode(VoiceMode.SOFT);
+    for (let ai = 0; ai < col.bassAtoms.length; ai++) {
+      const sn = atomToNote(factory, col.bassAtoms[ai], 'bass');
+      bassVoice.addTickables([sn]);
+      if (editState && !col.bassAtoms[ai].rest) {
+        for (let ki = 0; ki < sn.getKeys().length; ki++) {
+          noteMap.set(`${col.measureIndex}:bass:${ai}:${ki}` as NoteKey, { note: sn, keyIdx: ki });
+        }
+      }
+    }
 
     let trebleStave = system.addStave({ voices: [trebleVoice], options: staveBarOpts });
     if (col.showStaffHeader) {
@@ -208,6 +225,57 @@ export function renderGrandStaffRow(
     }
     system.addConnector('singleRight');
     system.addConnector('singleLeft');
+  }
+
+  // ── 编辑注解：符尾方向 / 连音线 / 连尾 / 指法 ──
+  if (editState) {
+    for (const [nk, dir] of editState.stemDirections) {
+      const entry = noteMap.get(nk);
+      if (entry) entry.note.setStemDirection(dir);
+    }
+    for (const slur of editState.slurs) {
+      const from = noteMap.get(slur.from);
+      const to = noteMap.get(slur.to);
+      if (from && to) {
+        factory.StaveTie({
+          from: from.note, to: to.note,
+          firstIndexes: [from.keyIdx], lastIndexes: [to.keyIdx],
+        });
+      }
+    }
+    for (const tie of editState.ties) {
+      const pf = tie.from.split(':'), pt = tie.to.split(':');
+      if (pf[0] !== pt[0] || pf[1] !== pt[1]) continue;
+      const sA = Math.min(Number(pf[2]), Number(pt[2]));
+      const eA = Math.max(Number(pf[2]), Number(pt[2]));
+      const seen = new Set<import('vexflow').StaveNote>();
+      const beamNotes: import('vexflow').StaveNote[] = [];
+      for (let ai = sA; ai <= eA; ai++) {
+        const prefix = `${pf[0]}:${pf[1]}:${ai}:`;
+        for (const [nk, entry] of noteMap) {
+          if (nk.startsWith(prefix) && !seen.has(entry.note)) {
+            seen.add(entry.note);
+            beamNotes.push(entry.note);
+          }
+        }
+      }
+      if (beamNotes.length >= 2) factory.Beam({ notes: beamNotes });
+    }
+    for (const [nk, finger] of editState.fingerNumbers) {
+      const entry = noteMap.get(nk);
+      if (entry) {
+        const fing = factory.Fingering({ number: String(finger), position: 'above' });
+        entry.note.addModifier(fing, entry.keyIdx);
+      }
+    }
+  }
+
+  // ── 选中音符高亮 ──
+  if (selectedNoteKeys) {
+    for (const nk of selectedNoteKeys) {
+      const entry = noteMap.get(nk);
+      if (entry) entry.note.setStyle({ fillStyle: '#e53935', strokeStyle: '#e53935' });
+    }
   }
 
   factory.draw();
@@ -366,26 +434,53 @@ export function renderGrandStaffRowSVG(
     }
   }
 
-  // ── 编辑注解：连音线 & 延音线（需要在 draw 前创建） ──
+  // ── 编辑注解：连音线 & 连尾（需要在 draw 前创建） ──
   if (editState) {
-    const makeTie = (a: NoteKey, b: NoteKey, isTie: boolean) => {
-      const from = noteMap.get(a);
-      const to = noteMap.get(b);
+    // ── 符尾方向 ──
+    for (const [nk, dir] of editState.stemDirections) {
+      const entry = noteMap.get(nk);
+      if (entry) {
+        entry.note.setStemDirection(dir);
+      }
+    }
+
+    // 连音线：用 StaveTie 绘制曲线
+    for (const slur of editState.slurs) {
+      const from = noteMap.get(slur.from);
+      const to = noteMap.get(slur.to);
       if (from && to) {
-        const tie = factory.StaveTie({
+        factory.StaveTie({
           from: from.note,
           to: to.note,
           firstIndexes: [from.keyIdx],
           lastIndexes: [to.keyIdx],
         });
-        if (isTie) {
-          // 连尾：连接符杆一侧（尾部），加大 yShift 让曲线更靠近符尾
-          tie.renderOptions!.yShift = 15;
+      }
+    }
+    // 连尾：用 Beam 将符杆/符尾相连（包含中间所有音符）
+    for (const tie of editState.ties) {
+      const partsFrom = tie.from.split(':');
+      const partsTo = tie.to.split(':');
+      // 仅限同一小节、同一谱表
+      if (partsFrom[0] !== partsTo[0] || partsFrom[1] !== partsTo[1]) continue;
+      const startAtom = Math.min(Number(partsFrom[2]), Number(partsTo[2]));
+      const endAtom = Math.max(Number(partsFrom[2]), Number(partsTo[2]));
+      // 收集该范围内所有 StaveNote（去重，按 atom 顺序）
+      const seen = new Set<import('vexflow').StaveNote>();
+      const beamNotes: import('vexflow').StaveNote[] = [];
+      for (let ai = startAtom; ai <= endAtom; ai++) {
+        const prefix = `${partsFrom[0]}:${partsFrom[1]}:${ai}:`;
+        for (const [nk, entry] of noteMap) {
+          if (nk.startsWith(prefix) && !seen.has(entry.note)) {
+            seen.add(entry.note);
+            beamNotes.push(entry.note);
+          }
         }
       }
-    };
-    for (const slur of editState.slurs) makeTie(slur.from, slur.to, false);
-    for (const tie of editState.ties) makeTie(tie.from, tie.to, true);
+      if (beamNotes.length >= 2) {
+        factory.Beam({ notes: beamNotes });
+      }
+    }
   }
 
   // ── 选中音符高亮（支持多选） ──
@@ -401,7 +496,7 @@ export function renderGrandStaffRowSVG(
   factory.draw();
 
   // ── 编辑模式下，为每个音符的符头(<g class="notehead">) 创建精确 hit area ──
-  if (editState) {
+  if (editState && selectedNoteKeys) {
     const hostRect = host.getBoundingClientRect();
     // 按 note 引用分组（一个 chord 共享一个 StaveNote，但有多把个符头）
     const byNote = new Map();
