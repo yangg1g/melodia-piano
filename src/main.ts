@@ -183,6 +183,16 @@ app.innerHTML = `
         </div>
 
         <div class="settings-group">
+          <label class="settings-label" for="settings-measure-width">小节宽度</label>
+          <div class="settings-slider-row">
+            <span>100</span>
+            <input type="range" id="settings-measure-width" min="100" max="400" step="10" value="180" />
+            <span>400</span>
+            <span class="settings-value" id="settings-measure-width-val">180px</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <label class="settings-label">判定难度</label>
           <div class="settings-difficulty-group">
             <label><input type="radio" name="settings-difficulty" value="easy" /> 宽松</label>
@@ -253,6 +263,8 @@ const settingsFallingSpeed = document.querySelector<HTMLInputElement>('#settings
 const settingsFallingSpeedVal = document.querySelector<HTMLSpanElement>('#settings-falling-speed-val')!;
 const settingsPlaybackSpeed = document.querySelector<HTMLInputElement>('#settings-playback-speed')!;
 const settingsPlaybackSpeedVal = document.querySelector<HTMLSpanElement>('#settings-playback-speed-val')!;
+const settingsMeasureWidth = document.querySelector<HTMLInputElement>('#settings-measure-width')!;
+const settingsMeasureWidthVal = document.querySelector<HTMLSpanElement>('#settings-measure-width-val')!;
 const settingsDifficultyInfo = document.querySelector<HTMLSpanElement>('#settings-difficulty-info')!;
 const settingsSummaryEl = document.querySelector<HTMLDivElement>('#settings-summary')!;
 
@@ -361,6 +373,7 @@ interface AppSettings {
   playbackSpeed: number;  // 倍率 (0.5 ~ 2.0)
   difficulty: 'easy' | 'normal' | 'hard';
   renderMode: 'image' | 'original';  // 五线谱渲染方式
+  measureWidth: number;   // 每小节宽度 (px)
 }
 
 const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: string; windows: Partial<import('./scoring').TimingWindows> }> = {
@@ -379,7 +392,7 @@ const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: string; win
 };
 
 function loadSettings(): AppSettings {
-  const defaults: AppSettings = { mode: 'normal', fallingSpeed: 3, playbackSpeed: 1, difficulty: 'normal', renderMode: 'image' };
+  const defaults: AppSettings = { mode: 'normal', fallingSpeed: 3, playbackSpeed: 1, difficulty: 'normal', renderMode: 'image', measureWidth: 180 };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem('midi-piano-settings') || '{}') };
   } catch {
@@ -398,6 +411,8 @@ function applySettingsToUI(s: AppSettings) {
   settingsFallingSpeedVal.textContent = `${s.fallingSpeed.toFixed(1)}s`;
   settingsPlaybackSpeed.value = String(s.playbackSpeed);
   settingsPlaybackSpeedVal.textContent = `${s.playbackSpeed.toFixed(1)}×`;
+  settingsMeasureWidth.value = String(s.measureWidth);
+  settingsMeasureWidthVal.textContent = `${s.measureWidth}px`;
   const diffRadio = document.querySelector<HTMLInputElement>(`input[name="settings-difficulty"][value="${s.difficulty}"]`);
   if (diffRadio) diffRadio.checked = true;
   settingsDifficultyInfo.textContent = DIFFICULTY_WINDOWS[s.difficulty].label;
@@ -425,9 +440,10 @@ settingsBackBtn.addEventListener('click', () => {
     const mode = document.querySelector<HTMLInputElement>('input[name="settings-mode"]:checked')?.value as PlayMode ?? 'normal';
     const fallingSpeed = Number(settingsFallingSpeed.value);
     const playbackSpeed = Number(settingsPlaybackSpeed.value);
+    const measureWidth = Number(settingsMeasureWidth.value);
     const difficulty = document.querySelector<HTMLInputElement>('input[name="settings-difficulty"]:checked')?.value as AppSettings['difficulty'] ?? 'normal';
     const renderMode = (document.querySelector<HTMLInputElement>('input[name="settings-render"]:checked')?.value as 'image' | 'original') ?? 'image';
-    const s: AppSettings = { mode, fallingSpeed, playbackSpeed, difficulty, renderMode };
+    const s: AppSettings = { mode, fallingSpeed, playbackSpeed, difficulty, renderMode, measureWidth };
   saveSettings(s);
   applySettings(s);
   settingsPage.hidden = true;
@@ -440,6 +456,9 @@ settingsFallingSpeed.addEventListener('input', () => {
 });
 settingsPlaybackSpeed.addEventListener('input', () => {
   settingsPlaybackSpeedVal.textContent = `${Number(settingsPlaybackSpeed.value).toFixed(1)}×`;
+});
+settingsMeasureWidth.addEventListener('input', () => {
+  settingsMeasureWidthVal.textContent = `${Number(settingsMeasureWidth.value)}px`;
 });
 
 // 判定难度切换显示说明
@@ -953,10 +972,9 @@ let scorePagerState: ScorePagerState | null = null;
 
 /* ═══════════════════ 图片滚动模式 ═══════════════════ */
 
-function renderStaffImage(stripEl: HTMLElement, midi: Midi) {
+function renderStaffImage(stripEl: HTMLElement, midi: Midi, measureWidth: number) {
   const ctx = getMeasureContext(midi);
   const nMeas = measureCount(midi, ctx);
-  const measureWidth = 180;
 
   const columns: GrandStaffColumn[] = [];
   for (let i = 0; i < nMeas; i++) {
@@ -1014,12 +1032,10 @@ function updateMeasureInfo(current: number, total: number) {
 
 const SCORE_LAYOUT = { measuresPerRow: 2 } as const;
 
-function renderStaffOriginal(parent: HTMLElement, midi: Midi) {
+function renderStaffOriginal(parent: HTMLElement, midi: Midi, measureWidth: number) {
   const ctx = getMeasureContext(midi);
   const nMeas = measureCount(midi, ctx);
-  const w = Math.min(760, Math.floor(window.innerWidth - 40));
   const measuresPerRow = SCORE_LAYOUT.measuresPerRow;
-  const measureWidth = Math.max(160, Math.floor(w / measuresPerRow));
 
   scorePagerState = { ctx, midi, nMeas, measureWidth };
 
@@ -1135,20 +1151,24 @@ function renderAll(midi: Midi) {
   flatNotes = flattenNotes(midi);
   scoreEl.innerHTML = '';
 
-  const mode = loadSettings().renderMode;
+  const settings = loadSettings();
+  const mode = settings.renderMode;
+  const measureWidth = settings.measureWidth;
 
   if (mode === 'image') {
     // ── 图片滚动模式 ──
     scoreEl.style.cssText = 'position:relative;will-change:transform';
     scoreScrollEl.style.cssText = 'overflow:hidden;position:relative';
-    renderStaffImage(scoreEl, midi);
+    renderStaffImage(scoreEl, midi, measureWidth);
     addJudgmentLine();
     scoreEl.style.transform = `translateX(${getJudgeX()}px)`;
   } else {
     // ── 原始五线谱模式 ──
     scoreEl.style.cssText = '';
     scoreScrollEl.style.cssText = 'overflow:auto;position:relative';
-    renderStaffOriginal(scoreEl, midi);
+    // 移除可能残留的判定线（image 模式遗留）
+    scoreScrollEl.querySelector('.judgment-line')?.remove();
+    renderStaffOriginal(scoreEl, midi, measureWidth);
     hideScorePlayhead();
   }
 
