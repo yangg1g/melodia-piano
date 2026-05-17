@@ -1,5 +1,6 @@
 import { Dot, Factory, Voice, VoiceMode } from 'vexflow';
 import { vexVoiceTimeStr, type Hand, type MeasureContext, type VoiceAtom } from './midiScore';
+import type { NoteKey, StaffEditState } from './staffEditor';
 
 const BASE_SCORE_HEIGHT = 220;
 const BASE_SYSTEM_Y = 12;
@@ -84,6 +85,28 @@ export type GrandStaffColumn = {
   bassAtoms: VoiceAtom[];
   showStaffHeader: boolean;
 };
+
+/**
+ * 与 {@link renderGrandStaffRowSVG} 中 VexFlow System（x≈12、segW、行内相接）一致；
+ * 坐标为「单行内该小节 overlay 局部」，与绝对定位的 column 左缘对齐。
+ */
+export function playheadXInMeasureOverlay(
+  measuresInRow: number,
+  columnWidth: number,
+  columnIndexInRow: number,
+  hasStaffHeader: boolean,
+  progress01: number,
+): number {
+  const n = Math.max(1, measuresInRow);
+  const totalW = n * columnWidth;
+  const segW = Math.max(40, Math.floor((totalW - 24) / n));
+  const systemLocalLeft = 12 + columnIndexInRow * (segW - columnWidth);
+  const innerLeft = hasStaffHeader ? 84 : 14;
+  const rightPad = 12;
+  const span = Math.max(12, segW - innerLeft - rightPad);
+  const p = Math.min(1, Math.max(0, progress01));
+  return systemLocalLeft + innerLeft + p * span;
+}
 
 /**
  * 将一行内多小节渲染成图片（Canvas → data URL → <img>），
@@ -198,4 +221,212 @@ export function renderGrandStaffRow(
   host.removeChild(canvas);
 
   return { height: height + 8, totalWidth };
+}
+
+/**
+ * 原始 SVG 渲染：VexFlow 内联 SVG + 小节播放头 overlay。
+ * 用于 "original" 渲染模式。
+ */
+export function renderGrandStaffRowSVG(
+  container: HTMLElement,
+  columns: GrandStaffColumn[],
+  ctx: MeasureContext,
+  columnWidth: number,
+  editState?: StaffEditState,
+  selectedNoteKeys?: Set<NoteKey>,
+): number {
+  const n = columns.length;
+  if (n === 0) return 0;
+
+  let maxPadTop = 0;
+  let maxPadBottom = 0;
+  for (const c of columns) {
+    const p = canvasPaddingForAtoms(c.trebleAtoms, c.bassAtoms);
+    maxPadTop = Math.max(maxPadTop, p.padTop);
+    maxPadBottom = Math.max(maxPadBottom, p.padBottom);
+  }
+
+  const y0 = BASE_SYSTEM_Y + maxPadTop;
+  const height = BASE_SCORE_HEIGHT + maxPadTop + maxPadBottom;
+  const totalWidth = n * columnWidth;
+  const segW = Math.max(40, Math.floor((totalWidth - 24) / n));
+
+  const host = document.createElement('div');
+  host.className = 'score-row-host';
+  host.style.position = 'relative';
+  host.style.width = `${totalWidth}px`;
+  host.style.flexShrink = '0';
+
+  const vfId = `vf-row-${Math.random().toString(36).slice(2)}`;
+  const vfWrap = document.createElement('div');
+  vfWrap.className = 'vf-wrap';
+  vfWrap.id = vfId;
+  host.appendChild(vfWrap);
+
+  // 播放头 overlay
+  for (let i = 0; i < n; i++) {
+    const col = columns[i];
+    const overlay = document.createElement('div');
+    overlay.className = 'score-measure';
+    overlay.dataset.measureIndex = String(col.measureIndex);
+    overlay.dataset.hasStaffHeader = col.showStaffHeader ? '1' : '0';
+    overlay.style.cssText = `position:absolute;left:${i * columnWidth}px;top:0;width:${columnWidth}px;height:100%;pointer-events:none;box-sizing:border-box`;
+    const wrap = document.createElement('div');
+    wrap.className = 'score-measure-wrap';
+    wrap.style.cssText = 'position:relative;height:100%';
+    const playhead = document.createElement('div');
+    playhead.className = 'playhead';
+    playhead.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(playhead);
+    overlay.appendChild(wrap);
+    host.appendChild(overlay);
+  }
+
+  container.appendChild(host);
+
+  const factory = new Factory({
+    renderer: { elementId: vfId, width: totalWidth, height },
+  });
+
+  // 收集行内所有 StaveNote → NoteKey 映射（连音 / 指法用）
+  const noteMap = new Map<NoteKey, { note: import('vexflow').StaveNote; keyIdx: number }>();
+
+  for (let i = 0; i < n; i++) {
+    const col = columns[i];
+    const sysX = 12 + i * segW;
+    const system = factory.System({
+      x: sysX,
+      y: y0,
+      width: segW,
+      spaceBetweenStaves: 10,
+      formatOptions: { alignRests: true },
+    });
+
+    const staveBarOpts = { leftBar: col.showStaffHeader, rightBar: true };
+
+    // 高音谱——捕获 StaveNote 引用
+    const tAtoms = col.trebleAtoms;
+    const trebleVoice = factory.Voice({ time: vexVoiceTimeStr(ctx.timeSig) });
+    trebleVoice.setMode(VoiceMode.SOFT);
+    const tNotes: import('vexflow').StaveNote[] = [];
+    for (let ai = 0; ai < tAtoms.length; ai++) {
+      const sn = atomToNote(factory, tAtoms[ai], 'treble');
+      tNotes.push(sn);
+      trebleVoice.addTickables([sn]);
+      if (editState && !tAtoms[ai].rest) {
+        for (let ki = 0; ki < sn.getKeys().length; ki++) {
+          const nk = `${col.measureIndex}:treble:${ai}:${ki}` as NoteKey;
+          noteMap.set(nk, { note: sn, keyIdx: ki });
+        }
+      }
+    }
+
+    // 低音谱
+    const bAtoms = col.bassAtoms;
+    const bassVoice = factory.Voice({ time: vexVoiceTimeStr(ctx.timeSig) });
+    bassVoice.setMode(VoiceMode.SOFT);
+    const bNotes: import('vexflow').StaveNote[] = [];
+    for (let ai = 0; ai < bAtoms.length; ai++) {
+      const sn = atomToNote(factory, bAtoms[ai], 'bass');
+      bNotes.push(sn);
+      bassVoice.addTickables([sn]);
+      if (editState && !bAtoms[ai].rest) {
+        for (let ki = 0; ki < sn.getKeys().length; ki++) {
+          const nk = `${col.measureIndex}:bass:${ai}:${ki}` as NoteKey;
+          noteMap.set(nk, { note: sn, keyIdx: ki });
+        }
+      }
+    }
+
+    let trebleStave = system.addStave({ voices: [trebleVoice], options: staveBarOpts });
+    if (col.showStaffHeader) {
+      trebleStave = trebleStave.addClef('treble').addTimeSignature(ctx.timeSigStr);
+    }
+
+    let bassStave = system.addStave({ voices: [bassVoice], options: staveBarOpts });
+    if (col.showStaffHeader) {
+      bassStave = bassStave.addClef('bass').addTimeSignature(ctx.timeSigStr);
+    }
+
+    if (i === 0) {
+      system.addConnector('brace');
+    }
+    system.addConnector('singleRight');
+    system.addConnector('singleLeft');
+  }
+
+  // ── 编辑注解：手指编号 ──
+  if (editState) {
+    for (const [nk, finger] of editState.fingerNumbers) {
+      const entry = noteMap.get(nk);
+      if (entry) {
+        const fing = factory.Fingering({ number: String(finger), position: 'above' });
+        entry.note.addModifier(fing, entry.keyIdx);
+      }
+    }
+  }
+
+  // ── 编辑注解：连音线 & 延音线（需要在 draw 前创建） ──
+  if (editState) {
+    const makeTie = (a: NoteKey, b: NoteKey, isTie: boolean) => {
+      const from = noteMap.get(a);
+      const to = noteMap.get(b);
+      if (from && to) {
+        const tie = factory.StaveTie({
+          from: from.note,
+          to: to.note,
+          firstIndexes: [from.keyIdx],
+          lastIndexes: [to.keyIdx],
+        });
+        if (isTie) {
+          // 连尾：连接符杆一侧（尾部），加大 yShift 让曲线更靠近符尾
+          tie.renderOptions!.yShift = 15;
+        }
+      }
+    };
+    for (const slur of editState.slurs) makeTie(slur.from, slur.to, false);
+    for (const tie of editState.ties) makeTie(tie.from, tie.to, true);
+  }
+
+  // ── 选中音符高亮（支持多选） ──
+  if (selectedNoteKeys) {
+    for (const nk of selectedNoteKeys) {
+      const entry = noteMap.get(nk);
+      if (entry) {
+        entry.note.setStyle({ fillStyle: '#e53935', strokeStyle: '#e53935' });
+      }
+    }
+  }
+
+  factory.draw();
+
+  // ── 编辑模式下，为每个音符的符头(<g class="notehead">) 创建精确 hit area ──
+  if (editState) {
+    const hostRect = host.getBoundingClientRect();
+    // 按 note 引用分组（一个 chord 共享一个 StaveNote，但有多把个符头）
+    const byNote = new Map();
+    for (const [nk, { note, keyIdx }] of noteMap) {
+      const arr = byNote.get(note) ?? [];
+      arr.push({ keyIdx, nk });
+      byNote.set(note, arr);
+    }
+    for (const [note, entries] of byNote) {
+      const rootEl = note.getSVGElement();
+      if (!rootEl) continue;
+      // 主 <g> 下的所有 <text> 按文档顺序 = keyIdx 顺序（符头 SMuFL 字形）
+      const textEls = rootEl.querySelectorAll('text');
+      for (const entry of entries) {
+        const t = textEls[entry.keyIdx];
+        if (!t) continue;
+        const r = t.getBoundingClientRect();
+        const hit = document.createElement('div');
+        hit.className = 'note-hitarea';
+        hit.dataset.noteKey = entry.nk;
+        hit.style.cssText = `position:absolute;left:${r.left - hostRect.left}px;top:${r.top - hostRect.top}px;width:${r.width}px;height:${r.height}px;cursor:pointer;z-index:10;background:transparent`;
+        host.appendChild(hit);
+      }
+    }
+  }
+
+  return height + 8;
 }

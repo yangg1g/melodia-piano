@@ -9,7 +9,8 @@ import {
   type FlatNote,
   type MeasureContext,
 } from './midiScore';
-import { renderGrandStaffRow, type GrandStaffColumn } from './renderScore';
+import { playheadXInMeasureOverlay, renderGrandStaffRow, renderGrandStaffRowSVG, type GrandStaffColumn } from './renderScore';
+import { createStaffEditState, type EditTool } from './staffEditor';
 import { createFallingNotesLane } from './fallingNotes';
 import { applyKeyVisuals, createPianoKeyboard } from './pianoKeyboard';
 import { playNotes, type PlaybackController } from './playback';
@@ -74,6 +75,11 @@ app.innerHTML = `
         </div>
         <button type="button" id="btn-play" class="btn primary">播放</button>
         <button type="button" id="btn-stop" class="btn secondary" disabled>停止</button>
+        <button type="button" id="btn-edit" class="btn secondary" hidden>编辑</button>
+        <button type="button" id="btn-finger" class="btn secondary" hidden>指法</button>
+        <button type="button" id="btn-slur" class="btn secondary" hidden>连音</button>
+        <button type="button" id="btn-tie" class="btn secondary" hidden>连尾</button>
+        <button type="button" id="btn-save-edits" class="btn secondary" hidden>保存</button>
       </div>
     </header>
     <div class="progress-bar-wrap">
@@ -146,6 +152,14 @@ app.innerHTML = `
         </div>
 
         <div class="settings-group">
+          <label class="settings-label">五线谱渲染方式</label>
+          <div class="settings-mode-group">
+            <label><input type="radio" name="settings-render" value="image" checked /> 图片滚动</label>
+            <label><input type="radio" name="settings-render" value="original" /> 原始五线谱</label>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <label class="settings-label" for="settings-falling-speed">下落速度</label>
           <div class="settings-slider-row">
             <span>快</span>
@@ -191,6 +205,11 @@ const scoreScrollEl = document.querySelector<HTMLDivElement>('#score-scroll')!;
 const scorePagerEl = document.querySelector<HTMLDivElement>('#score-pager')!;
 const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
 const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
+const btnEdit = document.querySelector<HTMLButtonElement>('#btn-edit')!;
+const btnFinger = document.querySelector<HTMLButtonElement>('#btn-finger')!;
+const btnSlur = document.querySelector<HTMLButtonElement>('#btn-slur')!;
+const btnTie = document.querySelector<HTMLButtonElement>('#btn-tie')!;
+const btnSaveEdits = document.querySelector<HTMLButtonElement>('#btn-save-edits')!;
 const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
 const fallingNotes = createFallingNotesLane(keyboardStack);
@@ -248,6 +267,16 @@ let seeking = false;
 /** 当前正在播放的歌曲文件名（用于保存历史） */
 let currentSongFile: string | null = null;
 let currentSongName: string = '';
+
+/* ── 五线谱编辑模式 ── */
+let staffEditState = createStaffEditState();
+let editModeActive = false;
+let editTool: EditTool = 'select' as EditTool;
+/** 当前选中的 NoteKey 集合（多选 + 框选） */
+let selectedNoteKeys = new Set<string>();
+/** 框选状态 */
+let selDragStart: { x: number; y: number } | null = null;
+let selRectEl: HTMLDivElement | null = null;
 
 /* ── 历史成绩持久化（完整记录列表） ── */
 
@@ -326,6 +355,7 @@ interface AppSettings {
   fallingSpeed: number;   // VISIBLE_WINDOW_SEC (1.5 ~ 5)
   playbackSpeed: number;  // 倍率 (0.5 ~ 2.0)
   difficulty: 'easy' | 'normal' | 'hard';
+  renderMode: 'image' | 'original';  // 五线谱渲染方式
 }
 
 const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: string; windows: Partial<import('./scoring').TimingWindows> }> = {
@@ -344,10 +374,11 @@ const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: string; win
 };
 
 function loadSettings(): AppSettings {
+  const defaults: AppSettings = { mode: 'normal', fallingSpeed: 3, playbackSpeed: 1, difficulty: 'normal', renderMode: 'image' };
   try {
-    return { ...{ mode: 'normal' as PlayMode, fallingSpeed: 3, playbackSpeed: 1, difficulty: 'normal' as AppSettings['difficulty'] }, ...JSON.parse(localStorage.getItem('midi-piano-settings') || '{}') };
+    return { ...defaults, ...JSON.parse(localStorage.getItem('midi-piano-settings') || '{}') };
   } catch {
-    return { mode: 'normal', fallingSpeed: 3, playbackSpeed: 1, difficulty: 'normal' };
+    return defaults;
   }
 }
 
@@ -356,29 +387,23 @@ function saveSettings(s: AppSettings) {
 }
 
 function applySettingsToUI(s: AppSettings) {
-  // 模式
   const modeRadio = document.querySelector<HTMLInputElement>(`input[name="settings-mode"][value="${s.mode}"]`);
   if (modeRadio) modeRadio.checked = true;
-  // 下落速度
   settingsFallingSpeed.value = String(s.fallingSpeed);
   settingsFallingSpeedVal.textContent = `${s.fallingSpeed.toFixed(1)}s`;
-  // 播放速度
   settingsPlaybackSpeed.value = String(s.playbackSpeed);
   settingsPlaybackSpeedVal.textContent = `${s.playbackSpeed.toFixed(1)}×`;
-  // 判定难度
   const diffRadio = document.querySelector<HTMLInputElement>(`input[name="settings-difficulty"][value="${s.difficulty}"]`);
   if (diffRadio) diffRadio.checked = true;
   settingsDifficultyInfo.textContent = DIFFICULTY_WINDOWS[s.difficulty].label;
+  const renderRadio = document.querySelector<HTMLInputElement>(`input[name="settings-render"][value="${s.renderMode}"]`);
+  if (renderRadio) renderRadio.checked = true;
 }
 
 function applySettings(s: AppSettings) {
-  // 模式
   setPlayMode(s.mode);
-  // 下落速度
   fallingNotes.setSpeed(s.fallingSpeed);
-  // 判定窗口
   scoringEngine.setWindows(DIFFICULTY_WINDOWS[s.difficulty].windows);
-  // 更新选歌页摘要
   updateSettingsSummary(s);
 }
 
@@ -392,11 +417,12 @@ settingsBtn.addEventListener('click', () => {
 
 settingsBackBtn.addEventListener('click', () => {
   // 保存设置
-  const mode = document.querySelector<HTMLInputElement>('input[name="settings-mode"]:checked')?.value as PlayMode ?? 'normal';
-  const fallingSpeed = Number(settingsFallingSpeed.value);
-  const playbackSpeed = Number(settingsPlaybackSpeed.value);
-  const difficulty = document.querySelector<HTMLInputElement>('input[name="settings-difficulty"]:checked')?.value as AppSettings['difficulty'] ?? 'normal';
-  const s: AppSettings = { mode, fallingSpeed, playbackSpeed, difficulty };
+    const mode = document.querySelector<HTMLInputElement>('input[name="settings-mode"]:checked')?.value as PlayMode ?? 'normal';
+    const fallingSpeed = Number(settingsFallingSpeed.value);
+    const playbackSpeed = Number(settingsPlaybackSpeed.value);
+    const difficulty = document.querySelector<HTMLInputElement>('input[name="settings-difficulty"]:checked')?.value as AppSettings['difficulty'] ?? 'normal';
+    const renderMode = (document.querySelector<HTMLInputElement>('input[name="settings-render"]:checked')?.value as 'image' | 'original') ?? 'image';
+    const s: AppSettings = { mode, fallingSpeed, playbackSpeed, difficulty, renderMode };
   saveSettings(s);
   applySettings(s);
   settingsPage.hidden = true;
@@ -482,6 +508,23 @@ async function enterPianoPageAndPlay(midi: Midi) {
   stopPreview();
   songListPage.hidden = true;
   pianoPage.hidden = false;
+  // 加载新歌时重置编辑状态
+  editModeActive = false;
+  selectedNoteKeys.clear();
+  staffEditState = createStaffEditState();
+
+  // 尝试恢复已保存的编辑
+  if (currentSongFile) {
+    const saved = localStorage.getItem(`midi-edits-${currentSongFile}`);
+    if (saved) {
+      try {
+        const raw = JSON.parse(saved);
+        staffEditState.fingerNumbers = new Map(raw.fingerNumbers ?? []);
+        staffEditState.slurs = raw.slurs ?? [];
+        staffEditState.ties = raw.ties ?? [];
+      } catch { /* ignore */ }
+    }
+  }
   renderAll(midi);
   // 使用设置中的模式
   setPlayMode(loadSettings().mode);
@@ -814,6 +857,7 @@ function syncModeUi() {
   midiRow.hidden = getPlayMode() !== 'keyboard';
   scoreDisplay.hidden = getPlayMode() === 'auto';
   updateKeyboardHint();
+  btnEdit.hidden = pianoPage.hidden || getRenderMode() !== 'original';
 }
 
 /** 计分 UI 更新 */
@@ -899,10 +943,11 @@ interface ScorePagerState {
 
 let scorePagerState: ScorePagerState | null = null;
 
-function renderStaff(stripEl: HTMLElement, midi: Midi) {
+/* ═══════════════════ 图片滚动模式 ═══════════════════ */
+
+function renderStaffImage(stripEl: HTMLElement, midi: Midi) {
   const ctx = getMeasureContext(midi);
   const nMeas = measureCount(midi, ctx);
-  // 每小节渲染宽度（像素），180px 兼顾可读性与 canvas 体积
   const measureWidth = 180;
 
   const columns: GrandStaffColumn[] = [];
@@ -921,7 +966,6 @@ function renderStaff(stripEl: HTMLElement, midi: Midi) {
 }
 
 function addJudgmentLine() {
-  // 移除旧的判定线
   const old = scoreScrollEl.querySelector('.judgment-line');
   if (old) old.remove();
   const line = document.createElement('div');
@@ -954,30 +998,109 @@ function updateMeasureInfo(current: number, total: number) {
   measureInfoEl.textContent = `第 ${current + 1} / ${total} 小节`;
 }
 
+/* ═══════════════════ 原始五线谱模式 ═══════════════════ */
+
+const SCORE_LAYOUT = { measuresPerRow: 2 } as const;
+
+function renderStaffOriginal(parent: HTMLElement, midi: Midi) {
+  const ctx = getMeasureContext(midi);
+  const nMeas = measureCount(midi, ctx);
+  const w = Math.min(760, Math.floor(window.innerWidth - 40));
+  const measuresPerRow = SCORE_LAYOUT.measuresPerRow;
+  const measureWidth = Math.max(160, Math.floor(w / measuresPerRow));
+
+  scorePagerState = { ctx, midi, nMeas, measureWidth };
+
+  parent.style.cssText = '';
+  scoreScrollEl.style.cssText = 'overflow:auto;position:relative';
+
+  for (let start = 0; start < nMeas; start += measuresPerRow) {
+    const rowWrap = document.createElement('div');
+    rowWrap.className = 'score-measure-row';
+    parent.appendChild(rowWrap);
+    const end = Math.min(nMeas, start + measuresPerRow);
+    const columns: GrandStaffColumn[] = [];
+    for (let i = start; i < end; i++) {
+      columns.push({
+        measureIndex: i,
+        trebleAtoms: buildAtomsForHand(flatNotes, midi, 'treble', ctx, i),
+        bassAtoms: buildAtomsForHand(flatNotes, midi, 'bass', ctx, i),
+        showStaffHeader: i === start,
+      });
+    }
+    renderGrandStaffRowSVG(
+      rowWrap, columns, ctx, measureWidth,
+      editModeActive ? staffEditState : undefined,
+      editModeActive ? selectedNoteKeys : undefined,
+    );
+  }
+}
+
 function updateScorePlayhead(timeSec: number) {
+  const mode = loadSettings().renderMode;
+  if (mode === 'image') {
+    updatePlayheadImage(timeSec);
+  } else {
+    updatePlayheadOriginal(timeSec);
+  }
+}
+
+function hideScorePlayhead() {
+  const mode = loadSettings().renderMode;
+  if (mode === 'image') {
+    resetStaffScroll();
+  } else {
+    for (const ph of scoreEl.querySelectorAll<HTMLElement>('.playhead')) {
+      ph.classList.remove('is-visible');
+    }
+  }
+}
+
+function updatePlayheadImage(timeSec: number) {
   const st = scorePagerState;
   const midi = currentMidi;
-  if (!st || !midi) {
-    resetStaffScroll();
-    return;
-  }
-  if (timeSec >= midi.duration - 1e-3 || timeSec < 0) {
-    resetStaffScroll();
-    return;
-  }
+  if (!st || !midi) { resetStaffScroll(); return; }
+  if (timeSec >= midi.duration - 1e-3 || timeSec < 0) { resetStaffScroll(); return; }
 
   const ticks = midi.header.secondsToTicks(Math.max(0, timeSec));
   const progress = Math.min(1, Math.max(0, ticks / midi.durationTicks));
-
   scrollStaffToProgress(progress);
 
-  // 更新小节信息
   const m = Math.floor(ticks / st.ctx.ticksPerMeasure);
   updateMeasureInfo(Math.min(m, st.nMeas - 1), st.nMeas);
 }
 
-function hideScorePlayhead() {
-  resetStaffScroll();
+function updatePlayheadOriginal(timeSec: number) {
+  const st = scorePagerState;
+  const midi = currentMidi;
+  if (!st || !midi) { hideScorePlayhead(); return; }
+  if (timeSec >= midi.duration - 1e-3 || timeSec < 0) { hideScorePlayhead(); return; }
+
+  const ctx = st.ctx;
+  const ticks = midi.header.secondsToTicks(Math.max(0, timeSec));
+  let m = Math.floor(ticks / ctx.ticksPerMeasure);
+  if (m < 0) m = 0;
+  if (m >= st.nMeas) m = st.nMeas - 1;
+  updateMeasureInfo(m, st.nMeas);
+
+  const measureStartTick = m * ctx.ticksPerMeasure;
+  const progress = Math.min(1, Math.max(0, (ticks - measureStartTick) / ctx.ticksPerMeasure));
+  const w = st.measureWidth;
+  const measuresPerRow = SCORE_LAYOUT.measuresPerRow;
+  const colInRow = m % measuresPerRow;
+
+  for (const row of scoreEl.querySelectorAll<HTMLElement>('.score-measure')) {
+    const ph = row.querySelector<HTMLElement>('.playhead');
+    if (!ph) continue;
+    const midx = Number(row.dataset.measureIndex);
+    if (midx !== m) {
+      ph.classList.remove('is-visible');
+      continue;
+    }
+    const hasHeader = row.dataset.hasStaffHeader === '1';
+    ph.style.left = `${playheadXInMeasureOverlay(measuresPerRow, w, colInRow, hasHeader, progress)}px`;
+    ph.classList.add('is-visible');
+  }
 }
 
 function noteRange(notes: typeof flatNotes): { min: number; max: number } {
@@ -998,16 +1121,24 @@ function noteRange(notes: typeof flatNotes): { min: number; max: number } {
 function renderAll(midi: Midi) {
   currentMidi = midi;
   flatNotes = flattenNotes(midi);
-
   scoreEl.innerHTML = '';
-  scoreEl.style.cssText = 'position:relative;will-change:transform';
-  scoreScrollEl.style.cssText = 'overflow:hidden;position:relative';
 
-  renderStaff(scoreEl, midi);
-  addJudgmentLine();
+  const mode = loadSettings().renderMode;
 
-  // 初始定位：开头对准判定线，避免播放瞬间跳跃
-  scoreEl.style.transform = `translateX(${getJudgeX()}px)`;
+  if (mode === 'image') {
+    // ── 图片滚动模式 ──
+    scoreEl.style.cssText = 'position:relative;will-change:transform';
+    scoreScrollEl.style.cssText = 'overflow:hidden;position:relative';
+    renderStaffImage(scoreEl, midi);
+    addJudgmentLine();
+    scoreEl.style.transform = `translateX(${getJudgeX()}px)`;
+  } else {
+    // ── 原始五线谱模式 ──
+    scoreEl.style.cssText = '';
+    scoreScrollEl.style.cssText = 'overflow:auto;position:relative';
+    renderStaffOriginal(scoreEl, midi);
+    hideScorePlayhead();
+  }
 
   const range = noteRange(flatNotes);
   keyEls = createPianoKeyboard(keyboardHost, range.min, range.max);
@@ -1185,13 +1316,16 @@ progressBar.addEventListener('input', () => {
     btnStop.disabled = true;
   }
 
-  // 拖拽时同步更新五线谱位置
   if (!currentMidi || flatNotes.length === 0) return;
   const pct = Number(progressBar.value) / 1000;
   const timeSec = pct * totalDurationSec;
   updateProgressBar(timeSec);
-  scrollStaffToProgress(pct);
+  if (getRenderMode() === 'image') scrollStaffToProgress(pct);
 });
+
+function getRenderMode(): 'image' | 'original' {
+  return loadSettings().renderMode;
+}
 
 progressBar.addEventListener('change', () => {
   seeking = false;
@@ -1209,6 +1343,211 @@ progressBar.addEventListener('change', () => {
 
 btnStop.addEventListener('click', () => {
   stopPlayback();
+});
+
+/* ── 编辑模式 ── */
+
+btnEdit.addEventListener('click', () => {
+  editModeActive = !editModeActive;
+  syncEditModeUI();
+  if (editModeActive) {
+    stopPlayback();
+    selectedNoteKeys.clear();
+    renderAll(currentMidi!);
+  } else {
+    selectedNoteKeys.clear();
+  }
+});
+
+btnFinger.addEventListener('click', () => {
+  editTool = 'select';
+  syncEditModeUI();
+  keyboardHint.textContent = '指法编辑：点击/框选音符后按 1-5 设指法，Shift+单击多选';
+});
+
+btnSlur.addEventListener('click', () => {
+  editTool = 'slur';
+  selectedNoteKeys.clear();
+  syncEditModeUI();
+  renderAll(currentMidi!);
+  keyboardHint.textContent = '连音编辑：依次单击两个音符创建连线';
+});
+
+btnTie.addEventListener('click', () => {
+  editTool = 'tie';
+  selectedNoteKeys.clear();
+  syncEditModeUI();
+  renderAll(currentMidi!);
+  keyboardHint.textContent = '连尾编辑：依次单击两个相同音高的音符创建延音线';
+});
+
+btnSaveEdits.addEventListener('click', () => {
+  if (!currentSongFile) { alert('未加载歌曲'); return; }
+  const key = `midi-edits-${currentSongFile}`;
+  const json = JSON.stringify({
+    fingerNumbers: [...staffEditState.fingerNumbers.entries()],
+    slurs: staffEditState.slurs,
+    ties: staffEditState.ties,
+  });
+  localStorage.setItem(key, json);
+  btnSaveEdits.textContent = '✓ 已保存';
+  setTimeout(() => { btnSaveEdits.textContent = '保存'; }, 2000);
+});
+
+function syncEditModeUI() {
+  const show = editModeActive;
+  btnEdit.textContent = show ? '✓ 编辑' : '编辑';
+  btnEdit.classList.toggle('primary', show);
+  btnEdit.classList.toggle('secondary', !show);
+  btnFinger.hidden = !show;
+  btnSlur.hidden = !show;
+  btnTie.hidden = !show;
+  btnSaveEdits.hidden = !show;
+
+  btnFinger.classList.toggle('primary', editTool === 'select');
+  btnFinger.classList.toggle('secondary', editTool !== 'select');
+  btnSlur.classList.toggle('primary', editTool === 'slur');
+  btnSlur.classList.toggle('secondary', editTool !== 'slur');
+  btnTie.classList.toggle('primary', editTool === 'tie');
+  btnTie.classList.toggle('secondary', editTool !== 'tie');
+
+  if (!show) {
+    keyboardHint.textContent = keyboardHint.textContent?.replace(/编辑.*?。/, '') ?? '';
+  }
+}
+
+// 创建框选矩形
+function ensureSelRect() {
+  if (!selRectEl) {
+    selRectEl = document.createElement('div');
+    selRectEl.className = 'sel-rect';
+    scoreScrollEl.appendChild(selRectEl);
+  }
+  return selRectEl;
+}
+function removeSelRect() {
+  if (selRectEl) { selRectEl.style.display = 'none'; selRectEl.style.width = '0'; selRectEl.style.height = '0'; }
+}
+
+// 在编辑模式下用键盘设置指法（支持多选）
+document.addEventListener('keydown', (e) => {
+  if (!editModeActive || selectedNoteKeys.size === 0 || getPlayMode() === 'auto') return;
+  if (e.repeat) return;
+
+  if (e.key >= '1' && e.key <= '5') {
+    e.preventDefault();
+    for (const nk of selectedNoteKeys) {
+      staffEditState.fingerNumbers.set(nk, Number(e.key));
+    }
+    renderAll(currentMidi!);
+  } else if (e.key === '0' || e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    for (const nk of selectedNoteKeys) {
+      staffEditState.fingerNumbers.delete(nk);
+      staffEditState.slurs = staffEditState.slurs.filter(
+        (s) => s.from !== nk && s.to !== nk,
+      );
+      staffEditState.ties = staffEditState.ties.filter(
+        (t) => t.from !== nk && t.to !== nk,
+      );
+    }
+    selectedNoteKeys.clear();
+    renderAll(currentMidi!);
+  }
+});
+
+/* ── 音符选择 + 框选 ── */
+
+scoreEl.addEventListener('mousedown', (e) => {
+  if (!editModeActive || getRenderMode() !== 'original') return;
+
+  const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
+
+  if (hit && hit.dataset.noteKey) {
+    // 点击了音符 hit area
+    const nk = hit.dataset.noteKey;
+
+    if (e.shiftKey) {
+      // Shift+click: 切换选择
+      if (selectedNoteKeys.has(nk)) selectedNoteKeys.delete(nk);
+      else selectedNoteKeys.add(nk);
+    } else {
+      selectedNoteKeys.clear();
+      selectedNoteKeys.add(nk);
+    }
+
+    if (selectedNoteKeys.size === 2) {
+      const [a, b] = [...selectedNoteKeys];
+      if (editTool === 'slur') {
+        staffEditState.slurs.push({ from: a, to: b });
+      } else if (editTool === 'tie') {
+        staffEditState.ties.push({ from: a, to: b });
+      }
+      selectedNoteKeys.clear();
+    }
+
+    renderAll(currentMidi!);
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+
+  // 点击空白区域 → 开始框选
+  selectedNoteKeys.clear();
+  renderAll(currentMidi!);
+
+  const rect = scoreScrollEl.getBoundingClientRect();
+  const relX = e.clientX - rect.left + scoreScrollEl.scrollLeft;
+  const relY = e.clientY - rect.top + scoreScrollEl.scrollTop;
+  selDragStart = { x: relX, y: relY };
+
+  const sel = ensureSelRect();
+  sel.style.display = 'block';
+  sel.style.left = `${relX}px`;
+  sel.style.top = `${relY}px`;
+  sel.style.width = '0';
+  sel.style.height = '0';
+});
+
+scoreScrollEl.addEventListener('mousemove', (e) => {
+  if (!selDragStart || !selRectEl) return;
+  e.preventDefault();
+
+  const rect = scoreScrollEl.getBoundingClientRect();
+  const curX = e.clientX - rect.left + scoreScrollEl.scrollLeft;
+  const curY = e.clientY - rect.top + scoreScrollEl.scrollTop;
+
+  const l = Math.min(selDragStart.x, curX);
+  const t = Math.min(selDragStart.y, curY);
+  const w = Math.abs(curX - selDragStart.x);
+  const h = Math.abs(curY - selDragStart.y);
+
+  selRectEl.style.left = `${l}px`;
+  selRectEl.style.top = `${t}px`;
+  selRectEl.style.width = `${w}px`;
+  selRectEl.style.height = `${h}px`;
+});
+
+document.addEventListener('mouseup', () => {
+  if (!selDragStart || !selRectEl) return;
+  if (selRectEl.style.display === 'none') { selDragStart = null; return; }
+
+  // 收集框选区域内的 note-hitarea
+  const rect = selRectEl.getBoundingClientRect();
+  const hits = scoreScrollEl.querySelectorAll<HTMLElement>('.note-hitarea');
+
+  selectedNoteKeys.clear();
+  for (const h of hits) {
+    const hRect = h.getBoundingClientRect();
+    if (hRect.right > rect.left && hRect.left < rect.right &&
+        hRect.bottom > rect.top && hRect.top < rect.bottom) {
+      if (h.dataset.noteKey) selectedNoteKeys.add(h.dataset.noteKey);
+    }
+  }
+
+  removeSelRect();
+  selDragStart = null;
+  renderAll(currentMidi!);
 });
 
 syncModeUi();

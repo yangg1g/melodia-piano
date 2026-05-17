@@ -643,6 +643,17 @@ body {
   flex-shrink: 0;
 }
 
+/* ── 框选矩形 ── */
+.sel-rect {
+  position: absolute;
+  z-index: 50;
+  background: rgba(59, 108, 255, 0.15);
+  border: 1.5px solid rgba(59, 108, 255, 0.7);
+  pointer-events: none;
+  display: none;
+  box-sizing: border-box;
+}
+
 /* ── 固定判定线 ── */
 .judgment-line {
   position: absolute;
@@ -732,6 +743,13 @@ body {
 /* 五线谱以 <img> 形式渲染，确保按原始尺寸显示（与播放头 overlay 对齐） */
 .score-row-host img {
   display: block;
+}
+
+/* 原始五线谱模式：行式布局 */
+.score-measure-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 /* ── 倒计时 ── */
