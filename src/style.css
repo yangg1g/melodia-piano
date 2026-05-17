@@ -65,7 +65,52 @@ body {
 
 .song-list-header {
   text-align: center;
-  padding: 48px 24px 32px;
+  padding: 32px 24px 24px;
+}
+
+.song-list-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+}
+
+.settings-header-btn {
+  font-size: 1.1rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  line-height: 1;
+}
+
+@media (max-width: 640px) {
+  .song-list-header {
+    padding: 20px 16px 16px;
+  }
+  .song-list-title {
+    font-size: 1.5rem;
+  }
+  .song-list-body {
+    flex-direction: column;
+    padding: 0 16px 16px;
+    gap: 12px;
+  }
+  .history-panel {
+    max-height: 200px;
+    flex: none;
+  }
+}
+
+/* ── 当前设置摘要 ── */
+.settings-summary {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 8px;
+  padding: 4px 14px;
+  display: inline-block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
 }
 
 .song-list-title {
@@ -84,25 +129,153 @@ body {
 .song-list-body {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
   gap: 20px;
-  padding: 0 48px 48px;
+  padding: 0 32px 32px;
   width: 100%;
-  max-width: 560px;
-  align-self: flex-end;
+  max-width: 900px;
+  align-self: center;
+  min-height: 0;
 }
 
-/* ── 歌曲列表（音游式） ── */
+/* ── 左侧历史面板 ── */
+.history-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.history-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-panel-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.history-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.history-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f0f0f4;
+  transition: background 0.12s;
+}
+
+.history-entry:last-child {
+  border-bottom: none;
+}
+
+.history-entry:hover {
+  background: var(--accent-dim);
+}
+
+.history-entry {
+  cursor: context-menu;
+}
+
+.history-entry:active {
+  background: #dce3f5;
+}
+
+.history-entry--latest {
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f7ff 100%);
+}
+
+.history-entry-score {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-entry-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.78rem;
+  flex-wrap: wrap;
+}
+
+.history-entry-accu {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.history-entry-combo {
+  color: var(--muted);
+}
+
+.history-entry-mode {
+  color: var(--muted);
+  background: var(--border);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.history-entry-speed,
+.history-entry-diff {
+  color: var(--muted);
+  background: var(--accent-dim);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.history-entry-date {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── 右侧：歌曲列表（音游式） ── */
+.song-list-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .song-list {
   flex: 1;
   width: 100%;
-  max-width: 560px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px 0;
-  outline: none; /* focus 边框由外层接管 */
+  outline: none;
   overflow-y: auto;
 }
 
@@ -190,6 +363,17 @@ body {
   line-height: 1.2;
 }
 
+.song-list-history {
+  font-size: 0.7rem;
+  color: var(--accent);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.history-score {
+  font-weight: 700;
+}
+
 .song-list-arrow {
   font-size: 0.85rem;
   color: var(--accent);
@@ -213,6 +397,8 @@ body {
   width: 100%;
   display: flex;
   justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .file-btn--local {
@@ -550,6 +736,29 @@ body {
   height: auto;
 }
 
+/* ── 倒计时 ── */
+.countdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  font-size: 8rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  animation: countdown-pop 0.5s ease-out;
+}
+
+@keyframes countdown-pop {
+  0%   { transform: scale(0.6); opacity: 0.3; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .keyboard-section {
   padding: 12px 0 24px;
   flex-shrink: 0;
@@ -623,6 +832,60 @@ body {
   padding-top: 0;
   border-radius: 0 0 10px 10px;
   border-top: none;
+}
+
+/* ── 计分显示 ── */
+.score-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-display-score {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 5em;
+}
+
+.score-display-combo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.score-display-accu {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.score-display-judge {
+  font-size: 1rem;
+  font-weight: 800;
+  margin-left: auto;
+  animation: judge-pop 0.45s ease-out forwards;
+}
+
+.judge--perfect { color: #fbbf24; }
+.judge--great   { color: #34d399; }
+.judge--good    { color: #60a5fa; }
+.judge--ok      { color: #a78bfa; }
+.judge--meh     { color: #f87171; }
+.judge--miss    { color: #ef4444; }
+
+@keyframes judge-pop {
+  0%   { transform: scale(1); opacity: 1; }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 0.3; }
 }
 
 .hint {
@@ -728,4 +991,259 @@ body {
   outline: 2px solid #ec407a;
   outline-offset: 1px;
   z-index: 4;
+}
+
+/* ── 结果页 ── */
+.result-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+}
+
+#result-page {
+  position: fixed;
+  inset: 0;
+  z-index: 51;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 40px 48px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  animation: result-enter 0.4s ease-out;
+}
+
+@keyframes result-enter {
+  0%   { transform: scale(0.85) translateY(20px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.result-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 20px;
+  letter-spacing: 0.05em;
+}
+
+.result-score-section {
+  margin-bottom: 16px;
+}
+
+.result-score-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.result-score {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--accent);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-accuracy-section {
+  margin-bottom: 24px;
+}
+
+.result-accuracy {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.result-maxcombo {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.result-judgements {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 28px;
+  padding: 16px;
+  background: #f8f9fc;
+  border-radius: 12px;
+}
+
+.result-judge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.judge-label {
+  font-weight: 700;
+  min-width: 6em;
+  text-align: left;
+}
+
+.judge-count {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-back-btn {
+  width: 100%;
+  padding: 14px 24px;
+  font-size: 1.05rem;
+  border-radius: 12px;
+}
+
+/* ── 设置页 ── */
+#settings-page {
+  position: fixed;
+  inset: 0;
+  z-index: 51;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: result-enter 0.3s ease-out;
+  overflow: hidden;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.settings-body {
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settings-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.settings-slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.settings-slider-row input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  cursor: pointer;
+}
+
+.settings-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 3.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-mode-group,
+.settings-difficulty-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-mode-group label,
+.settings-difficulty-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.settings-mode-group label:has(input:checked),
+.settings-difficulty-group label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.settings-difficulty-info {
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 8px 12px;
+  background: #f8f9fc;
+  border-radius: 8px;
 }

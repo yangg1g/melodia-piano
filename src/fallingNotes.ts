@@ -3,7 +3,7 @@ import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 import { isWhiteKey, keyCenterXInKeyboard, keyboardInnerWidthPx, PIANO_LAYOUT } from './pianoKeyboard';
 
 const LANE_MIN_HEIGHT = 140;
-const VISIBLE_WINDOW_SEC = 3;
+let VISIBLE_WINDOW_SEC = 3;
 
 export type NoteState = {
   note: FlatNote;
@@ -19,6 +19,7 @@ export type KeyboardFallingState = {
 export type FallingNotesHandle = {
   setRange: (startMidi: number, endMidi: number) => void;
   setSource: (notes: FlatNote[], midi: Midi) => void;
+  setSpeed: (speed: number) => void;
   update: (nowSec: number) => void;
   updateKeyboardPractice: (state: KeyboardFallingState | null) => void;
   clear: () => void;
@@ -227,6 +228,9 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
     setSource(n: FlatNote[], m: Midi) {
       notes = n;
       midiFile = m;
+    },
+    setSpeed(speed: number) {
+      VISIBLE_WINDOW_SEC = speed;
     },
     update(nowSec: number) {
       cancelKbAnim();

@@ -4,6 +4,7 @@ import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 import { applyKeyVisuals } from './pianoKeyboard';
 import type { PlaybackController } from './playback';
 import { playPianoMidi, releaseAllPiano } from './salamanderPiano';
+import { ScoringEngine, type ScoreState } from './scoring';
 
 function parseMidiKey(data: Uint8Array): { note: number; down: boolean } | null {
   const st = data[0];
@@ -26,9 +27,6 @@ function parseNoteOn(data: Uint8Array): { note: number; velocity: number } | nul
   return null;
 }
 
-/**
- * 所有音符同时加载、同时计时；弹对后记录击中时间。
- */
 export function startKeyboardPractice(
   flatNotes: FlatNote[],
   midiFile: Midi,
@@ -37,22 +35,24 @@ export function startKeyboardPractice(
   onEnded?: () => void,
   onTimeSec?: (sec: number) => void,
   onPracticePaint?: (state: KeyboardFallingState) => void,
+  scoring?: ScoringEngine,
+  onScoreUpdate?: (state: ScoreState) => void,
+  /** true = 时间自动前进（普通模式），false = 等待用户弹奏（跟弹模式） */
+  freePlay = false,
+  speedMultiplier = 1,
 ): PlaybackController {
   let stopped = false;
   const pressedMidis = new Set<number>();
   let animFrameId = 0;
+  let finishScheduled = false;
 
-  /** 时间轴基准：所有音符中最早的 time */
   const firstNoteTime = flatNotes.length > 0
     ? Math.min(...flatNotes.map((n) => n.time))
     : 0;
 
-  /** 累加器：当前有效时间（从第一个音符前1.5秒开始） */
   let accumulatedTimeSec = firstNoteTime - 1.5;
-  /** 上一帧的时间戳，用于计算帧间隔 */
   let lastFrameTimeMs = performance.now();
 
-  /** 每个音符的状态 */
   const noteStates: NoteState[] = flatNotes.map((note) => ({
     note,
     isHit: false,
@@ -63,25 +63,23 @@ export function startKeyboardPractice(
 
   const RELEASE_GRACE_SEC = 0.1;
 
-  /**
-   * 获取当前有效时间（累加器模式）
-   */
-  const getEffectiveTimeSec = (): number => {
-    return accumulatedTimeSec;
-  };
+  /** 判定窗口（毫秒），使用 ScoringEngine 的 meh 窗口 */
+  const hitWindowMs = scoring ? scoring.windows.meh : 180;
+  const hitWindowSec = hitWindowMs / 1000;
 
-  /**
-   * 更新累加器时间：
-   * - 如果有音符卡住（已过 hit 时间但未弹对），检查按键状态
-   * - 卡住的音符必须保持按下对应 MIDI 键，否则时间暂停
-   */
+  /** 用于标记已放过 Miss 的音符 */
+  const missedNotes = new Set<number>();
+
+  const getEffectiveTimeSec = (): number => accumulatedTimeSec;
+
   const updateAccumulatedTime = (): boolean => {
     const nowMs = performance.now();
     const deltaTimeSec = (nowMs - lastFrameTimeMs) / 1000;
     lastFrameTimeMs = nowMs;
 
-    if (flatNotes.length === 0) {
-      accumulatedTimeSec += deltaTimeSec;
+    if (freePlay || flatNotes.length === 0) {
+      // 普通模式：时间一直前进（乘以速度倍率）
+      accumulatedTimeSec += deltaTimeSec * speedMultiplier;
       return false;
     }
 
@@ -94,7 +92,7 @@ export function startKeyboardPractice(
       }
     }
 
-    accumulatedTimeSec += deltaTimeSec;
+    accumulatedTimeSec += deltaTimeSec * speedMultiplier;
     return false;
   };
 
@@ -113,6 +111,20 @@ export function startKeyboardPractice(
     updateAccumulatedTime();
     const effectiveTimeSec = getEffectiveTimeSec();
 
+    // Miss 检测：已过判定窗口但未命中的音符
+    if (scoring) {
+      for (const ns of noteStates) {
+        if (!ns.isHit && !missedNotes.has(noteStates.indexOf(ns))) {
+          const offsetMs = (effectiveTimeSec - ns.note.time) * 1000;
+          if (offsetMs > hitWindowMs) {
+            missedNotes.add(noteStates.indexOf(ns));
+            scoring.miss();
+            onScoreUpdate?.(scoring.getState());
+          }
+        }
+      }
+    }
+
     const expected = new Map<number, Hand>();
     for (const ns of noteStates) {
       if (effectiveTimeSec >= ns.note.time && effectiveTimeSec < ns.note.time + Math.max(0, ns.note.duration) - RELEASE_GRACE_SEC) {
@@ -130,6 +142,18 @@ export function startKeyboardPractice(
       notes: noteStates,
       currentTimeSec: effectiveTimeSec,
     });
+
+    // 所有音符结束后自动结束（防止 freePlay 模式下无人按键永远不触发 finish）
+    if (!finishScheduled && flatNotes.length > 0) {
+      const allDone = noteStates.every((ns) => {
+        return ns.note.time + Math.max(0, ns.note.duration) < effectiveTimeSec;
+      });
+      if (allDone) {
+        finishScheduled = true;
+        setTimeout(() => finish(), 500);
+        return;
+      }
+    }
 
     onTimeSec?.(effectiveTimeSec);
   };
@@ -169,13 +193,19 @@ export function startKeyboardPractice(
     if (noteEv === null) return;
 
     const nowSec = getEffectiveTimeSec();
+    const offsetMs = (nowSec - flatNotes.find(n => n.midi === noteEv.note)?.time ?? nowSec) * 1000;
 
     const matchingStates = noteStates.filter(
-      (ns) => ns.note.midi === noteEv.note && !ns.isHit && Math.abs(ns.note.time - nowSec) < 0.15
+      (ns) => ns.note.midi === noteEv.note && !ns.isHit && Math.abs(ns.note.time - nowSec) < hitWindowSec
     );
 
     if (matchingStates.length === 0) {
+      // 错音：弹响但不计分
       playPianoMidi(noteEv.note, 0.3, noteEv.velocity);
+      if (scoring) {
+        scoring.miss();
+        onScoreUpdate?.(scoring.getState());
+      }
       return;
     }
 
@@ -183,6 +213,12 @@ export function startKeyboardPractice(
       ns.isHit = true;
       ns.hitTimeSec = nowSec;
       playPianoMidi(ns.note.midi, Math.max(0, ns.note.duration), noteEv.velocity);
+
+      if (scoring) {
+        const hitOffsetMs = (nowSec - ns.note.time) * 1000;
+        const j = scoring.hit(hitOffsetMs);
+        onScoreUpdate?.(scoring.getState());
+      }
     }
 
     paint();
@@ -192,9 +228,15 @@ export function startKeyboardPractice(
     });
 
     if (allDone && flatNotes.length > 0) {
+      finishScheduled = true;
       setTimeout(() => finish(), 500);
     }
   };
+
+  if (scoring) {
+    scoring.reset({ totalNotes: flatNotes.length });
+    onScoreUpdate?.(scoring.getState());
+  }
 
   midiInput.onmidimessage = onMidi;
   paint();

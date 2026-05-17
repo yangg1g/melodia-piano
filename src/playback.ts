@@ -18,6 +18,7 @@ export function playNotes(
   onTimeSec?: (sec: number) => void,
   /** 从指定秒偏移处开始播放（用于进度条跳转） */
   startOffset = 0,
+  speed = 1,
 ): PlaybackController {
   const ctx = getContext();
   const active = new Map<number, Hand>();
@@ -35,8 +36,8 @@ export function playNotes(
   const tick = () => {
     if (stopped) return;
     if (onTimeSec) {
-      // 报告实际进度 = 流逝时间 + 偏移量
-      onTimeSec(Math.max(0, ctx.currentTime - base) + startOffset);
+      // 报告实际进度 = 流逝时间 * speed + 偏移量
+      onTimeSec(Math.max(0, ctx.currentTime - base) * speed + startOffset);
       raf = requestAnimationFrame(tick);
     }
   };
@@ -52,8 +53,8 @@ export function playNotes(
     const playTime = Math.max(n.time, startOffset);
     const releaseTime = n.time + Math.max(0, n.duration);
 
-    const tOn = base + (playTime - startOffset);
-    const tOff = base + (releaseTime - startOffset);
+    const tOn = base + (playTime - startOffset) / speed;
+    const tOff = base + (releaseTime - startOffset) / speed;
 
     timers.push(
       scheduleAt(tOn, () => {
@@ -82,7 +83,7 @@ export function playNotes(
       onKeys(active);
       onEnded?.();
     },
-    (durationSec - startOffset + 0.6) * 1000,
+    (durationSec - startOffset + 0.6) / speed * 1000,
   );
 
   return {
