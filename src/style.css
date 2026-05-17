@@ -627,16 +627,33 @@ body {
 .score-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 16px;
   min-height: 240px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+
+.score-scroll .score {
+  position: relative;
+  will-change: transform;
+  flex-shrink: 0;
+}
+
+/* ── 固定判定线 ── */
+.judgment-line {
+  position: absolute;
+  left: 25%;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #e53935;
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(229,57,53,0.45);
 }
 
 .score-pager {
@@ -657,22 +674,6 @@ body {
   text-align: center;
 }
 
-.score {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/** 一行乐谱：内含一张横向相接的 SVG（.score-row-host） */
-.score-measure-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.score.score--paginated {
-  gap: 16px;
-}
 
 .score-page {
   background: var(--surface);
@@ -728,12 +729,9 @@ body {
   display: block;
 }
 
-/* 勿缩小 SVG：小节 overlay 按未缩放像素对齐，否则播放头错位 */
-.score-row-host .vf-wrap svg {
+/* 五线谱以 <img> 形式渲染，确保按原始尺寸显示（与播放头 overlay 对齐） */
+.score-row-host img {
   display: block;
-  max-width: none;
-  width: auto;
-  height: auto;
 }
 
 /* ── 倒计时 ── */

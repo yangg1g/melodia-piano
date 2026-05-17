@@ -4,7 +4,7 @@ import { vexVoiceTimeStr, type Hand, type MeasureContext, type VoiceAtom } from 
 const BASE_SCORE_HEIGHT = 220;
 const BASE_SYSTEM_Y = 12;
 
-/** 根据音符八度估算上下留白，避免加线音符被 SVG 裁切 */
+/** 根据音符八度估算上下留白，避免加线音符被 canvas 裁切 */
 function canvasPaddingForAtoms(treble: VoiceAtom[], bass: VoiceAtom[]): { padTop: number; padBottom: number } {
   let minOct = 99;
   let maxOct = -99;
@@ -86,39 +86,20 @@ export type GrandStaffColumn = {
 };
 
 /**
- * 与 {@link renderGrandStaffRow} 中 VexFlow System（x≈12、segW、行内相接）一致；
- * 坐标为「单行内该小节 overlay 局部」，与绝对定位的 column 左缘对齐。
- */
-export function playheadXInMeasureOverlay(
-  measuresInRow: number,
-  columnWidth: number,
-  columnIndexInRow: number,
-  hasStaffHeader: boolean,
-  progress01: number,
-): number {
-  const n = Math.max(1, measuresInRow);
-  const totalW = n * columnWidth;
-  const segW = Math.max(40, Math.floor((totalW - 24) / n));
-  const systemLocalLeft = 12 + columnIndexInRow * (segW - columnWidth);
-  const innerLeft = hasStaffHeader ? 84 : 14;
-  const rightPad = 12;
-  const span = Math.max(12, segW - innerLeft - rightPad);
-  const p = Math.min(1, Math.max(0, progress01));
-  return systemLocalLeft + innerLeft + p * span;
-}
-
-/**
- * 将一行内多小节画在同一张 SVG 里，小节 System 横向首尾相接（无 HTML 间隙）。
- * `columnWidth` 为版面分配给每小节的宽度（与分页/播放头用的 measureWidth 一致）。
+ * 将一行内多小节渲染成图片（Canvas → data URL → <img>），
+ * 小节 System 横向首尾相接。
+ * `columnWidth` 为版面分配给每小节的宽度。
+ * `hideOverlays` 为 true 时不生成播放头 overlay。
  */
 export function renderGrandStaffRow(
   container: HTMLElement,
   columns: GrandStaffColumn[],
   ctx: MeasureContext,
   columnWidth: number,
-): number {
+  hideOverlays = false,
+): { height: number; totalWidth: number } {
   const n = columns.length;
-  if (n === 0) return 0;
+  if (n === 0) return { height: 0, totalWidth: 0 };
 
   let maxPadTop = 0;
   let maxPadBottom = 0;
@@ -135,38 +116,42 @@ export function renderGrandStaffRow(
 
   const host = document.createElement('div');
   host.className = 'score-row-host';
-  host.style.position = 'relative';
-  host.style.width = `${totalWidth}px`;
-  host.style.flexShrink = '0';
+  host.style.cssText = `position:relative;width:${totalWidth}px;height:${height}px;flex-shrink:0`;
 
-  const vfId = `vf-row-${Math.random().toString(36).slice(2)}`;
-  const vfWrap = document.createElement('div');
-  vfWrap.className = 'vf-wrap';
-  vfWrap.id = vfId;
-  host.appendChild(vfWrap);
+  // 离屏 Canvas：VexFlow 以 Canvas 后端绘制，之后导出为 data URL
+  const canvasId = `vf-canvas-${Math.random().toString(36).slice(2)}`;
+  const canvas = document.createElement('canvas');
+  canvas.id = canvasId;
+  canvas.width = totalWidth;
+  canvas.height = height;
+  canvas.style.cssText = 'position:absolute;left:-99999px;top:0;width:1px;height:1px';
+  host.appendChild(canvas);
 
-  for (let i = 0; i < n; i++) {
-    const col = columns[i];
-    const overlay = document.createElement('div');
-    overlay.className = 'score-measure';
-    overlay.dataset.measureIndex = String(col.measureIndex);
-    overlay.dataset.hasStaffHeader = col.showStaffHeader ? '1' : '0';
-    overlay.style.cssText = `position:absolute;left:${i * columnWidth}px;top:0;width:${columnWidth}px;height:100%;pointer-events:none;box-sizing:border-box`;
-    const wrap = document.createElement('div');
-    wrap.className = 'score-measure-wrap';
-    wrap.style.cssText = 'position:relative;height:100%';
-    const playhead = document.createElement('div');
-    playhead.className = 'playhead';
-    playhead.setAttribute('aria-hidden', 'true');
-    wrap.appendChild(playhead);
-    overlay.appendChild(wrap);
-    host.appendChild(overlay);
+  if (!hideOverlays) {
+    for (let i = 0; i < n; i++) {
+      const col = columns[i];
+      const overlay = document.createElement('div');
+      overlay.className = 'score-measure';
+      overlay.dataset.measureIndex = String(col.measureIndex);
+      overlay.dataset.hasStaffHeader = col.showStaffHeader ? '1' : '0';
+      overlay.style.cssText = `position:absolute;left:${i * columnWidth}px;top:0;width:${columnWidth}px;height:100%;pointer-events:none`;
+      const wrap = document.createElement('div');
+      wrap.className = 'score-measure-wrap';
+      wrap.style.cssText = 'position:relative;height:100%';
+      const playhead = document.createElement('div');
+      playhead.className = 'playhead';
+      playhead.setAttribute('aria-hidden', 'true');
+      wrap.appendChild(playhead);
+      overlay.appendChild(wrap);
+      host.appendChild(overlay);
+    }
   }
 
   container.appendChild(host);
 
+  // --- VexFlow 绘制到 Canvas ---
   const factory = new Factory({
-    renderer: { elementId: vfId, width: totalWidth, height },
+    renderer: { elementId: canvasId, width: totalWidth, height },
   });
 
   for (let i = 0; i < n; i++) {
@@ -203,5 +188,14 @@ export function renderGrandStaffRow(
   }
 
   factory.draw();
-  return height + 8;
+
+  // --- 导出 Canvas → PNG → <img> ---
+  const img = document.createElement('img');
+  img.src = canvas.toDataURL('image/png');
+  img.alt = '乐谱';
+  img.style.cssText = `display:block;width:${totalWidth}px;height:${height}px`;
+  host.insertBefore(img, canvas);
+  host.removeChild(canvas);
+
+  return { height: height + 8, totalWidth };
 }

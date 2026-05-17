@@ -9,7 +9,7 @@ import {
   type FlatNote,
   type MeasureContext,
 } from './midiScore';
-import { playheadXInMeasureOverlay, renderGrandStaffRow, type GrandStaffColumn } from './renderScore';
+import { renderGrandStaffRow, type GrandStaffColumn } from './renderScore';
 import { createFallingNotesLane } from './fallingNotes';
 import { applyKeyVisuals, createPianoKeyboard } from './pianoKeyboard';
 import { playNotes, type PlaybackController } from './playback';
@@ -187,6 +187,7 @@ const songList = document.querySelector<HTMLDivElement>('#song-list')!;
 const fileInput = document.querySelector<HTMLInputElement>('#midi-file')!;
 const btnBack = document.querySelector<HTMLButtonElement>('#btn-back')!;
 const scoreEl = document.querySelector<HTMLDivElement>('#score')!;
+const scoreScrollEl = document.querySelector<HTMLDivElement>('#score-scroll')!;
 const scorePagerEl = document.querySelector<HTMLDivElement>('#score-pager')!;
 const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
 const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
@@ -889,10 +890,60 @@ btnMidiRefresh.addEventListener('click', async () => {
   refillMidiSelect();
 });
 
-function hideScorePlayhead() {
-  for (const ph of scoreEl.querySelectorAll<HTMLElement>('.playhead')) {
-    ph.classList.remove('is-visible');
+interface ScorePagerState {
+  ctx: MeasureContext;
+  midi: Midi;
+  nMeas: number;
+  measureWidth: number;
+}
+
+let scorePagerState: ScorePagerState | null = null;
+
+function renderStaff(stripEl: HTMLElement, midi: Midi) {
+  const ctx = getMeasureContext(midi);
+  const nMeas = measureCount(midi, ctx);
+  // 每小节渲染宽度（像素），180px 兼顾可读性与 canvas 体积
+  const measureWidth = 180;
+
+  const columns: GrandStaffColumn[] = [];
+  for (let i = 0; i < nMeas; i++) {
+    columns.push({
+      measureIndex: i,
+      trebleAtoms: buildAtomsForHand(flatNotes, midi, 'treble', ctx, i),
+      bassAtoms: buildAtomsForHand(flatNotes, midi, 'bass', ctx, i),
+      showStaffHeader: i === 0,
+    });
   }
+  const { height: stripHeight } = renderGrandStaffRow(stripEl, columns, ctx, measureWidth, true);
+
+  scorePagerState = { ctx, midi, nMeas, measureWidth };
+  stripEl.style.minHeight = `${stripHeight}px`;
+}
+
+function addJudgmentLine() {
+  // 移除旧的判定线
+  const old = scoreScrollEl.querySelector('.judgment-line');
+  if (old) old.remove();
+  const line = document.createElement('div');
+  line.className = 'judgment-line';
+  line.setAttribute('aria-hidden', 'true');
+  scoreScrollEl.appendChild(line);
+}
+
+function resetStaffScroll() {
+  scoreEl.style.transform = `translateX(${getJudgeX()}px)`;
+}
+
+function getJudgeX(): number {
+  const vpW = scoreScrollEl.clientWidth;
+  return Math.max(80, Math.floor(vpW * 0.25));
+}
+
+function scrollStaffToProgress(progress01: number) {
+  const st = scorePagerState;
+  if (!st) return;
+  const totalStrip = st.nMeas * st.measureWidth;
+  scoreEl.style.transform = `translateX(${getJudgeX() - progress01 * totalStrip}px)`;
 }
 
 function updateMeasureInfo(current: number, total: number) {
@@ -903,93 +954,30 @@ function updateMeasureInfo(current: number, total: number) {
   measureInfoEl.textContent = `第 ${current + 1} / ${total} 小节`;
 }
 
-function scrollMeasureIntoView(measureIndex: number) {
-  const el = scoreEl.querySelector<HTMLElement>(`.score-measure[data-measure-index="${measureIndex}"]`);
-  if (!el) return;
-  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-}
-
 function updateScorePlayhead(timeSec: number) {
   const st = scorePagerState;
   const midi = currentMidi;
   if (!st || !midi) {
-    hideScorePlayhead();
+    resetStaffScroll();
     return;
   }
-  if (timeSec >= midi.duration - 1e-3) {
-    hideScorePlayhead();
+  if (timeSec >= midi.duration - 1e-3 || timeSec < 0) {
+    resetStaffScroll();
     return;
   }
-  const ctx = st.ctx;
+
   const ticks = midi.header.secondsToTicks(Math.max(0, timeSec));
-  let m = Math.floor(ticks / ctx.ticksPerMeasure);
-  if (m < 0) m = 0;
-  if (m >= st.nMeas) m = st.nMeas - 1;
-  updateMeasureInfo(m, st.nMeas);
-  scrollMeasureIntoView(m);
-  const measureStartTick = m * ctx.ticksPerMeasure;
-  const progress = Math.min(1, Math.max(0, (ticks - measureStartTick) / ctx.ticksPerMeasure));
-  const w = st.measureWidth;
-  const colInRow = m % st.measuresPerRow;
-  for (const row of scoreEl.querySelectorAll<HTMLElement>('.score-measure')) {
-    const ph = row.querySelector<HTMLElement>('.playhead');
-    if (!ph) continue;
-    const midx = Number(row.dataset.measureIndex);
-    if (midx !== m) {
-      ph.classList.remove('is-visible');
-      continue;
-    }
-    const hasHeader = row.dataset.hasStaffHeader === '1';
-    ph.style.left = `${playheadXInMeasureOverlay(st.measuresPerRow, w, colInRow, hasHeader, progress)}px`;
-    ph.classList.add('is-visible');
-  }
+  const progress = Math.min(1, Math.max(0, ticks / midi.durationTicks));
+
+  scrollStaffToProgress(progress);
+
+  // 更新小节信息
+  const m = Math.floor(ticks / st.ctx.ticksPerMeasure);
+  updateMeasureInfo(Math.min(m, st.nMeas - 1), st.nMeas);
 }
 
-interface ScorePagerState {
-  ctx: MeasureContext;
-  midi: Midi;
-  nMeas: number;
-  measuresPerRow: number;
-  width: number;
-  measureWidth: number;
-}
-
-let scorePagerState: ScorePagerState | null = null;
-
-const SCORE_LAYOUT = {
-  measuresPerRow: 2,
-} as const;
-
-function measureWidthForRow(totalWidthPx: number, measuresPerRow: number): number {
-  const n = Math.max(1, measuresPerRow);
-  return Math.max(160, Math.floor(totalWidthPx / n));
-}
-
-function renderScoreMeasuresInRows(
-  parent: HTMLElement,
-  fromIdx: number,
-  toIdxExclusive: number,
-  measuresPerRow: number,
-  measureWidth: number,
-  ctx: MeasureContext,
-  midi: Midi,
-) {
-  for (let start = fromIdx; start < toIdxExclusive; start += measuresPerRow) {
-    const rowWrap = document.createElement('div');
-    rowWrap.className = 'score-measure-row';
-    parent.appendChild(rowWrap);
-    const end = Math.min(toIdxExclusive, start + measuresPerRow);
-    const columns: GrandStaffColumn[] = [];
-    for (let i = start; i < end; i++) {
-      columns.push({
-        measureIndex: i,
-        trebleAtoms: buildAtomsForHand(flatNotes, midi, 'treble', ctx, i),
-        bassAtoms: buildAtomsForHand(flatNotes, midi, 'bass', ctx, i),
-        showStaffHeader: i === start,
-      });
-    }
-    renderGrandStaffRow(rowWrap, columns, ctx, measureWidth);
-  }
+function hideScorePlayhead() {
+  resetStaffScroll();
 }
 
 function noteRange(notes: typeof flatNotes): { min: number; max: number } {
@@ -1010,26 +998,24 @@ function noteRange(notes: typeof flatNotes): { min: number; max: number } {
 function renderAll(midi: Midi) {
   currentMidi = midi;
   flatNotes = flattenNotes(midi);
-  const ctx = getMeasureContext(midi);
-  const nMeas = measureCount(midi, ctx);
-  const w = Math.min(760, Math.floor(window.innerWidth - 40));
-  const measuresPerRow = Math.max(1, SCORE_LAYOUT.measuresPerRow);
-  const measureWidth = measureWidthForRow(w, measuresPerRow);
 
-  scorePagerState = { ctx, midi, nMeas, measuresPerRow, width: w, measureWidth };
-
-  updateMeasureInfo(0, nMeas);
-
-  scoreEl.classList.remove('score--paginated');
   scoreEl.innerHTML = '';
-  scorePagerEl.hidden = true;
-  renderScoreMeasuresInRows(scoreEl, 0, nMeas, measuresPerRow, measureWidth, ctx, midi);
+  scoreEl.style.cssText = 'position:relative;will-change:transform';
+  scoreScrollEl.style.cssText = 'overflow:hidden;position:relative';
+
+  renderStaff(scoreEl, midi);
+  addJudgmentLine();
+
+  // 初始定位：开头对准判定线，避免播放瞬间跳跃
+  scoreEl.style.transform = `translateX(${getJudgeX()}px)`;
 
   const range = noteRange(flatNotes);
   keyEls = createPianoKeyboard(keyboardHost, range.min, range.max);
   fallingNotes.setRange(range.min, range.max);
   fallingNotes.setSource(flatNotes, midi);
   fallingNotes.clear();
+
+  if (scorePagerState) updateMeasureInfo(0, scorePagerState.nMeas);
 
   totalDurationSec = midi.duration;
   resetProgressBar();
@@ -1198,6 +1184,13 @@ progressBar.addEventListener('input', () => {
     btnPlay.disabled = false;
     btnStop.disabled = true;
   }
+
+  // 拖拽时同步更新五线谱位置
+  if (!currentMidi || flatNotes.length === 0) return;
+  const pct = Number(progressBar.value) / 1000;
+  const timeSec = pct * totalDurationSec;
+  updateProgressBar(timeSec);
+  scrollStaffToProgress(pct);
 });
 
 progressBar.addEventListener('change', () => {
@@ -1206,11 +1199,11 @@ progressBar.addEventListener('change', () => {
   const pct = Number(progressBar.value) / 1000;
   const timeSec = pct * totalDurationSec;
   updateProgressBar(timeSec);
-  if (wasPlayingBeforeSeek && getPlayMode() === 'auto') {
+  scrollStaffToProgress(pct);
+  if (wasPlayingBeforeSeek) {
     wasPlayingBeforeSeek = false;
+    // 所有模式都支持拖拽跳转
     startPlayFrom(timeSec);
-  } else {
-    wasPlayingBeforeSeek = false;
   }
 });
 
