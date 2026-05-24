@@ -31,6 +31,12 @@ app.innerHTML = `
       </div>
       <p class="song-list-subtitle">选择一首歌曲开始练习</p>
       <div id="settings-summary" class="settings-summary">普通 · 下落 3.0s · 速度 1.0× · 普通判定</div>
+      <div id="song-list-midi-row" class="song-list-midi-row">
+        <label class="song-list-midi-label" for="song-list-midi-input">MIDI 输入</label>
+        <select id="song-list-midi-input" class="song-list-midi-select" aria-label="MIDI 输入设备"></select>
+        <button type="button" id="song-list-midi-refresh" class="btn secondary song-list-midi-btn">刷新设备</button>
+        <span id="song-list-midi-status" class="song-list-midi-status"></span>
+      </div>
     </header>
     <div class="song-list-body">
       <div class="history-panel">
@@ -62,20 +68,12 @@ app.innerHTML = `
       <span id="measure-info" class="measure-info"></span>
       <div class="toolbar-actions">
         <button type="button" id="btn-back" class="btn secondary">← 返回</button>
-        <div class="mode-group">
-          <span>模式</span>
-          <label><input type="radio" name="play-mode" value="normal" checked /> 普通模式</label>
-          <label><input type="radio" name="play-mode" value="auto" /> 自动播放</label>
-          <label><input type="radio" name="play-mode" value="keyboard" /> MIDI 跟弹</label>
-        </div>
-        <div id="midi-row" class="midi-row" hidden>
-          <label for="midi-input">MIDI 输入</label>
-          <select id="midi-input" aria-label="MIDI 输入设备"></select>
-          <button type="button" id="btn-midi-refresh" class="btn secondary">刷新设备</button>
-        </div>
         <button type="button" id="btn-play" class="btn primary">播放</button>
         <button type="button" id="btn-stop" class="btn secondary" disabled>停止</button>
         <button type="button" id="btn-edit" class="btn secondary" hidden>编辑</button>
+        <!-- 保留隐藏元素供 JS 引用 -->
+        <select id="midi-input" hidden aria-label="MIDI 输入设备"></select>
+        <button id="btn-midi-refresh" hidden></button>
       </div>
       <div class="edit-toolbar" hidden>
         <button type="button" id="btn-finger" class="btn secondary">指法</button>
@@ -228,7 +226,6 @@ const btnSaveEdits = document.querySelector<HTMLButtonElement>('#btn-save-edits'
 const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
 const fallingNotes = createFallingNotesLane(keyboardStack);
-const midiRow = document.querySelector<HTMLDivElement>('#midi-row')!;
 const midiInputSelect = document.querySelector<HTMLSelectElement>('#midi-input')!;
 const btnMidiRefresh = document.querySelector<HTMLButtonElement>('#btn-midi-refresh')!;
 const keyboardHint = document.querySelector<HTMLParagraphElement>('#keyboard-hint')!;
@@ -267,6 +264,11 @@ const settingsMeasureWidth = document.querySelector<HTMLInputElement>('#settings
 const settingsMeasureWidthVal = document.querySelector<HTMLSpanElement>('#settings-measure-width-val')!;
 const settingsDifficultyInfo = document.querySelector<HTMLSpanElement>('#settings-difficulty-info')!;
 const settingsSummaryEl = document.querySelector<HTMLDivElement>('#settings-summary')!;
+
+/* ── 选歌页 MIDI 输入选择 ── */
+const songListMidiInputSelect = document.querySelector<HTMLSelectElement>('#song-list-midi-input')!;
+const songListMidiRefresh = document.querySelector<HTMLButtonElement>('#song-list-midi-refresh')!;
+const songListMidiStatus = document.querySelector<HTMLSpanElement>('#song-list-midi-status')!;
 
 function updateSettingsSummary(s: AppSettings) {
   const modeLabel = s.mode === 'normal' ? '普通模式' : s.mode === 'auto' ? '自动播放' : 'MIDI跟弹';
@@ -859,13 +861,10 @@ function resetProgressBar() {
 type PlayMode = 'normal' | 'auto' | 'keyboard';
 
 function getPlayMode(): PlayMode {
-  const el = document.querySelector<HTMLInputElement>('input[name="play-mode"]:checked');
-  return (el?.value as PlayMode) ?? 'normal';
+  return loadSettings().mode;
 }
 
-function setPlayMode(mode: PlayMode) {
-  const radio = document.querySelector<HTMLInputElement>(`input[name="play-mode"][value="${mode}"]`);
-  if (radio) radio.checked = true;
+function setPlayMode(_mode: PlayMode) {
   syncModeUi();
 }
 
@@ -881,7 +880,6 @@ function updateKeyboardHint() {
 }
 
 function syncModeUi() {
-  midiRow.hidden = getPlayMode() !== 'keyboard';
   scoreDisplay.hidden = getPlayMode() === 'auto';
   updateKeyboardHint();
   btnEdit.hidden = pianoPage.hidden || getRenderMode() !== 'original';
@@ -917,13 +915,6 @@ function updateScoreUI(state: ScoreState) {
   }
 }
 
-for (const r of document.querySelectorAll<HTMLInputElement>('input[name="play-mode"]')) {
-  r.addEventListener('change', () => {
-    stopPlayback();
-    syncModeUi();
-  });
-}
-
 async function ensureMidiAccess(): Promise<MIDIAccess | null> {
   if (!navigator.requestMIDIAccess) return null;
   try {
@@ -950,6 +941,37 @@ function refillMidiSelect() {
   if (prev && [...sel.options].some((o) => o.value === prev)) {
     sel.value = prev;
   }
+  // 同步到选歌页的 select
+  syncSongListMidiSelect();
+}
+
+function syncSongListMidiSelect() {
+  const sel = midiInputSelect;
+  const songSel = songListMidiInputSelect;
+  if (!songSel) return;
+  const prev = songSel.value;
+  songSel.innerHTML = '';
+  if (!midiAccess) return;
+  midiAccess.inputs.forEach((input) => {
+    const opt = document.createElement('option');
+    opt.value = input.id;
+    opt.textContent = input.name || input.id || 'MIDI 输入';
+    songSel.appendChild(opt);
+  });
+  // 优先恢复之前选中的设备，否则同步钢琴页的选择
+  const restoreValue = prev && [...songSel.options].some((o) => o.value === prev) ? prev : sel.value;
+  if (restoreValue && [...songSel.options].some((o) => o.value === restoreValue)) {
+    songSel.value = restoreValue;
+  }
+  // 设备状态显示
+  if (midiAccess && midiAccess.inputs.size === 0) {
+    songListMidiStatus.textContent = '未检测到设备';
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
+  } else {
+    const selectedName = songSel.selectedOptions[0]?.textContent || '';
+    songListMidiStatus.textContent = selectedName ? `已连接: ${selectedName}` : `${midiAccess.inputs.size} 个设备`;
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--ok';
+  }
 }
 
 btnMidiRefresh.addEventListener('click', async () => {
@@ -960,6 +982,64 @@ btnMidiRefresh.addEventListener('click', async () => {
   }
   refillMidiSelect();
 });
+
+/* ── 选歌页 MIDI 输入选择 ── */
+
+songListMidiRefresh.addEventListener('click', async () => {
+  const access = await ensureMidiAccess();
+  if (!access) {
+    songListMidiStatus.textContent = '无 MIDI 支持';
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
+    return;
+  }
+  refillMidiSelect();
+});
+
+// 选歌页 select 变更时同步到钢琴页 select
+songListMidiInputSelect.addEventListener('change', () => {
+  if (midiInputSelect.value !== songListMidiInputSelect.value) {
+    midiInputSelect.value = songListMidiInputSelect.value;
+    updateSongListMidiStatus();
+  }
+});
+
+// 钢琴页 select 变更时同步到选歌页 select
+midiInputSelect.addEventListener('change', () => {
+  if (songListMidiInputSelect.value !== midiInputSelect.value) {
+    songListMidiInputSelect.value = midiInputSelect.value;
+    updateSongListMidiStatus();
+  }
+});
+
+function updateSongListMidiStatus() {
+  if (!midiAccess) {
+    songListMidiStatus.textContent = '';
+    return;
+  }
+  const sel = songListMidiInputSelect;
+  if (sel.value && sel.selectedOptions[0]) {
+    songListMidiStatus.textContent = `已连接: ${sel.selectedOptions[0].textContent}`;
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--ok';
+  } else if (midiAccess.inputs.size === 0) {
+    songListMidiStatus.textContent = '未检测到设备';
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
+  } else {
+    songListMidiStatus.textContent = `${midiAccess.inputs.size} 个设备可用`;
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--ok';
+  }
+}
+
+// 加载选歌页时自动检测 MIDI 设备
+async function initSongListMidi() {
+  const access = await ensureMidiAccess();
+  if (access) {
+    refillMidiSelect();
+  } else {
+    songListMidiStatus.textContent = '浏览器不支持 MIDI';
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
+  }
+}
+initSongListMidi();
 
 interface ScorePagerState {
   ctx: MeasureContext;

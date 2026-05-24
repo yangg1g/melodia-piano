@@ -78,7 +78,7 @@ export function preloadPiano(): Promise<void> {
     }
 
     sampler = new Sampler(loaded).toDestination();
-    sampler.volume.value = -4;
+    sampler.volume.value = 0;
 
     if (nFailed > 0) {
       const detail = formatFailed(results, entries);
@@ -120,7 +120,10 @@ export function playPianoMidi(midi: number, durationSec: number, velocity: numbe
   const dur = Math.max(1e-4, durationSec);
   const noteName = midiToNote(midi);
   activeNotes.add(noteName);
-  sampler.triggerAttackRelease(noteName, dur, now(), velocity);
+  // 力度曲线：对轻弹（低 velocity）做非线性放大，让弹奏力度听起来更自然
+  // 0.4 次方映射：v=0.1→0.40, v=0.3→0.62, v=0.5→0.76, v=1.0→1.0
+  const boostedVel = Math.pow(Math.max(0, Math.min(1, velocity)), 0.4);
+  sampler.triggerAttackRelease(noteName, dur, now(), boostedVel);
   setTimeout(() => activeNotes.delete(noteName), (dur + 0.05) * 1000);
 }
 
