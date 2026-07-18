@@ -1304,12 +1304,30 @@ async function startPlayFrom(offsetSec: number) {
     }
   };
 
-  try {
-    await ensureSalamanderPiano();
-  } catch {
-    alert('音频引擎初始化失败，请刷新页面重试。');
-    onPlaybackEnded();
-    return;
+  {
+    let retries = 3;
+    let lastErr: unknown;
+    while (retries > 0) {
+      try {
+        await ensureSalamanderPiano();
+        lastErr = undefined;
+        break;
+      } catch (err) {
+        lastErr = err;
+        retries--;
+        if (retries > 0) {
+          // 清理旧 AudioContext 状态，短暂等待后重试
+          console.warn(`音频引擎初始化失败，剩余重试次数: ${retries}`, err);
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+    }
+    if (lastErr) {
+      console.error('[startPlayFrom] 重试耗尽，初始化失败:', lastErr);
+      alert('音频引擎初始化失败，请刷新页面重试。');
+      onPlaybackEnded();
+      return;
+    }
   }
 
   /* ── 自动播放模式 ── */

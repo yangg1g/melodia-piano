@@ -1,109 +1,53 @@
-import { Sampler, start, now, ToneAudioBuffer } from 'tone';
+import { SplendidGrandPiano } from 'smplr';
+import { start, getContext } from 'tone';
 
-const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
-
-function midiToNote(midi: number): string {
-  return NOTES[midi % 12] + (Math.floor(midi / 12) - 1);
-}
-
-/**
- * 构建采样 URL 映射：样本文件名 → 音名
- * 每个八度提供了 C、D#、F#、A 四个键的采样（0 八度仅有 A0，8 八度仅有 C8）。
- * 未采样的音会自动由相邻样本变速拉伸得到。
- */
-function buildSampleMap(): Record<string, string> {
-  const map: Record<string, string> = {};
-  map['A0'] = '/audio/A0v11.mp3';
-  const sampleNotes = ['C', 'D#', 'F#', 'A'];
-  for (let octave = 1; octave <= 7; octave++) {
-    for (const name of sampleNotes) {
-      map[`${name}${octave}`] = `/audio/${name}${octave}v11.mp3`;
-    }
-  }
-  map['C8'] = '/audio/C8v11.mp3';
-  return map;
-}
-
-let sampler: Sampler | null = null;
+let piano: ReturnType<typeof SplendidGrandPiano> | null = null;
 let initPromise: Promise<void> | null = null;
 
-function formatFailed(
-  results: PromiseSettledResult<{ note: string; buffer: ToneAudioBuffer }>[],
-  entries: [string, string][],
-): string {
-  const lines: string[] = [];
-  for (let i = 0; i < results.length; i++) {
-    if (results[i].status === 'rejected') {
-      const [note, url] = entries[i];
-      const msg = (results[i].reason as Error)?.message ?? String(results[i].reason);
-      lines.push(`  ${note} (${url}): ${msg}`);
-    }
-  }
-  return lines.join('\n');
+/** 当前正在发声的音符的停止函数映射 */
+const activeNoteStops = new Map<number, () => void>();
+
+function toSmplrVelocity(velocity: number): number {
+  // velocity 0-1 → 0.4 次方力度曲线 → 0-127 MIDI 力度
+  const boosted = Math.pow(Math.max(0, Math.min(1, velocity)), 0.4);
+  return Math.round(boosted * 127);
 }
 
 /**
- * 用 ToneAudioBuffer 手动预加载所有样本，Promise 精确控制完成时机。
- * 15 秒超时兜底并允许重试，防止 onload 永不触发导致死锁。
+ * 加载 SplendidGrandPiano 音色库。
+ * 底层只会请求单个 SoundFont 文件，浏览器可长缓存，无需刷新后重新下载。
+ * 30 秒超时兜底并允许重试。
  */
 export function preloadPiano(): Promise<void> {
   if (initPromise) return initPromise;
-
-  const urlMap = buildSampleMap();
-  const entries = Object.entries(urlMap);
-
-  const loadPromise = start().then(async () => {
-    // 每个样本独立加载，用 allSettled 收集所有结果
-    const results = await Promise.allSettled(
-      entries.map(async ([note, url]) => {
-        const buf = new ToneAudioBuffer();
-        await buf.load(url);
-        return { note, buffer: buf };
-      }),
-    );
-
-    // 区分成功与失败
-    const loaded: Record<string, ToneAudioBuffer> = {};
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        loaded[r.value.note] = r.value.buffer;
-      }
-    }
-
-    const nLoaded = Object.keys(loaded).length;
-    const nFailed = entries.length - nLoaded;
-
-    if (nLoaded === 0) {
-      throw new Error(`所有 ${entries.length} 个采样加载失败：\n${formatFailed(results, entries)}`);
-    }
-
-    sampler = new Sampler(loaded).toDestination();
-    sampler.volume.value = 0;
-
-    if (nFailed > 0) {
-      const detail = formatFailed(results, entries);
-      console.warn(`[salamanderPiano] ${nFailed}/${entries.length} 个采样失败：\n${detail}`);
-    } else {
-      console.log(`[salamanderPiano] ${entries.length} 个采样加载完成`);
-    }
-  });
 
   // 超时兜底
   let timeoutId: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<void>((_, reject) => {
     timeoutId = setTimeout(() => {
-      const detail = entries.map(([note, url]) => `  ${note} -> ${url}`).join('\n');
-      reject(new Error(`采样加载超时(15s)\n等待中的文件：\n${detail}`));
-    }, 15000);
+      reject(new Error('音频引擎加载超时(30s)'));
+    }, 30000);
   });
 
-  initPromise = Promise.race([loadPromise, timeoutPromise]).finally(() => {
-    clearTimeout(timeoutId!);
-  }).catch((err: unknown) => {
-    console.error('[salamanderPiano] 加载失败:', err);
-    initPromise = null; // 允许重试
-    throw err;
-  });
+  const loadPromise = (async () => {
+    await start();
+    const ac = getContext().rawContext;
+    if (ac.state === 'suspended') {
+      await ac.resume();
+    }
+
+    piano = SplendidGrandPiano(ac, { volume: 100 });
+    await piano.ready;
+    console.log('[salamanderPiano] SplendidGrandPiano 加载完成');
+  })();
+
+  initPromise = Promise.race([loadPromise, timeoutPromise])
+    .finally(() => clearTimeout(timeoutId!))
+    .catch((err: unknown) => {
+      console.error('[salamanderPiano] 加载失败:', err);
+      initPromise = null; // 允许重试
+      throw err;
+    });
 
   return initPromise;
 }
@@ -112,44 +56,39 @@ export async function ensureSalamanderPiano(): Promise<void> {
   await preloadPiano();
 }
 
-/** 记录当前正在发声的音名，供 releaseAll 使用 */
-const activeNotes = new Set<string>();
-
 export function playPianoMidi(midi: number, durationSec: number, velocity: number): void {
-  if (!sampler) return;
-  const dur = Math.max(1e-4, durationSec);
-  const noteName = midiToNote(midi);
-  activeNotes.add(noteName);
-  // 力度曲线：对轻弹（低 velocity）做非线性放大，让弹奏力度听起来更自然
-  // 0.4 次方映射：v=0.1→0.40, v=0.3→0.62, v=0.5→0.76, v=1.0→1.0
-  const boostedVel = Math.pow(Math.max(0, Math.min(1, velocity)), 0.4);
-  sampler.triggerAttackRelease(noteName, dur, now(), boostedVel);
-  setTimeout(() => activeNotes.delete(noteName), (dur + 0.05) * 1000);
+  if (!piano) return;
+  const ac = piano.context;
+  piano.start({
+    note: midi,
+    velocity: toSmplrVelocity(velocity),
+    duration: Math.max(1e-4, durationSec),
+    time: ac.currentTime,
+  });
 }
 
-/**
- * 起音（不自动释音），用于跟弹模式：按下琴键时发声，松开时调用 releasePianoNote 停止。
- */
 export function startPianoNote(midi: number, velocity: number): void {
-  if (!sampler) return;
-  const noteName = midiToNote(midi);
-  activeNotes.add(noteName);
-  const boostedVel = Math.pow(Math.max(0, Math.min(1, velocity)), 0.4);
-  sampler.triggerAttack(noteName, now(), boostedVel);
+  if (!piano) return;
+  const ac = piano.context;
+  const stop = piano.start({
+    note: midi,
+    velocity: toSmplrVelocity(velocity),
+    time: ac.currentTime,
+  });
+  activeNoteStops.set(midi, stop);
 }
 
-/** 释音：松开琴键时停止指定音符 */
 export function releasePianoNote(midi: number): void {
-  if (!sampler) return;
-  const noteName = midiToNote(midi);
-  sampler.triggerRelease(noteName, now());
-  activeNotes.delete(noteName);
+  if (!piano) return;
+  const stop = activeNoteStops.get(midi);
+  if (stop) {
+    stop();
+    activeNoteStops.delete(midi);
+  }
 }
 
 export function releaseAllPiano(): void {
-  if (!sampler) return;
-  for (const note of activeNotes) {
-    sampler.triggerRelease(note, now());
-  }
-  activeNotes.clear();
+  if (!piano) return;
+  piano.stop();
+  activeNoteStops.clear();
 }
