@@ -1118,6 +1118,28 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.result-max-section {
+  margin-bottom: 8px;
+}
+
+.result-max-score {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-ratio-section {
+  margin-bottom: 16px;
+}
+
+.result-ratio {
+  font-size: 1.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 .result-accuracy-section {
   margin-bottom: 24px;
 }
@@ -1396,4 +1418,42 @@ body {
   padding: 8px 12px;
   background: #f8f9fc;
   border-radius: 8px;
+}
+
+/* ── 自定义确认对话框 ── */
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.confirm-dialog-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: result-enter 0.25s ease-out;
+  text-align: center;
+}
+
+.confirm-dialog-msg {
+  margin: 0 0 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }

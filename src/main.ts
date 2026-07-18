@@ -122,6 +122,13 @@ app.innerHTML = `
         <div class="result-score-label">最终得分</div>
         <div class="result-score" id="result-score">0</div>
       </div>
+      <div class="result-max-section">
+        <div class="result-score-label">理论最高</div>
+        <div class="result-max-score" id="result-max-score">0</div>
+      </div>
+      <div class="result-ratio-section">
+        <div class="result-ratio" id="result-ratio">-</div>
+      </div>
       <div class="result-accuracy-section">
         <div class="result-accuracy" id="result-accuracy">100.00%</div>
         <div class="result-maxcombo" id="result-maxcombo">最高 Combo: 0</div>
@@ -145,13 +152,13 @@ app.innerHTML = `
         <div class="result-judge-row"><span class="judge-label judge--perfect">PERFECT</span><span class="judge-count" id="judge-perfect">0</span></div>
         <div class="result-judge-row"><span class="judge-label judge--ok">OK</span><span class="judge-count" id="judge-ok">0</span></div>
         <div class="result-judge-row"><span class="judge-label judge--miss">MISS</span><span class="judge-count" id="judge-miss">0</span></div>
-        <div class="result-judge-row"><span class="judge-label judge--wrong">按错键</span><span class="judge-count" id="judge-wrong">0</span></div>
+        <div class="result-judge-row"><span class="judge-label judge--wrong">WRONG</span><span class="judge-count" id="judge-wrong">0</span></div>
       </div>
       <div class="result-chart-legend">
         <span class="detail-legend-item"><span class="detail-dot detail-dot--perfect"></span> PERFECT</span>
         <span class="detail-legend-item"><span class="detail-dot detail-dot--ok"></span> OK</span>
         <span class="detail-legend-item"><span class="detail-dot detail-dot--miss"></span> MISS</span>
-        <span class="detail-legend-item"><span class="detail-dot detail-dot--wrong"></span> 按错键</span>
+        <span class="detail-legend-item"><span class="detail-dot detail-dot--wrong"></span> WRONG</span>
       </div>
       <div class="result-chart-wrap">
         <canvas id="result-chart-canvas" class="result-chart-canvas"></canvas>
@@ -228,6 +235,17 @@ app.innerHTML = `
       </div>
     </div>
   </div>
+
+  <!-- ===== 自定义确认对话框 ===== -->
+  <div id="confirm-dialog" class="confirm-dialog" hidden>
+    <div class="confirm-dialog-card">
+      <p id="confirm-dialog-msg" class="confirm-dialog-msg"></p>
+      <div class="confirm-dialog-actions">
+        <button type="button" id="confirm-dialog-cancel" class="btn secondary">取消</button>
+        <button type="button" id="confirm-dialog-ok" class="btn primary" style="background:var(--accent);color:#fff;">确定</button>
+      </div>
+    </div>
+  </div>
 `;
 
 /* ── DOM 引用 ── */
@@ -271,6 +289,8 @@ const scoringEngine = new ScoringEngine();
 const resultPage = document.querySelector<HTMLDivElement>('#result-page')!;
 const resultOverlay = document.querySelector<HTMLDivElement>('#result-overlay')!;
 const resultScoreEl = document.querySelector<HTMLSpanElement>('#result-score')!;
+const resultMaxScoreEl = document.querySelector<HTMLDivElement>('#result-max-score')!;
+const resultRatioEl = document.querySelector<HTMLDivElement>('#result-ratio')!;
 const resultAccuracyEl = document.querySelector<HTMLSpanElement>('#result-accuracy')!;
 const resultMaxComboEl = document.querySelector<HTMLSpanElement>('#result-maxcombo')!;
 const resultJudgePerfect = document.querySelector<HTMLSpanElement>('#judge-perfect')!;
@@ -296,6 +316,11 @@ const settingsMeasureWidth = document.querySelector<HTMLInputElement>('#settings
 const settingsMeasureWidthVal = document.querySelector<HTMLSpanElement>('#settings-measure-width-val')!;
 const settingsDifficultyInfo = document.querySelector<HTMLSpanElement>('#settings-difficulty-info')!;
 const settingsSummaryEl = document.querySelector<HTMLDivElement>('#settings-summary')!;
+
+const confirmDialog = document.querySelector<HTMLDivElement>('#confirm-dialog')!;
+const confirmDialogMsg = document.querySelector<HTMLParagraphElement>('#confirm-dialog-msg')!;
+const confirmDialogOk = document.querySelector<HTMLButtonElement>('#confirm-dialog-ok')!;
+const confirmDialogCancel = document.querySelector<HTMLButtonElement>('#confirm-dialog-cancel')!;
 
 /* ── 选歌页 MIDI 输入选择 ── */
 const songListMidiInputSelect = document.querySelector<HTMLSelectElement>('#song-list-midi-input')!;
@@ -377,6 +402,22 @@ function addHistoryEntry(entry: PlayHistoryEntry) {
 
 function clearAllHistory() {
   localStorage.removeItem(HISTORY_KEY);
+}
+
+/** 非阻塞确认对话框（类似设置页，不阻塞音频播放） */
+function showConfirm(msg: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    confirmDialogMsg.textContent = msg;
+    confirmDialog.hidden = false;
+    const cleanup = (result: boolean) => {
+      confirmDialog.hidden = true;
+      resolve(result);
+    };
+    const onOk = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    confirmDialogOk.addEventListener('click', onOk, { once: true });
+    confirmDialogCancel.addEventListener('click', onCancel, { once: true });
+  });
 }
 
 /** 删除单条历史记录（根据 date 精确匹配） */
@@ -553,7 +594,7 @@ function showResultScreen(entry?: PlayHistoryEntry) {
     entry = {
       songFile: currentSongFile ?? '',
       songName: currentSongName,
-      score: scoringEngine.getFinalScore(),
+      score: scoringEngine.getTotalScore(),
       accuracy: state.accuracy,
       maxCombo: state.maxCombo,
       mode: curSettings.mode,
@@ -573,9 +614,14 @@ function showResultScreen(entry?: PlayHistoryEntry) {
   }
 
   const e = entry;
+  const maxScore = scoringEngine.getMaxTheoreticalScore();
   resultScoreEl.textContent = e.score.toLocaleString();
+  resultMaxScoreEl.textContent = maxScore.toLocaleString();
+  const ratio = maxScore > 0 ? (e.score / maxScore) * 100 : 0;
+  resultRatioEl.textContent = `${ratio.toFixed(1)}%`;
+  resultRatioEl.style.color = ratio >= 95 ? '#22c55e' : ratio >= 80 ? '#fbbf24' : '#ef4444';
   resultAccuracyEl.textContent = `${(e.accuracy * 100).toFixed(2)}%`;
-  resultMaxComboEl.textContent = `最大 Combo: ${e.maxCombo}`;
+  resultMaxComboEl.textContent = `Max Combo: ${e.maxCombo}`;
   resultJudgePerfect.textContent = String(e.noteResults?.filter(n => n.judgement === 'PERFECT').length ?? 0);
   resultJudgeOk.textContent = String(e.noteResults?.filter(n => n.judgement === 'OK').length ?? 0);
   resultJudgeMiss.textContent = String(e.noteResults?.filter(n => n.judgement === 'MISS').length ?? 0);
@@ -704,12 +750,13 @@ function updateHistoryPanel(songFile: string | null) {
       const entry = loadHistory().find(e => e.songFile === song && e.date === date);
       if (entry) showResultScreen(entry);
     });
-    el.addEventListener('contextmenu', (e) => {
+    el.addEventListener('contextmenu', async (e) => {
       e.preventDefault();
       const song = el.dataset.song;
       const date = el.dataset.date;
       if (!song || !date) return;
-      if (confirm(`确定删除这条成绩（${el.querySelector('.history-entry-score')?.textContent}）？`)) {
+      const ok = await showConfirm(`确定删除这条成绩（${el.querySelector('.history-entry-score')?.textContent}）？`);
+      if (ok) {
         deleteHistoryEntry(song, date);
         updateHistoryPanel(songFile);
       }
@@ -1070,6 +1117,10 @@ function syncModeUi() {
   scoreDisplay.hidden = getPlayMode() === 'auto';
   updateKeyboardHint();
   btnEdit.hidden = pianoPage.hidden || getRenderMode() !== 'original';
+  // 跟弹模式下禁止进度条拖拽（视觉 + 逻辑）
+  const isKeyboard = getPlayMode() === 'keyboard';
+  progressBar.style.pointerEvents = isKeyboard ? 'none' : '';
+  progressBar.style.opacity = isKeyboard ? '0.55' : '';
 }
 
 /** 计分 UI 更新 */
@@ -1085,7 +1136,7 @@ function updateScoreUI(state: ScoreState) {
 
   // 按错键次数
   if (state.wrongKeys > 0) {
-    scoreWrongEl.textContent = `错 ${state.wrongKeys}`;
+    scoreWrongEl.textContent = `WRONG ${state.wrongKeys}`;
   } else {
     scoreWrongEl.textContent = '';
   }
@@ -1580,7 +1631,8 @@ async function startPlayFrom(offsetSec: number) {
   /* ── 普通模式：MIDI 键盘自由弹奏 + 计分 ── */
   if (mode === 'normal') {
     scoreDisplay.hidden = false;
-    scoringEngine.reset({ totalNotes: flatNotes.length });
+    const holdCount = flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
+    scoringEngine.reset({ totalNotes: flatNotes.length, holdNoteCount: holdCount });
     updateScoreUI(scoringEngine.getState());
 
     playback = startKeyboardPractice(
@@ -1604,7 +1656,8 @@ async function startPlayFrom(offsetSec: number) {
 
   /* ── MIDI 跟弹模式 ── */
   scoreDisplay.hidden = false;
-  scoringEngine.reset({ totalNotes: flatNotes.length });
+  const holdCount = flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
+  scoringEngine.reset({ totalNotes: flatNotes.length, holdNoteCount: holdCount });
   updateScoreUI(scoringEngine.getState());
 
   // 显示跟弹实时用时
@@ -1645,6 +1698,9 @@ async function startPlayFrom(offsetSec: number) {
 let wasPlayingBeforeSeek = false;
 
 progressBar.addEventListener('input', () => {
+  // 跟弹模式不允许拖拽进度条
+  if (getPlayMode() === 'keyboard') return;
+
   seeking = true;
   if (playback && !wasPlayingBeforeSeek) {
     wasPlayingBeforeSeek = true;
@@ -1666,6 +1722,9 @@ function getRenderMode(): 'image' | 'original' {
 }
 
 progressBar.addEventListener('change', () => {
+  // 跟弹模式不允许拖拽进度条
+  if (getPlayMode() === 'keyboard') return;
+
   seeking = false;
   if (!currentMidi || flatNotes.length === 0) return;
   const pct = Number(progressBar.value) / 1000;
@@ -1674,7 +1733,6 @@ progressBar.addEventListener('change', () => {
   scrollStaffToProgress(pct);
   if (wasPlayingBeforeSeek) {
     wasPlayingBeforeSeek = false;
-    // 所有模式都支持拖拽跳转
     startPlayFrom(timeSec);
   }
 });

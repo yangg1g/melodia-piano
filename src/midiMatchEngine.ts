@@ -2,7 +2,7 @@
  * MIDI 匹配引擎 — 纯逻辑模块，不依赖浏览器 DOM / MIDI API / 音效。
  * 同时被 keyboardPractice.ts (浏览器) 和 simulate-midi.ts (Node) 复用。
  */
-import { ScoringEngine, type ScoreState } from './scoring';
+import { ScoringEngine, ACCU_WEIGHT_PERFECT, type ScoreState } from './scoring';
 
 // ─── 类型定义 ──────────────────────────────────────────────
 
@@ -22,6 +22,11 @@ export interface NoteState {
   note: FlatNote;
   isHit: boolean;
   hitTimeSec: number | null;
+  hitOffsetMs: number;
+  /** hold 实时计分：已完成累分的秒数 */
+  holdProgressSec: number;
+  /** tap 击打时的权重，用于计算 hold 奖励基数 */
+  tapWeight: number;
 }
 
 export interface MidiMatchCallbacks {
@@ -127,6 +132,9 @@ export class MidiMatchEngine {
       note,
       isHit: false,
       hitTimeSec: null,
+      hitOffsetMs: 0,
+      holdProgressSec: 0,
+      tapWeight: ACCU_WEIGHT_PERFECT,
     }));
 
     // 按时间分组（0.001s 容差）
@@ -204,6 +212,21 @@ export class MidiMatchEngine {
       }
       if (pending.length === 0) continue;
 
+      // 确保没有跳过更早的待匹配音符（防止先匹配后面的音）
+      const firstIdx = members[0];
+      let hasEarlierPending = false;
+      for (let j = 0; j < firstIdx; j++) {
+        const earlier = this.noteStates[j];
+        if (earlier.isHit || this.missedNotes.has(j)) continue;
+        const earlierEnd = earlier.note.time + Math.max(0, earlier.note.duration);
+        if (effectiveTimeSec >= earlier.note.time - this.hitWindowSec &&
+            effectiveTimeSec <= earlierEnd) {
+          hasEarlierPending = true;
+          break;
+        }
+      }
+      if (hasEarlierPending) continue;
+
       // 全部按住且未消费
       const allPressed = pending.every(i => {
         const midi = this.noteStates[i].note.midi;
@@ -218,7 +241,7 @@ export class MidiMatchEngine {
       });
       if (!allRecent) continue;
 
-      // 全部命中
+      // 全部命中 → 立即计 tap 分
       processedGroups.add(groupKey);
       this.announcedMatched.add(groupKey);
 
@@ -230,12 +253,15 @@ export class MidiMatchEngine {
           : 0;
         ns.isHit = true;
         ns.hitTimeSec = nowSec;
+        ns.hitOffsetMs = offsetMs;
         this.consumedPresses.add(ns.note.midi);
 
         if (this.scoring) {
-          this.scoring.hit(offsetMs, ns.note.midi, ns.note.time);
+          const j = this.scoring.hit(offsetMs, ns.note.midi, ns.note.time);
+          ns.tapWeight = j === 'PERFECT' ? 320 : j === 'OK' ? 150 : 0;
           this.callbacks.onScoreUpdate?.();
         }
+
         hitOffsets.push({ idx: i, midi: ns.note.midi, offsetMs });
       }
 
@@ -246,7 +272,27 @@ export class MidiMatchEngine {
       );
     }
 
-    // 4. MISS 检测（自由模式）
+    // 4. Hold 实时计分：每帧按进度追加 hold 奖励
+    for (let idx = 0; idx < this.noteStates.length; idx++) {
+      const ns = this.noteStates[idx];
+      if (!ns.isHit || this.missedNotes.has(idx)) continue;
+      if (ns.tapWeight === 0) continue;
+      const dur = Math.max(0, ns.note.duration);
+      if (dur < 0.05) continue;
+      if (!this.pressedMidis.has(ns.note.midi)) continue;
+
+      const noteEnd = ns.note.time + dur;
+      const holdSoFar = Math.max(0, Math.min(effectiveTimeSec, noteEnd) - ns.note.time);
+      const newProgress = holdSoFar - ns.holdProgressSec;
+      if (newProgress > 0) {
+        const holdRatio = newProgress / dur;
+        this.scoring?.holdTick(holdRatio, ns.tapWeight);
+        ns.holdProgressSec = holdSoFar;
+        this.callbacks.onScoreUpdate?.();
+      }
+    }
+
+    // 5. MISS 检测（自由模式）
     if (this.freePlay && this.scoring) {
       for (let idx = 0; idx < this.noteStates.length; idx++) {
         const ns = this.noteStates[idx];
@@ -344,7 +390,8 @@ export class MidiMatchEngine {
     if (keyEv.down) {
       // 记录按键状态
       this.pressedMidis.add(keyEv.note);
-      this.consumedPresses.delete(keyEv.note);
+      // 不在此处清除 consumedPresses：
+      // 只有松手(key-up)才表示"消费周期结束"，否则按住一个键会连续匹配多个同名音符
       this.keyPressTimes.set(keyEv.note, wallTimeSec);
 
       const noteEv = parseNoteOn(data);
@@ -365,7 +412,7 @@ export class MidiMatchEngine {
         const vel = this.pressedVelocities.get(keyEv.note) ?? 1.0;
         this.callbacks.onWrongKey?.(keyEv.note, vel);
         if (this.scoring) {
-          this.scoring.wrongKey(keyEv.note, wallTimeSec);
+          this.scoring.wrongKey(keyEv.note, gameSec);
           this.callbacks.onScoreUpdate?.();
         }
       }

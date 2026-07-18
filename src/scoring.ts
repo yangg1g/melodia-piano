@@ -42,6 +42,9 @@ const ACCU_WEIGHT: Record<Judgement, number> = {
   MISS: 0,
 };
 
+/** PERFECT 权重常量，供外部 hold 计分等使用 */
+export const ACCU_WEIGHT_PERFECT = 320;
+
 export interface TimingWindows {
   perfect: number;
   ok: number;
@@ -59,6 +62,10 @@ export class ScoringEngine {
   achievedWeight = 0;
   /** 运行时累加分数（已含 combo 加成） */
   runningScore = 0;
+  /** hold 累计加分（runningScore 的子集，已含逐帧累分） */
+  holdScoreAccumulated = 0;
+  /** 含 hold 的音符数（duration > 0），用于计算理论最高分 */
+  holdNoteCount = 0;
   lastJudgement: Judgement | null = null;
   counts: Record<Judgement, number> = { PERFECT: 0, OK: 0, MISS: 0 };
   /** 按错键次数（不计入命中/准确度） */
@@ -106,6 +113,21 @@ export class ScoringEngine {
     }
   }
 
+  /** Hold 实时计分：每帧按进度比例累加 hold 奖励（不影响 accuracy / combo）
+   *  hold 满分按单音符占比计算，总 hold 奖励上限 = MAX_SCORE × 0.3
+   */
+  holdTick(holdRatio: number, tapWeight: number): void {
+    if (holdRatio <= 0 || this.totalNotes <= 0) return;
+    // 单音符 hold 满分 = 权重比例 × (MAX_SCORE / 总音符数) × 0.3
+    const maxHoldScore = (tapWeight / 320) * (MAX_SCORE / this.totalNotes) * 0.3;
+    const added = Math.round(Math.min(holdRatio, 1.0) * maxHoldScore);
+    if (added > 0) {
+      this.runningScore += added;
+      this.holdScoreAccumulated += added;
+      this.emitUpdate();
+    }
+  }
+
   /** 按错键：准确度计 MISS 权重，中断 combo */
   wrongKey(noteMidi?: number, timeSec?: number): void {
     this.wrongKeys++;
@@ -134,9 +156,10 @@ export class ScoringEngine {
     this.totalWeight += 320;
     this.achievedWeight += ACCU_WEIGHT[j];
 
-    // 运行时分数 = 该 hit 的权重占比 × MAX_SCORE × combo 加成
+    // 运行时分数 = 该 hit 的权重占比 × (MAX_SCORE / totalNotes) × combo 加成
     // combo 加成：combo / 200，上限 1.0（即 combo ≥ 200 时翻倍）
-    const base = (ACCU_WEIGHT[j] / 320) * MAX_SCORE;
+    const perNoteScore = this.totalNotes > 0 ? MAX_SCORE / this.totalNotes : 0;
+    const base = (ACCU_WEIGHT[j] / 320) * perNoteScore;
     const comboMultiplier = j === 'MISS' ? 0 : 1 + Math.min(this.combo, 200) / 200;
     this.runningScore += Math.round(base * comboMultiplier);
 
@@ -148,9 +171,33 @@ export class ScoringEngine {
     return this.totalWeight > 0 ? this.achievedWeight / this.totalWeight : 0;
   }
 
-  /** 当前运行时分数（含 combo 加成） */
+  /** 当前运行时分数（含 combo 加成 + hold 实时累分） */
   getScore(): number {
     return this.runningScore;
+  }
+
+  /**
+   * 结算总分数 = 运行时累加分（已含 tap + combo + hold，同一尺度）
+   */
+  getTotalScore(): number {
+    return this.runningScore;
+  }
+
+  /**
+   * 理论最高分 = 全部 PERFECT + 最大实时 combo + 所有 hold 满分
+   * 与 runningScore 同尺度：每音符 MAX_SCORE/totalNotes × combo加成 × hold奖励
+   */
+  getMaxTheoreticalScore(): number {
+    if (this.totalNotes <= 0) return MAX_SCORE;
+    const N = this.totalNotes;
+    // combo 累加器：PERFECT 命中时 combo 从 1 递增到 N
+    // i=1..200: multiplier = 1 + i/200, i=201..N: multiplier = 2.0
+    const comboSums: number = N <= 200
+      ? N + N * (N + 1) / 400
+      : 2 * N - 99.5;
+    const maxTapScore = Math.round((MAX_SCORE / N) * comboSums);
+    const maxHoldScore = Math.round(this.holdNoteCount * (MAX_SCORE / N) * 0.3);
+    return maxTapScore + maxHoldScore;
   }
 
   /**
@@ -184,12 +231,13 @@ export class ScoringEngine {
     this.onUpdate?.(this.getState());
   }
 
-  reset(opts?: { totalNotes?: number; modMultiplier?: number }): void {
+  reset(opts?: { totalNotes?: number; modMultiplier?: number; holdNoteCount?: number }): void {
     this.combo = 0;
     this.maxCombo = 0;
     this.totalWeight = 0;
     this.achievedWeight = 0;
     this.runningScore = 0;
+    this.holdScoreAccumulated = 0;
     this.lastJudgement = null;
     this.counts = { PERFECT: 0, OK: 0, MISS: 0 };
     this.wrongKeys = 0;
@@ -197,6 +245,7 @@ export class ScoringEngine {
     this.wrongKeyRecords = [];
     this.totalNotes = opts?.totalNotes ?? 0;
     this.modMultiplier = opts?.modMultiplier ?? 1;
+    this.holdNoteCount = opts?.holdNoteCount ?? 0;
     this.emitUpdate();
   }
 }
