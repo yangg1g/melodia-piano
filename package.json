@@ -10,9 +10,11 @@
     "preview": "vite preview",
     "generate-demo": "node scripts/generate-demo-midi.mjs",
     "download-samples": "node scripts/download-samples.mjs",
-    "calc-difficulty": "node scripts/calculate-difficulty.mjs"
+    "calc-difficulty": "node scripts/calculate-difficulty.mjs",
+    "simulate": "tsx scripts/simulate-midi.ts"
   },
   "devDependencies": {
+    "tsx": "^4.19.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.4",
     "vitest": "^4.1.6"

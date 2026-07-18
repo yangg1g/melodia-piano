@@ -5,17 +5,16 @@ import { applyKeyVisuals } from './pianoKeyboard';
 import type { PlaybackController } from './playback';
 import { playPianoMidi, releaseAllPiano, startPianoNote, releasePianoNote } from './salamanderPiano';
 import { ScoringEngine, type ScoreState } from './scoring';
+import { MidiMatchEngine, type MidiMatchCallbacks } from './midiMatchEngine';
 
 const LOG_STORAGE_KEY = 'midi-piano-logs';
 
 /** 写日志：同时输出到 console、localStorage，并通过 POST 实时写入本地文件 */
 function midiLog(msg: string) {
   console.log(msg);
-  // 实时写入本地文件（通过 Vite 开发服务器中间件）
   try {
     navigator.sendBeacon('/api/log', msg + '\n');
   } catch { /* sendBeacon 失败时静默忽略 */ }
-  // 同时保留 localStorage 备份
   try {
     const prev = localStorage.getItem(LOG_STORAGE_KEY) || '';
     const updated = prev + msg + '\n';
@@ -29,9 +28,7 @@ function midiLog(msg: string) {
 
 /** 开始新弹奏 → 创建新日志文件并清除 localStorage 备份 */
 export async function resetLogFile() {
-  // 清除本地备份
   try { localStorage.removeItem(LOG_STORAGE_KEY); } catch {}
-  // 让服务端创建新文件
   try {
     await fetch('/api/log/new', { method: 'POST' });
   } catch { /* 静默忽略 */ }
@@ -73,27 +70,6 @@ export function downloadMidiLogs() {
   }
 }
 
-function parseMidiKey(data: Uint8Array): { note: number; down: boolean } | null {
-  const st = data[0];
-  if (st >= 0x90 && st < 0xa0) {
-    const vel = data[2];
-    return { note: data[1], down: vel > 0 };
-  }
-  if (st >= 0x80 && st < 0x90) {
-    return { note: data[1], down: false };
-  }
-  return null;
-}
-
-function parseNoteOn(data: Uint8Array): { note: number; velocity: number } | null {
-  const st = data[0];
-  if (st >= 0x90 && st < 0xa0) {
-    const vel = data[2];
-    if (vel > 0) return { note: data[1], velocity: vel / 127 };
-  }
-  return null;
-}
-
 export function startKeyboardPractice(
   flatNotes: FlatNote[],
   midiFile: Midi,
@@ -104,10 +80,8 @@ export function startKeyboardPractice(
   onPracticePaint?: (state: KeyboardFallingState) => void,
   scoring?: ScoringEngine,
   onScoreUpdate?: (state: ScoreState) => void,
-  /** true = 时间自动前进（普通模式），false = 等待用户弹奏（跟弹模式） */
   freePlay = false,
   speedMultiplier = 1,
-  /** 跟弹模式：回调当前已流逝的真实时间（秒） */
   onWallTimeSec?: (wallSec: number) => void,
 ): PlaybackController {
   // 每次弹奏创建新的日志文件
@@ -116,87 +90,63 @@ export function startKeyboardPractice(
   midiLog(`[MIDI] 开始弹奏: ${midiFile.name}`);
   midiLog(`[MIDI] ========================================`);
 
-  let stopped = false;
-  const pressedMidis = new Set<number>();
-  /** 跟弹模式下已起音但尚未释音的音符（松开键盘时需调用 releasePianoNote） */
-  const sustainedNotes = new Set<number>();
-  /** 已被命中消费掉的琴键按下事件 */
-  const consumedPresses = new Set<number>();
-  let animFrameId = 0;
-  let finishScheduled = false;
-  /** 跟弹模式：开始时的真实时间戳（用于统计用户实际用时） */
   const startWallTimeMs = performance.now();
+  const hitWindowMs = scoring ? scoring.windows.ok : 180;
 
-  const firstNoteTime = flatNotes.length > 0
-    ? Math.min(...flatNotes.map((n) => n.time))
-    : 0;
-
-  let accumulatedTimeSec = firstNoteTime - 1.5;
+  let animFrameId = 0;
   let lastFrameTimeMs = performance.now();
 
-  const noteStates: NoteState[] = flatNotes.map((note) => ({
-    note,
-    isHit: false,
-    hitTimeSec: null,
-  }));
+  // 构建回调
+  const callbacks: MidiMatchCallbacks = {
+    log: midiLog,
 
-  const clearPendingUi = () => {};
+    onNoteStart(midi, velocity) {
+      startPianoNote(midi, velocity);
+    },
+    onNoteRelease(midi) {
+      releasePianoNote(midi);
+    },
+    onWrongKey(midi, velocity) {
+      playPianoMidi(midi, 0.3, velocity);
+    },
 
-  const RELEASE_GRACE_SEC = 0.1;
+    onVisualUpdate(expected, pressed) {
+      applyKeyVisuals(keyEls, { expected, active: undefined, pressed });
+    },
+    onPaintState(notes, effectiveTimeSec) {
+      onPracticePaint?.({ notes, currentTimeSec: effectiveTimeSec });
+    },
 
-  /** 判定窗口（毫秒），使用 ScoringEngine 的 ok 窗口 */
-  const hitWindowMs = scoring ? scoring.windows.ok : 180;
-  const hitWindowSec = hitWindowMs / 1000;
+    onTimeSec,
+    onWallTimeSec,
 
-  /** 用于标记已放过 Miss 的音符 */
-  const missedNotes = new Set<number>();
+    onEnded() {
+      releaseAllPiano();
+      onEnded?.();
+    },
 
-  /** 获取当前判定线上的音符（未命中且在活跃时间段内） */
-  const getJudgmentLineNotes = () => {
-    const eff = getEffectiveTimeSec();
-    return noteStates
-      .filter(ns => !ns.isHit && !missedNotes.has(noteStates.indexOf(ns)) && eff >= ns.note.time && eff < ns.note.time + Math.max(0, ns.note.duration))
-      .map(ns => ({ midi: ns.note.midi, time: ns.note.time, consumed: consumedPresses.has(ns.note.midi) }));
+    onScoreUpdate() {
+      if (scoring) onScoreUpdate?.(scoring.getState());
+    },
   };
 
-  const getEffectiveTimeSec = (): number => accumulatedTimeSec;
+  // 创建匹配引擎
+  const engine = new MidiMatchEngine(flatNotes, callbacks, {
+    freePlay,
+    speedMultiplier,
+    hitWindowMs,
+    perfectMs: scoring?.windows.perfect ?? 25,
+    scoring,
+    getHandForNote: (note) => assignHandForNote(note, midiFile),
+    startWallTimeMs,
+  });
 
-  const updateAccumulatedTime = (): boolean => {
-    const nowMs = performance.now();
-    const deltaTimeSec = (nowMs - lastFrameTimeMs) / 1000;
-    lastFrameTimeMs = nowMs;
-
-    if (freePlay || flatNotes.length === 0) {
-      // 普通模式：时间一直前进（乘以速度倍率）
-      accumulatedTimeSec += deltaTimeSec * speedMultiplier;
-      return false;
-    }
-
-    for (const ns of noteStates) {
-      const noteEnd = ns.note.time + Math.max(0, ns.note.duration);
-      if (accumulatedTimeSec >= ns.note.time && accumulatedTimeSec < noteEnd - RELEASE_GRACE_SEC) {
-        if (ns.isHit || missedNotes.has(noteStates.indexOf(ns))) continue;
-        // 键没按住 → 暂停等待
-        // 或者键被之前的同音已消费 → 暂停等待松开再按
-        if (!pressedMidis.has(ns.note.midi)) {
-          return true;
-        }
-        if (consumedPresses.has(ns.note.midi)) {
-          midiLog(`[MIDI] 跟弹暂停  note=${ns.note.midi} (已消费，等松开再按)  期望时间=${ns.note.time.toFixed(3)}s  游戏时间=${accumulatedTimeSec.toFixed(3)}s  consumed=[${[...consumedPresses].join(',')}]`);
-          return true;
-        }
-      }
-    }
-
-    accumulatedTimeSec += deltaTimeSec * speedMultiplier;
-    return false;
-  };
-
+  // 动画帧循环
   const scheduleAnimFrame = () => {
     if (animFrameId) return;
     animFrameId = requestAnimationFrame(() => {
       animFrameId = 0;
-      if (!stopped) {
+      if (!engine.stopped) {
         paint();
         scheduleAnimFrame();
       }
@@ -204,217 +154,35 @@ export function startKeyboardPractice(
   };
 
   const paint = () => {
-    updateAccumulatedTime();
-    const effectiveTimeSec = getEffectiveTimeSec();
+    const nowMs = performance.now();
+    const deltaSec = (nowMs - lastFrameTimeMs) / 1000;
+    lastFrameTimeMs = nowMs;
+    const wallTimeSec = (nowMs - startWallTimeMs) / 1000;
 
-    // Miss 检测：仅在普通模式（freePlay）下检测
-    // 跟弹模式由 updateAccumulatedTime 暂停机制保证游戏时间不前进，无需自动判 MISS
-    if (freePlay && scoring) {
-      for (const ns of noteStates) {
-        if (!ns.isHit && !missedNotes.has(noteStates.indexOf(ns))) {
-          const offsetMs = (effectiveTimeSec - ns.note.time) * 1000;
-          if (offsetMs > hitWindowMs) {
-            midiLog(
-              `[MIDI] MISS  note=${ns.note.midi}  期望时间=${ns.note.time.toFixed(3)}s  偏移=${offsetMs.toFixed(0)}ms  |  游戏时间=${effectiveTimeSec.toFixed(3)}s`
-            );
-            missedNotes.add(noteStates.indexOf(ns));
-            ns.isHit = true;
-            scoring.miss(ns.note.midi, ns.note.time);
-            onScoreUpdate?.(scoring.getState());
-          }
-        }
-      }
-    }
+    engine.processFrame(deltaSec, wallTimeSec);
 
-    const expected = new Map<number, Hand>();
-    for (const ns of noteStates) {
-      if (effectiveTimeSec >= ns.note.time && effectiveTimeSec < ns.note.time + Math.max(0, ns.note.duration) - RELEASE_GRACE_SEC) {
-        expected.set(ns.note.midi, assignHandForNote(ns.note, midiFile));
-      }
-    }
-
-    applyKeyVisuals(keyEls, {
-      expected,
-      active: undefined,
-      pressed: pressedMidis,
-    });
-
-    onPracticePaint?.({
-      notes: noteStates,
-      currentTimeSec: effectiveTimeSec,
-    });
-
-    // 所有音符结束后自动结束（防止 freePlay 模式下无人按键永远不触发 finish）
-    if (!finishScheduled && flatNotes.length > 0) {
-      const allDone = noteStates.every((ns) => {
-        return ns.note.time + Math.max(0, ns.note.duration) < effectiveTimeSec;
-      });
-      if (allDone) {
-        finishScheduled = true;
-        midiLog(`[MIDI] 所有音符时间已过，自动结束。游戏时间=${effectiveTimeSec.toFixed(3)}s`);
-        setTimeout(() => finish(), 500);
-        return;
-      }
-    }
-
-    onTimeSec?.(effectiveTimeSec);
-    onWallTimeSec?.((performance.now() - startWallTimeMs) / 1000);
-  };
-
-  const finish = () => {
-    if (stopped) return;
-    clearPendingUi();
-    stopped = true;
-    if (animFrameId) {
+    // 引擎可能通过 setTimeout 调用 stop
+    if (engine.stopped && animFrameId) {
       cancelAnimationFrame(animFrameId);
       animFrameId = 0;
     }
-    midiInput.onmidimessage = null;
-    pressedMidis.clear();
-    sustainedNotes.clear();
-    applyKeyVisuals(keyEls, {});
-    onPracticePaint?.({
-      notes: noteStates,
-      currentTimeSec: getEffectiveTimeSec(),
-    });
-    releaseAllPiano();
-    onEnded?.();
   };
 
+  // MIDI 输入处理
   const onMidi = (ev: MIDIMessageEvent) => {
-    if (stopped) return;
+    if (engine.stopped) return;
     const data = ev.data;
     if (!data || data.length < 3) return;
 
-    const nowMs = performance.now();
-    const wallTimeSec = (nowMs - startWallTimeMs) / 1000;
-    const gameSec = getEffectiveTimeSec();
-    const modeLabel = freePlay ? '普通' : '跟弹';
+    const wallTimeSec = (performance.now() - startWallTimeMs) / 1000;
+    engine.processMidiEvent(data, wallTimeSec);
 
-    // 打印 MIDI 原始输入
-    const hexBytes = [...data].map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-    const jdNotes = getJudgmentLineNotes();
-    const jdStr = jdNotes.length > 0
-      ? jdNotes.map(n => `midi=${n.midi}(time=${n.time.toFixed(3)}${n.consumed ? ' consumed' : ''})`).join(' ')
-      : '(空)';
-    midiLog(`[MIDI] RAW  ${hexBytes}  |  判定线: [${jdStr}]  |  游戏时间=${gameSec.toFixed(3)}s`);
-
-    const keyEv = parseMidiKey(data);
-    if (keyEv && keyEls.has(keyEv.note)) {
-      if (keyEv.down) {
-        pressedMidis.add(keyEv.note);
-        const wasConsumed = consumedPresses.has(keyEv.note);
-        consumedPresses.delete(keyEv.note);
-        midiLog(
-          `[MIDI] 按下  note=${keyEv.note}  |  游戏时间=${gameSec.toFixed(3)}s  墙上时间=${wallTimeSec.toFixed(3)}s  |  模式=${modeLabel}  |  当前按住键: [${[...pressedMidis].join(',')}]  |  consumed=[${[...consumedPresses].join(',')}]  wasConsumed=${wasConsumed}`
-        );
-      } else {
-        pressedMidis.delete(keyEv.note);
-        consumedPresses.delete(keyEv.note);
-        midiLog(
-          `[MIDI] 松开  note=${keyEv.note}  |  游戏时间=${gameSec.toFixed(3)}s  墙上时间=${wallTimeSec.toFixed(3)}s  |  模式=${modeLabel}  |  当前按住键: [${[...pressedMidis].join(',')}]  |  sustained: [${[...sustainedNotes].join(',')}]  |  consumed=[${[...consumedPresses].join(',')}]`
-        );
-        // 松开琴键 → 停止该音符的发声
-        if (sustainedNotes.has(keyEv.note)) {
-          sustainedNotes.delete(keyEv.note);
-          releasePianoNote(keyEv.note);
-        }
-      }
-      paint();
-    }
-
-    const noteEv = parseNoteOn(data);
-    if (noteEv === null) return;
-
-    // 跟弹模式：和弦已有音命中时，用相邻音的墙上命中时间差判定，避免空等
-    const nowSec = freePlay ? gameSec : Math.max(gameSec, wallTimeSec);
-
-    const matchingStates = noteStates.filter(
-      (ns) => {
-        if (ns.note.midi !== noteEv.note || ns.isHit || missedNotes.has(noteStates.indexOf(ns))) return false;
-        // 找和弦中已命中音的最大墙上命中时间
-        let siblingHitWall = -1;
-        for (const other of noteStates) {
-          if (other !== ns && Math.abs(other.note.time - ns.note.time) < 0.001 && other.isHit && other.hitTimeSec !== null) {
-            siblingHitWall = Math.max(siblingHitWall, other.hitTimeSec);
-          }
-        }
-        if (freePlay) {
-          return Math.abs(ns.note.time - gameSec) < hitWindowSec;
-        } else if (siblingHitWall >= 0) {
-          // 和弦中已有音命中：用当前按下的墙上时间 与 相邻音的墙上命中时间 之差判定
-          return Math.abs(wallTimeSec - siblingHitWall) < hitWindowSec;
-        } else {
-          return Math.abs(ns.note.time - gameSec) < hitWindowSec;
-        }
-      }
-    );
-
-    // 同 midi 多个音符都在窗口内时，只取最早的那个（防止连续同音一次命中多个）
-    const deduped: typeof matchingStates = [];
-    const seenMidi = new Set<number>();
-    // matchingStates 在 noteStates 中按出现顺序排列，即时间升序
-    for (const ns of matchingStates) {
-      if (!seenMidi.has(ns.note.midi)) {
-        seenMidi.add(ns.note.midi);
-        deduped.push(ns);
-      }
-    }
-    if (deduped.length < matchingStates.length) {
-      midiLog(`[MIDI] 同音合并  ${matchingStates.length} → ${deduped.length}  保留=[${deduped.map(n => `midi=${n.note.midi} time=${n.note.time.toFixed(3)}`).join(' ')}]`);
-    }
-
-    if (deduped.length === 0) {
-      const noteIdx = noteStates.findIndex(ns => ns.note.midi === noteEv.note && !ns.isHit && !missedNotes.has(noteStates.indexOf(ns)));
-      const closestTime = noteIdx >= 0 ? noteStates[noteIdx].note.time.toFixed(3) : '无';
-      midiLog(
-        `[MIDI] 错音  note=${noteEv.note}  vel=${noteEv.velocity.toFixed(3)}  |  游戏时间=${gameSec.toFixed(3)}s  墙上时间=${wallTimeSec.toFixed(3)}s  最近未命中音符时间=${closestTime}s  |  窗口=${hitWindowMs}ms  |  模式=${modeLabel}`
-      );
-      // 错音：弹响但不计分（用固定短时长，不与跟弹关联）
-      playPianoMidi(noteEv.note, 0.3, noteEv.velocity);
-      if (scoring) {
-        scoring.wrongKey(noteEv.note, nowSec);
-        onScoreUpdate?.(scoring.getState());
-      }
-      return;
-    }
-
-    for (const ns of deduped) {
-      const offsetMs = (nowSec - ns.note.time) * 1000;
-      ns.isHit = true;
-      ns.hitTimeSec = nowSec;
-      consumedPresses.add(ns.note.midi);
-      midiLog(
-        `[MIDI] 命中  note=${ns.note.midi}  期望时间=${ns.note.time.toFixed(3)}s  偏差=${offsetMs.toFixed(1)}ms  |  游戏时间=${gameSec.toFixed(3)}s  墙上时间=${wallTimeSec.toFixed(3)}s  |  模式=${modeLabel}  |  consumed=[${[...consumedPresses].join(',')}]`
-      );
-      // 跟弹模式：按下起音，松开后由上面的 Note Off 分支调用 releasePianoNote 停止
-      startPianoNote(ns.note.midi, noteEv.velocity);
-      sustainedNotes.add(ns.note.midi);
-
-      if (scoring) {
-        const hitOffsetMs = (nowSec - ns.note.time) * 1000;
-        scoring.hit(hitOffsetMs, ns.note.midi, ns.note.time);
-        onScoreUpdate?.(scoring.getState());
-      }
-    }
-
-    paint();
-
-    const allDone = noteStates.every((ns) => {
-      return ns.note.time + Math.max(0, ns.note.duration) < nowSec;
-    });
-
-    if (allDone && flatNotes.length > 0) {
-      midiLog(`[MIDI] 所有音符已弹完，即将结束。游戏时间=${nowSec.toFixed(3)}s`);
-      finishScheduled = true;
-      setTimeout(() => finish(), 500);
+    // processMidiEvent 可能通过 setTimeout 设 stop
+    if (engine.stopped && animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = 0;
     }
   };
-
-  if (scoring) {
-    scoring.reset({ totalNotes: flatNotes.length });
-    onScoreUpdate?.(scoring.getState());
-  }
 
   midiInput.onmidimessage = onMidi;
   paint();
@@ -422,24 +190,15 @@ export function startKeyboardPractice(
 
   return {
     stop: () => {
-      if (stopped) return;
-      clearPendingUi();
-      stopped = true;
+      if (engine.stopped) return;
+      midiInput.onmidimessage = null;
       if (animFrameId) {
         cancelAnimationFrame(animFrameId);
         animFrameId = 0;
       }
-      midiInput.onmidimessage = null;
-      pressedMidis.clear();
-      sustainedNotes.clear();
-      applyKeyVisuals(keyEls, {});
-      onPracticePaint?.({
-        notes: noteStates,
-        currentTimeSec: getEffectiveTimeSec(),
-      });
-      releaseAllPiano();
+      engine.stop();
     },
-    isPlaying: () => !stopped,
+    isPlaying: () => !engine.stopped,
     getLogs: () => {
       try { return localStorage.getItem(LOG_STORAGE_KEY) || ''; }
       catch { return ''; }
