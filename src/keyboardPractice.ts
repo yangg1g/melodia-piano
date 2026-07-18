@@ -3,7 +3,7 @@ import type { KeyboardFallingState, NoteState } from './fallingNotes';
 import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 import { applyKeyVisuals } from './pianoKeyboard';
 import type { PlaybackController } from './playback';
-import { playPianoMidi, releaseAllPiano } from './salamanderPiano';
+import { playPianoMidi, releaseAllPiano, startPianoNote, releasePianoNote } from './salamanderPiano';
 import { ScoringEngine, type ScoreState } from './scoring';
 
 function parseMidiKey(data: Uint8Array): { note: number; down: boolean } | null {
@@ -43,6 +43,8 @@ export function startKeyboardPractice(
 ): PlaybackController {
   let stopped = false;
   const pressedMidis = new Set<number>();
+  /** 跟弹模式下已起音但尚未释音的音符（松开键盘时需调用 releasePianoNote） */
+  const sustainedNotes = new Set<number>();
   let animFrameId = 0;
   let finishScheduled = false;
 
@@ -86,7 +88,8 @@ export function startKeyboardPractice(
     for (const ns of noteStates) {
       const noteEnd = ns.note.time + Math.max(0, ns.note.duration);
       if (accumulatedTimeSec >= ns.note.time && accumulatedTimeSec < noteEnd - RELEASE_GRACE_SEC) {
-        if (!pressedMidis.has(ns.note.midi)) {
+        // 已弹过的音符不再等待按键（松开后时间继续前进）
+        if (!ns.isHit && !pressedMidis.has(ns.note.midi)) {
           return true;
         }
       }
@@ -168,6 +171,7 @@ export function startKeyboardPractice(
     }
     midiInput.onmidimessage = null;
     pressedMidis.clear();
+    sustainedNotes.clear();
     applyKeyVisuals(keyEls, {});
     onPracticePaint?.({
       notes: noteStates,
@@ -184,8 +188,16 @@ export function startKeyboardPractice(
 
     const keyEv = parseMidiKey(data);
     if (keyEv && keyEls.has(keyEv.note)) {
-      if (keyEv.down) pressedMidis.add(keyEv.note);
-      else pressedMidis.delete(keyEv.note);
+      if (keyEv.down) {
+        pressedMidis.add(keyEv.note);
+      } else {
+        pressedMidis.delete(keyEv.note);
+        // 松开琴键 → 停止该音符的发声
+        if (sustainedNotes.has(keyEv.note)) {
+          sustainedNotes.delete(keyEv.note);
+          releasePianoNote(keyEv.note);
+        }
+      }
       paint();
     }
 
@@ -193,14 +205,13 @@ export function startKeyboardPractice(
     if (noteEv === null) return;
 
     const nowSec = getEffectiveTimeSec();
-    const offsetMs = (nowSec - flatNotes.find(n => n.midi === noteEv.note)?.time ?? nowSec) * 1000;
 
     const matchingStates = noteStates.filter(
       (ns) => ns.note.midi === noteEv.note && !ns.isHit && Math.abs(ns.note.time - nowSec) < hitWindowSec
     );
 
     if (matchingStates.length === 0) {
-      // 错音：弹响但不计分
+      // 错音：弹响但不计分（用固定短时长，不与跟弹关联）
       playPianoMidi(noteEv.note, 0.3, noteEv.velocity);
       if (scoring) {
         scoring.miss();
@@ -212,7 +223,9 @@ export function startKeyboardPractice(
     for (const ns of matchingStates) {
       ns.isHit = true;
       ns.hitTimeSec = nowSec;
-      playPianoMidi(ns.note.midi, Math.max(0, ns.note.duration), noteEv.velocity);
+      // 跟弹模式：按下起音，松开后由上面的 Note Off 分支调用 releasePianoNote 停止
+      startPianoNote(ns.note.midi, noteEv.velocity);
+      sustainedNotes.add(ns.note.midi);
 
       if (scoring) {
         const hitOffsetMs = (nowSec - ns.note.time) * 1000;
@@ -253,6 +266,7 @@ export function startKeyboardPractice(
       }
       midiInput.onmidimessage = null;
       pressedMidis.clear();
+      sustainedNotes.clear();
       applyKeyVisuals(keyEls, {});
       onPracticePaint?.({
         notes: noteStates,

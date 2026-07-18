@@ -127,6 +127,25 @@ export function playPianoMidi(midi: number, durationSec: number, velocity: numbe
   setTimeout(() => activeNotes.delete(noteName), (dur + 0.05) * 1000);
 }
 
+/**
+ * 起音（不自动释音），用于跟弹模式：按下琴键时发声，松开时调用 releasePianoNote 停止。
+ */
+export function startPianoNote(midi: number, velocity: number): void {
+  if (!sampler) return;
+  const noteName = midiToNote(midi);
+  activeNotes.add(noteName);
+  const boostedVel = Math.pow(Math.max(0, Math.min(1, velocity)), 0.4);
+  sampler.triggerAttack(noteName, now(), boostedVel);
+}
+
+/** 释音：松开琴键时停止指定音符 */
+export function releasePianoNote(midi: number): void {
+  if (!sampler) return;
+  const noteName = midiToNote(midi);
+  sampler.triggerRelease(noteName, now());
+  activeNotes.delete(noteName);
+}
+
 export function releaseAllPiano(): void {
   if (!sampler) return;
   for (const note of activeNotes) {
