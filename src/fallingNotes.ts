@@ -2,7 +2,7 @@ import type { Midi } from '@tonejs/midi';
 import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
 import { isWhiteKey, keyCenterXInKeyboard, keyboardInnerWidthPx, PIANO_LAYOUT } from './pianoKeyboard';
 
-const LANE_MIN_HEIGHT = 140;
+const LANE_MIN_HEIGHT = 220;
 let VISIBLE_WINDOW_SEC = 3;
 
 export type NoteState = {

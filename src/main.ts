@@ -14,7 +14,7 @@ import { createStaffEditState, type EditTool } from './staffEditor';
 import { createFallingNotesLane } from './fallingNotes';
 import { applyKeyVisuals, createPianoKeyboard } from './pianoKeyboard';
 import { playNotes, type PlaybackController } from './playback';
-import { startKeyboardPractice } from './keyboardPractice';
+import { startKeyboardPractice, downloadMidiLogs } from './keyboardPractice';
 import { ScoringEngine } from './scoring';
 import type { ScoreState, NoteResult, WrongKeyRecord } from './scoring';
 import { ensurePiano, playPianoMidi, releaseAllPiano } from './salamanderPiano';
@@ -71,6 +71,7 @@ app.innerHTML = `
         <button type="button" id="btn-play" class="btn primary">播放</button>
         <button type="button" id="btn-stop" class="btn secondary" disabled>停止</button>
         <button type="button" id="btn-edit" class="btn secondary" hidden>编辑</button>
+        <button type="button" id="btn-download-log" class="btn secondary" title="下载按键日志">📥 日志</button>
         <!-- 保留隐藏元素供 JS 引用 -->
         <select id="midi-input" hidden aria-label="MIDI 输入设备"></select>
         <button id="btn-midi-refresh" hidden></button>
@@ -242,6 +243,7 @@ const scorePagerEl = document.querySelector<HTMLDivElement>('#score-pager')!;
 const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
 const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
 const btnEdit = document.querySelector<HTMLButtonElement>('#btn-edit')!;
+const btnDownloadLog = document.querySelector<HTMLButtonElement>('#btn-download-log')!;
 const btnFinger = document.querySelector<HTMLButtonElement>('#btn-finger')!;
 const btnSlur = document.querySelector<HTMLButtonElement>('#btn-slur')!;
 const btnTie = document.querySelector<HTMLButtonElement>('#btn-tie')!;
@@ -349,6 +351,10 @@ interface PlayHistoryEntry {
   noteResults?: NoteResult[];
   /** 按错键记录 */
   wrongKeyRecords?: WrongKeyRecord[];
+  /** 真实墙上用时（跟弹模式） */
+  wallTimeSec?: number;
+  /** 原始歌曲时长 */
+  originalDurationSec?: number;
 }
 
 const HISTORY_KEY = 'midi-piano-history';
@@ -525,7 +531,18 @@ resultBackBtn.addEventListener('click', () => {
   resultPage.hidden = true;
   resultOverlay.hidden = true;
   scoringEngine.reset();
-  showSongList();
+  pianoPage.hidden = true;
+  hideScorePlayhead();
+  fallingNotes.clear();
+  applyKeyVisuals(keyEls, {});
+  resetProgressBar();
+  practiceTime.hidden = true;
+  finalWallTimeSec = 0;
+  songListPage.hidden = false;
+  // 刷新历史面板（如有新成绩），但不重建整个列表以免断预览
+  if (currentSongFile) {
+    refreshSongListSilent(currentSongFile);
+  }
 });
 
 function showResultScreen(entry?: PlayHistoryEntry) {
@@ -548,6 +565,8 @@ function showResultScreen(entry?: PlayHistoryEntry) {
       },
       noteResults: scoringEngine.noteResults,
       wrongKeyRecords: scoringEngine.wrongKeyRecords,
+      wallTimeSec: finalWallTimeSec || undefined,
+      originalDurationSec: totalDurationSec || undefined,
     };
     // 仅当前演奏时保存到历史
     if (currentSongFile) addHistoryEntry(entry);
@@ -564,15 +583,11 @@ function showResultScreen(entry?: PlayHistoryEntry) {
 
   // 跟弹模式：显示用时比较
   const isKeyboardMode = e.mode === 'keyboard';
-  if (isKeyboardMode && e.noteResults && e.noteResults.length > 0) {
-    const lastTime = Math.max(...e.noteResults.map(n => n.time));
-    const maxWrongTime = e.wrongKeyRecords?.reduce((m, w) => Math.max(m, w.timeSec), 0) ?? 0;
-    const actualSec = Math.max(lastTime + 2, maxWrongTime);
-    // 估算原曲时长（从 noteResults 取最大时间）
+  if (isKeyboardMode && e.wallTimeSec && e.wallTimeSec > 0 && e.originalDurationSec && e.originalDurationSec > 0) {
     resultTimingSection.hidden = false;
-    resultTimingOriginal.textContent = formatTime(lastTime);
-    resultTimingActual.textContent = formatTime(actualSec);
-    const pct = lastTime > 0 ? (actualSec / lastTime) * 100 : 0;
+    resultTimingOriginal.textContent = formatTime(e.originalDurationSec);
+    resultTimingActual.textContent = formatTime(e.wallTimeSec);
+    const pct = (e.wallTimeSec / e.originalDurationSec) * 100;
     resultTimingSlower.textContent = `${pct.toFixed(1)}%`;
   } else {
     resultTimingSection.hidden = true;
@@ -783,6 +798,28 @@ function renderTimelineToCanvas(canvas: HTMLCanvasElement, entry: PlayHistoryEnt
     const x = timeToX(t);
     ctx.fillText(t < 60 ? `${t}s` : `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`, x - 12, h - 6);
   }
+}
+
+/** 仅刷新历史面板，不重建歌曲列表 */
+function refreshSongListSilent(songFile: string) {
+  // 刷新歌曲元数据（最佳成绩等可能变化）
+  const best = getBestForSong(songFile);
+  const items = songList.querySelectorAll<HTMLElement>('.song-list-item');
+  for (const item of items) {
+    if (item.dataset.file !== songFile) continue;
+    const historySpan = item.querySelector('.song-list-history');
+    if (best) {
+      const html = `最佳 <span class="history-score">${best.bestScore.toLocaleString()}</span> · ${(best.bestAccuracy * 100).toFixed(1)}% · ${best.totalPlays} 次`;
+      if (historySpan) historySpan.innerHTML = html;
+      else {
+        const span = document.createElement('span');
+        span.className = 'song-list-history';
+        span.innerHTML = html;
+        item.querySelector('.song-list-body-col')?.appendChild(span);
+      }
+    }
+  }
+  updateHistoryPanel(songFile);
 }
 
 function selectSong(index: number) {
@@ -1644,6 +1681,10 @@ progressBar.addEventListener('change', () => {
 
 btnStop.addEventListener('click', () => {
   stopPlayback();
+});
+
+btnDownloadLog.addEventListener('click', () => {
+  downloadMidiLogs();
 });
 
 /* ── 编辑模式 ── */

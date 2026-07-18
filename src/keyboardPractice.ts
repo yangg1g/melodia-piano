@@ -112,12 +112,15 @@ export function startKeyboardPractice(
 ): PlaybackController {
   // 每次弹奏创建新的日志文件
   resetLogFile();
+  midiLog(`[MIDI] ========================================`);
+  midiLog(`[MIDI] 开始弹奏: ${midiFile.name}`);
+  midiLog(`[MIDI] ========================================`);
 
   let stopped = false;
   const pressedMidis = new Set<number>();
   /** 跟弹模式下已起音但尚未释音的音符（松开键盘时需调用 releasePianoNote） */
   const sustainedNotes = new Set<number>();
-  /** 已被命中消费掉的琴键按下事件（同音符重复出现时需松开再按才能通过） */
+  /** 已被命中消费掉的琴键按下事件 */
   const consumedPresses = new Set<number>();
   let animFrameId = 0;
   let finishScheduled = false;
@@ -148,6 +151,14 @@ export function startKeyboardPractice(
   /** 用于标记已放过 Miss 的音符 */
   const missedNotes = new Set<number>();
 
+  /** 获取当前判定线上的音符（未命中且在活跃时间段内） */
+  const getJudgmentLineNotes = () => {
+    const eff = getEffectiveTimeSec();
+    return noteStates
+      .filter(ns => !ns.isHit && !missedNotes.has(noteStates.indexOf(ns)) && eff >= ns.note.time && eff < ns.note.time + Math.max(0, ns.note.duration))
+      .map(ns => ({ midi: ns.note.midi, time: ns.note.time, consumed: consumedPresses.has(ns.note.midi) }));
+  };
+
   const getEffectiveTimeSec = (): number => accumulatedTimeSec;
 
   const updateAccumulatedTime = (): boolean => {
@@ -167,10 +178,11 @@ export function startKeyboardPractice(
         if (ns.isHit || missedNotes.has(noteStates.indexOf(ns))) continue;
         // 键没按住 → 暂停等待
         // 或者键被之前的同音已消费 → 暂停等待松开再按
-        if (!pressedMidis.has(ns.note.midi) || consumedPresses.has(ns.note.midi)) {
-          if (consumedPresses.has(ns.note.midi)) {
-            midiLog(`[MIDI] 跟弹暂停  note=${ns.note.midi} (已消费，等松开再按)  期望时间=${ns.note.time.toFixed(3)}s  游戏时间=${accumulatedTimeSec.toFixed(3)}s  consumed=[${[...consumedPresses].join(',')}]`);
-          }
+        if (!pressedMidis.has(ns.note.midi)) {
+          return true;
+        }
+        if (consumedPresses.has(ns.note.midi)) {
+          midiLog(`[MIDI] 跟弹暂停  note=${ns.note.midi} (已消费，等松开再按)  期望时间=${ns.note.time.toFixed(3)}s  游戏时间=${accumulatedTimeSec.toFixed(3)}s  consumed=[${[...consumedPresses].join(',')}]`);
           return true;
         }
       }
@@ -195,28 +207,15 @@ export function startKeyboardPractice(
     updateAccumulatedTime();
     const effectiveTimeSec = getEffectiveTimeSec();
 
-    // Miss 检测：已过判定窗口但未命中的音符
-    if (scoring) {
-      const wallTimeSec = (performance.now() - startWallTimeMs) / 1000;
+    // Miss 检测：仅在普通模式（freePlay）下检测
+    // 跟弹模式由 updateAccumulatedTime 暂停机制保证游戏时间不前进，无需自动判 MISS
+    if (freePlay && scoring) {
       for (const ns of noteStates) {
         if (!ns.isHit && !missedNotes.has(noteStates.indexOf(ns))) {
-          // 跟弹模式：和弦中已有其他音被命中时，取已命中音的最大命中墙上时间作为参考起点
-          // （防止用整个练习开始时的 wallTime 导致立即 MISS）
-          let siblingMaxHit = -1;
-          if (!freePlay) {
-            for (const other of noteStates) {
-              if (other !== ns && Math.abs(other.note.time - ns.note.time) < 0.001 && other.isHit && other.hitTimeSec !== null) {
-                siblingMaxHit = Math.max(siblingMaxHit, other.hitTimeSec);
-              }
-            }
-          }
-          const refSec = freePlay
-            ? effectiveTimeSec
-            : (siblingMaxHit >= 0 ? Math.max(effectiveTimeSec, siblingMaxHit) : effectiveTimeSec);
-          const offsetMs = (refSec - ns.note.time) * 1000;
+          const offsetMs = (effectiveTimeSec - ns.note.time) * 1000;
           if (offsetMs > hitWindowMs) {
             midiLog(
-              `[MIDI] MISS  note=${ns.note.midi}  期望时间=${ns.note.time.toFixed(3)}s  偏移=${offsetMs.toFixed(0)}ms  |  游戏时间=${effectiveTimeSec.toFixed(3)}s  墙上时间=${wallTimeSec.toFixed(3)}s  |  siblingMaxHit=${siblingMaxHit >= 0 ? siblingMaxHit.toFixed(3) : '无'}`
+              `[MIDI] MISS  note=${ns.note.midi}  期望时间=${ns.note.time.toFixed(3)}s  偏移=${offsetMs.toFixed(0)}ms  |  游戏时间=${effectiveTimeSec.toFixed(3)}s`
             );
             missedNotes.add(noteStates.indexOf(ns));
             ns.isHit = true;
@@ -292,6 +291,14 @@ export function startKeyboardPractice(
     const gameSec = getEffectiveTimeSec();
     const modeLabel = freePlay ? '普通' : '跟弹';
 
+    // 打印 MIDI 原始输入
+    const hexBytes = [...data].map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+    const jdNotes = getJudgmentLineNotes();
+    const jdStr = jdNotes.length > 0
+      ? jdNotes.map(n => `midi=${n.midi}(time=${n.time.toFixed(3)}${n.consumed ? ' consumed' : ''})`).join(' ')
+      : '(空)';
+    midiLog(`[MIDI] RAW  ${hexBytes}  |  判定线: [${jdStr}]  |  游戏时间=${gameSec.toFixed(3)}s`);
+
     const keyEv = parseMidiKey(data);
     if (keyEv && keyEls.has(keyEv.note)) {
       if (keyEv.down) {
@@ -343,7 +350,21 @@ export function startKeyboardPractice(
       }
     );
 
-    if (matchingStates.length === 0) {
+    // 同 midi 多个音符都在窗口内时，只取最早的那个（防止连续同音一次命中多个）
+    const deduped: typeof matchingStates = [];
+    const seenMidi = new Set<number>();
+    // matchingStates 在 noteStates 中按出现顺序排列，即时间升序
+    for (const ns of matchingStates) {
+      if (!seenMidi.has(ns.note.midi)) {
+        seenMidi.add(ns.note.midi);
+        deduped.push(ns);
+      }
+    }
+    if (deduped.length < matchingStates.length) {
+      midiLog(`[MIDI] 同音合并  ${matchingStates.length} → ${deduped.length}  保留=[${deduped.map(n => `midi=${n.note.midi} time=${n.note.time.toFixed(3)}`).join(' ')}]`);
+    }
+
+    if (deduped.length === 0) {
       const noteIdx = noteStates.findIndex(ns => ns.note.midi === noteEv.note && !ns.isHit && !missedNotes.has(noteStates.indexOf(ns)));
       const closestTime = noteIdx >= 0 ? noteStates[noteIdx].note.time.toFixed(3) : '无';
       midiLog(
@@ -358,7 +379,7 @@ export function startKeyboardPractice(
       return;
     }
 
-    for (const ns of matchingStates) {
+    for (const ns of deduped) {
       const offsetMs = (nowSec - ns.note.time) * 1000;
       ns.isHit = true;
       ns.hitTimeSec = nowSec;

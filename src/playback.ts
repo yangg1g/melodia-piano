@@ -5,6 +5,10 @@ import { playPianoMidi, releaseAllPiano, getPianoAudioTime } from './salamanderP
 export interface PlaybackController {
   stop: () => void;
   isPlaying: () => boolean;
+  /** 获取实时日志文本（键盘练习模式） */
+  getLogs?: () => string;
+  /** 下载日志文件（键盘练习模式） */
+  downloadLogs?: () => void;
 }
 
 /** 自动播放：用 setTimeout 对齐 note on/off 以高亮键盘（按左右手上色） */
