@@ -19,8 +19,6 @@
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
-    "smplr": "^1.0.0",
-    "tone": "^15.1.22",
     "vexflow": "^5.0.0"
   }
 }

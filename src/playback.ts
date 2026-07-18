@@ -1,14 +1,13 @@
 import type { Midi } from '@tonejs/midi';
-import { getContext } from 'tone';
 import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
-import { playPianoMidi, releaseAllPiano } from './salamanderPiano';
+import { playPianoMidi, releaseAllPiano, getPianoAudioTime } from './salamanderPiano';
 
 export interface PlaybackController {
   stop: () => void;
   isPlaying: () => boolean;
 }
 
-/** 自动播放：Salamander 采样钢琴；用 setTimeout 对齐 note on/off 以高亮键盘（按左右手上色） */
+/** 自动播放：用 setTimeout 对齐 note on/off 以高亮键盘（按左右手上色） */
 export function playNotes(
   notes: FlatNote[],
   midiFile: Midi,
@@ -20,24 +19,22 @@ export function playNotes(
   startOffset = 0,
   speed = 1,
 ): PlaybackController {
-  const ctx = getContext();
   const active = new Map<number, Hand>();
   const timers: number[] = [];
   let stopped = false;
 
   const scheduleAt = (audioTime: number, fn: () => void) => {
-    const delayMs = Math.max(0, (audioTime - ctx.currentTime) * 1000);
+    const delayMs = Math.max(0, (audioTime - getPianoAudioTime()) * 1000);
     return window.setTimeout(fn, delayMs);
   };
 
-  const base = ctx.currentTime + 0.06;
+  const base = getPianoAudioTime() + 0.06;
   let raf = 0;
 
   const tick = () => {
     if (stopped) return;
     if (onTimeSec) {
-      // 报告实际进度 = 流逝时间 * speed + 偏移量
-      onTimeSec(Math.max(0, ctx.currentTime - base) * speed + startOffset);
+      onTimeSec(Math.max(0, getPianoAudioTime() - base) * speed + startOffset);
       raf = requestAnimationFrame(tick);
     }
   };
@@ -49,7 +46,6 @@ export function playNotes(
   const filteredNotes = notes.filter((n) => n.time + n.duration >= startOffset);
 
   for (const n of filteredNotes) {
-    // 音符从 startOffset 之后才开始发声
     const playTime = Math.max(n.time, startOffset);
     const releaseTime = n.time + Math.max(0, n.duration);
 

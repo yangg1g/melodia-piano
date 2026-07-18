@@ -17,7 +17,7 @@ import { playNotes, type PlaybackController } from './playback';
 import { startKeyboardPractice } from './keyboardPractice';
 import { ScoringEngine } from './scoring';
 import type { ScoreState } from './scoring';
-import { ensureSalamanderPiano, playPianoMidi, releaseAllPiano } from './salamanderPiano';
+import { ensurePiano, playPianoMidi, releaseAllPiano } from './salamanderPiano';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -782,7 +782,7 @@ async function startPreview(filename: string) {
   previewCancelled = false;
 
   try {
-    await ensureSalamanderPiano();
+    await ensurePiano();
 
     const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
     if (!res.ok || previewCancelled) return;
@@ -1309,7 +1309,7 @@ async function startPlayFrom(offsetSec: number) {
     let lastErr: unknown;
     while (retries > 0) {
       try {
-        await ensureSalamanderPiano();
+        await ensurePiano();
         lastErr = undefined;
         break;
       } catch (err) {
