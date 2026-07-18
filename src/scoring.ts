@@ -1,11 +1,10 @@
 /**
  * MIDI 钢琴计分与判定系统
- * 参考 osu!mania ScoreV2 + Combo 加成 + 长度奖励 + 模组倍率：
- * - PERFECT / GREAT / GOOD / OK / MEH / MISS 六级判定
+ * - PERFECT / OK / MISS 三级判定
  * - accuracy: 纯 320-graded 权重 (0~1)，与分数分离
  * - score 运行中 = 连击加成的累加分数，最终结算额外叠加长度奖励和模组倍率
  */
-export type Judgement = 'PERFECT' | 'GREAT' | 'GOOD' | 'OK' | 'MEH' | 'MISS';
+export type Judgement = 'PERFECT' | 'OK' | 'MISS';
 
 export const MAX_SCORE = 1_000_000;
 
@@ -18,32 +17,39 @@ export interface ScoreState {
   lastJudgement: Judgement | null;
   counts: Record<Judgement, number>;
   totalHits: number;
+  /** 按错键次数（弹了不在判定窗口内的音） */
+  wrongKeys: number;
+}
+
+/** 单个音符的判定结果（用于回放可视化） */
+export interface NoteResult {
+  midi: number;
+  time: number;
+  offsetMs: number;
+  judgement: Judgement;
+}
+
+/** 按错键记录 */
+export interface WrongKeyRecord {
+  midi: number;
+  timeSec: number;
 }
 
 /** 判定对应的准确度权重（满分 320 制，PERFECT 额外加分） */
 const ACCU_WEIGHT: Record<Judgement, number> = {
   PERFECT: 320,
-  GREAT: 300,
-  GOOD: 200,
-  OK: 100,
-  MEH: 50,
+  OK: 150,
   MISS: 0,
 };
 
 export interface TimingWindows {
   perfect: number;
-  great: number;
-  good: number;
   ok: number;
-  meh: number;
 }
 
 const DEFAULT_WINDOWS: TimingWindows = {
   perfect: 25,
-  great: 60,
-  good: 100,
-  ok: 140,
-  meh: 180,
+  ok: 180,
 };
 
 export class ScoringEngine {
@@ -54,7 +60,13 @@ export class ScoringEngine {
   /** 运行时累加分数（已含 combo 加成） */
   runningScore = 0;
   lastJudgement: Judgement | null = null;
-  counts: Record<Judgement, number> = { PERFECT: 0, GREAT: 0, GOOD: 0, OK: 0, MEH: 0, MISS: 0 };
+  counts: Record<Judgement, number> = { PERFECT: 0, OK: 0, MISS: 0 };
+  /** 按错键次数（不计入命中/准确度） */
+  wrongKeys = 0;
+  /** 逐音符判定结果（用于回放可视化） */
+  noteResults: NoteResult[] = [];
+  /** 按错键记录 */
+  wrongKeyRecords: WrongKeyRecord[] = [];
   readonly windows: TimingWindows;
   /** 歌曲总音符数（用于长度奖励） */
   totalNotes = 0;
@@ -74,21 +86,37 @@ export class ScoringEngine {
   judge(offsetMs: number): Judgement {
     const abs = Math.abs(offsetMs);
     if (abs <= this.windows.perfect) return 'PERFECT';
-    if (abs <= this.windows.great) return 'GREAT';
-    if (abs <= this.windows.good) return 'GOOD';
     if (abs <= this.windows.ok) return 'OK';
-    if (abs <= this.windows.meh) return 'MEH';
     return 'MISS';
   }
 
-  hit(offsetMs: number): Judgement {
+  hit(offsetMs: number, noteMidi?: number, expectedTime?: number): Judgement {
     const j = this.judge(offsetMs);
     this.apply(j);
+    if (noteMidi !== undefined && expectedTime !== undefined) {
+      this.noteResults.push({ midi: noteMidi, time: expectedTime, offsetMs, judgement: j });
+    }
     return j;
   }
 
-  miss(): void {
+  miss(noteMidi?: number, expectedTime?: number): void {
     this.apply('MISS');
+    if (noteMidi !== undefined && expectedTime !== undefined) {
+      this.noteResults.push({ midi: noteMidi, time: expectedTime, offsetMs: 0, judgement: 'MISS' });
+    }
+  }
+
+  /** 按错键：准确度计 MISS 权重，中断 combo */
+  wrongKey(noteMidi?: number, timeSec?: number): void {
+    this.wrongKeys++;
+    this.combo = 0;
+    this.lastJudgement = null;
+    this.totalWeight += 320;
+    this.achievedWeight += ACCU_WEIGHT['MISS'];
+    if (noteMidi !== undefined && timeSec !== undefined) {
+      this.wrongKeyRecords.push({ midi: noteMidi, timeSec });
+    }
+    this.emitUpdate();
   }
 
   private apply(j: Judgement): void {
@@ -147,7 +175,8 @@ export class ScoringEngine {
       accuracy: this.getAccuracy(),
       lastJudgement: this.lastJudgement,
       counts: { ...this.counts },
-      totalHits: this.counts.PERFECT + this.counts.GREAT + this.counts.GOOD + this.counts.OK + this.counts.MEH + this.counts.MISS,
+      totalHits: this.counts.PERFECT + this.counts.OK + this.counts.MISS,
+      wrongKeys: this.wrongKeys,
     };
   }
 
@@ -162,7 +191,10 @@ export class ScoringEngine {
     this.achievedWeight = 0;
     this.runningScore = 0;
     this.lastJudgement = null;
-    this.counts = { PERFECT: 0, GREAT: 0, GOOD: 0, OK: 0, MEH: 0, MISS: 0 };
+    this.counts = { PERFECT: 0, OK: 0, MISS: 0 };
+    this.wrongKeys = 0;
+    this.noteResults = [];
+    this.wrongKeyRecords = [];
     this.totalNotes = opts?.totalNotes ?? 0;
     this.modMultiplier = opts?.modMultiplier ?? 1;
     this.emitUpdate();

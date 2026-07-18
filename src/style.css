@@ -250,7 +250,7 @@ body {
 }
 
 .history-entry {
-  cursor: context-menu;
+  cursor: pointer;
 }
 
 .history-entry:active {
@@ -595,6 +595,18 @@ body {
   text-align: right;
 }
 
+.practice-time {
+  font-size: 0.8rem;
+  color: #ffb347;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.practice-time[hidden] {
+  display: none;
+}
+
 .btn {
   border: none;
   border-radius: 8px;
@@ -915,12 +927,17 @@ body {
   animation: judge-pop 0.45s ease-out forwards;
 }
 
+.score-display-wrong {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ef4444;
+  margin-left: 8px;
+}
+
 .judge--perfect { color: #fbbf24; }
-.judge--great   { color: #34d399; }
-.judge--good    { color: #60a5fa; }
 .judge--ok      { color: #a78bfa; }
-.judge--meh     { color: #f87171; }
 .judge--miss    { color: #ef4444; }
+.judge--wrong   { color: #f87171; }
 
 @keyframes judge-pop {
   0%   { transform: scale(1); opacity: 1; }
@@ -1057,7 +1074,7 @@ body {
   border-radius: 20px;
   padding: 40px 48px;
   width: 100%;
-  max-width: 420px;
+  max-width: 720px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   text-align: center;
   animation: result-enter 0.4s ease-out;
@@ -1112,6 +1129,51 @@ body {
   margin-top: 4px;
 }
 
+/* ── 用时统计（跟弹模式） ── */
+
+.result-timing-section {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--accent-dim);
+  border-radius: 12px;
+  text-align: left;
+}
+
+.result-timing-section[hidden] {
+  display: none;
+}
+
+.result-timing-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.result-timing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.result-timing-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.result-timing-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-timing-row--highlight .result-timing-value {
+  color: #e07b30;
+  font-size: 1rem;
+}
+
 .result-judgements {
   display: flex;
   flex-direction: column;
@@ -1141,12 +1203,54 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.result-chart-legend {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.result-chart-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.result-chart-canvas {
+  display: block;
+  width: 100%;
+}
+
 .result-back-btn {
   width: 100%;
   padding: 14px 24px;
   font-size: 1.05rem;
   border-radius: 12px;
 }
+
+/* ── 共享：图例、色块 ── */
+
+.detail-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.detail-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.detail-dot--perfect { background: #fbbf24; }
+.detail-dot--ok      { background: #a78bfa; }
+.detail-dot--miss    { background: #ef4444; }
+.detail-dot--wrong   { background: #f87171; border-radius: 50%; width: 8px; height: 8px; }
 
 /* ── 设置页 ── */
 #settings-page {

@@ -40,6 +40,8 @@ export function startKeyboardPractice(
   /** true = 时间自动前进（普通模式），false = 等待用户弹奏（跟弹模式） */
   freePlay = false,
   speedMultiplier = 1,
+  /** 跟弹模式：回调当前已流逝的真实时间（秒） */
+  onWallTimeSec?: (wallSec: number) => void,
 ): PlaybackController {
   let stopped = false;
   const pressedMidis = new Set<number>();
@@ -47,6 +49,8 @@ export function startKeyboardPractice(
   const sustainedNotes = new Set<number>();
   let animFrameId = 0;
   let finishScheduled = false;
+  /** 跟弹模式：开始时的真实时间戳（用于统计用户实际用时） */
+  const startWallTimeMs = performance.now();
 
   const firstNoteTime = flatNotes.length > 0
     ? Math.min(...flatNotes.map((n) => n.time))
@@ -65,8 +69,8 @@ export function startKeyboardPractice(
 
   const RELEASE_GRACE_SEC = 0.1;
 
-  /** 判定窗口（毫秒），使用 ScoringEngine 的 meh 窗口 */
-  const hitWindowMs = scoring ? scoring.windows.meh : 180;
+  /** 判定窗口（毫秒），使用 ScoringEngine 的 ok 窗口 */
+  const hitWindowMs = scoring ? scoring.windows.ok : 180;
   const hitWindowSec = hitWindowMs / 1000;
 
   /** 用于标记已放过 Miss 的音符 */
@@ -121,7 +125,7 @@ export function startKeyboardPractice(
           const offsetMs = (effectiveTimeSec - ns.note.time) * 1000;
           if (offsetMs > hitWindowMs) {
             missedNotes.add(noteStates.indexOf(ns));
-            scoring.miss();
+            scoring.miss(ns.note.midi, ns.note.time);
             onScoreUpdate?.(scoring.getState());
           }
         }
@@ -159,6 +163,7 @@ export function startKeyboardPractice(
     }
 
     onTimeSec?.(effectiveTimeSec);
+    onWallTimeSec?.((performance.now() - startWallTimeMs) / 1000);
   };
 
   const finish = () => {
@@ -214,7 +219,7 @@ export function startKeyboardPractice(
       // 错音：弹响但不计分（用固定短时长，不与跟弹关联）
       playPianoMidi(noteEv.note, 0.3, noteEv.velocity);
       if (scoring) {
-        scoring.miss();
+        scoring.wrongKey(noteEv.note, nowSec);
         onScoreUpdate?.(scoring.getState());
       }
       return;
@@ -229,7 +234,7 @@ export function startKeyboardPractice(
 
       if (scoring) {
         const hitOffsetMs = (nowSec - ns.note.time) * 1000;
-        const j = scoring.hit(hitOffsetMs);
+        scoring.hit(hitOffsetMs, ns.note.midi, ns.note.time);
         onScoreUpdate?.(scoring.getState());
       }
     }
