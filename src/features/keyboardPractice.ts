@@ -1,11 +1,11 @@
 import type { Midi } from '@tonejs/midi';
-import type { KeyboardFallingState, NoteState } from './fallingNotes';
-import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
-import { applyKeyVisuals } from './pianoKeyboard';
+import type { KeyboardFallingState } from '../rendering/fallingNotes';
+import { assignHandForNote, type FlatNote } from '../core/midiScore';
+import { applyKeyVisuals } from '../rendering/pianoKeyboard';
 import type { PlaybackController } from './playback';
-import { playPianoMidi, releaseAllPiano, startPianoNote, releasePianoNote } from './salamanderPiano';
-import { ScoringEngine, type ScoreState } from './scoring';
-import { MidiMatchEngine, type MidiMatchCallbacks } from './midiMatchEngine';
+import { playPianoMidi, releaseAllPiano, startPianoNote, releasePianoNote } from '../audio/salamanderPiano';
+import { ScoringEngine, type ScoreState } from '../core/scoring';
+import { MidiMatchEngine, type MidiMatchCallbacks } from '../core/midiMatchEngine';
 
 const LOG_STORAGE_KEY = 'midi-piano-logs';
 

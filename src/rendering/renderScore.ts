@@ -1,6 +1,6 @@
 import { Dot, Factory, VoiceMode } from 'vexflow';
-import { vexVoiceTimeStr, type Hand, type MeasureContext, type VoiceAtom } from './midiScore';
-import type { NoteKey, StaffEditState } from './staffEditor';
+import { vexVoiceTimeStr, type Hand, type MeasureContext, type VoiceAtom } from '../core/midiScore';
+import type { NoteKey, StaffEditState } from '../features/staffEditor';
 
 const BASE_SCORE_HEIGHT = 220;
 const BASE_SYSTEM_Y = 12;

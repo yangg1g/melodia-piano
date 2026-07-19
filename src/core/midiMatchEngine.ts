@@ -3,20 +3,11 @@
  * 同时被 keyboardPractice.ts (浏览器) 和 simulate-midi.ts (Node) 复用。
  */
 import { ScoringEngine, ACCU_WEIGHT_PERFECT, type ScoreState } from './scoring';
+import type { FlatNote } from './midiScore';
 
 // ─── 类型定义 ──────────────────────────────────────────────
 
 export type Hand = 'treble' | 'bass';
-
-export interface FlatNote {
-  midi: number;
-  time: number;
-  duration: number;
-  ticks: number;
-  durationTicks: number;
-  trackIndex: number;
-  velocity: number;
-}
 
 export interface NoteState {
   note: FlatNote;
@@ -106,7 +97,6 @@ export class MidiMatchEngine {
   private announcedMatched = new Set<number>();
   private finishScheduled = false;
   private _stopped = false;
-  private startWallTimeMs: number;
   private hasFirstPress = false;
   private firstPressWallSec = 0;
 
@@ -119,7 +109,6 @@ export class MidiMatchEngine {
     this.scoring = options.scoring;
     this.getHandForNote = options.getHandForNote;
     this.callbacks = callbacks;
-    this.startWallTimeMs = options.startWallTimeMs ?? performance.now();
 
     this.accumulatedTimeSec = options.initialGameTimeSec !== undefined
       ? options.initialGameTimeSec

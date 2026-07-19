@@ -1,28 +1,33 @@
+/**
+ * MIDI 乐谱与键盘 —— 入口
+ *
+ * 项目结构：
+ *   core/       — 核心领域逻辑（MIDI 数据结构、计分、匹配引擎、音高工具）
+ *   audio/      — 音频引擎
+ *   rendering/  — 视觉渲染（钢琴键盘、下落音符、五线谱渲染）
+ *   features/   — 功能模块（自动播放、键盘练习、编辑、示例 MIDI）
+ *   ui/         — 页面与组件（设置、历史、结算、选歌、MIDI 管理、练习控制、钢琴页编排）
+ */
 import './style.css';
 import { Midi } from '@tonejs/midi';
-import {
-  assignHandForNote,
-  buildAtomsForHand,
-  flattenNotes,
-  getMeasureContext,
-  measureCount,
-  type FlatNote,
-  type MeasureContext,
-} from './midiScore';
-import { playheadXInMeasureOverlay, renderGrandStaffRow, renderGrandStaffRowSVG, type GrandStaffColumn } from './renderScore';
-import { createStaffEditState, type EditTool } from './staffEditor';
-import { createFallingNotesLane } from './fallingNotes';
-import { applyKeyVisuals, createPianoKeyboard } from './pianoKeyboard';
-import { playNotes, type PlaybackController } from './playback';
-import { startKeyboardPractice, downloadMidiLogs } from './keyboardPractice';
-import { ScoringEngine } from './scoring';
-import type { ScoreState, NoteResult, WrongKeyRecord } from './scoring';
-import { ensurePiano, playPianoMidi, releaseAllPiano } from './salamanderPiano';
+
+import type { AppSettings } from './core/types';
+import { DIFFICULTY_WINDOWS } from './core/types';
+import { createFallingNotesLane } from './rendering/fallingNotes';
+import { loadSettings, saveSettings, applySettings, applySettingsToUI, collectSettingsFromUI } from './ui/settings';
+import { MidiSetup } from './ui/midiSetup';
+import { fetchSongList, updateHistoryPanel, refreshSongBest, startPreview, stopPreview } from './ui/songList';
+import { PianoPage } from './ui/pianoPage';
+import { hideResultScreen, showResultScreen } from './ui/resultScreen';
+import { showConfirm } from './ui/confirmDialog';
+import { downloadMidiLogs } from './features/keyboardPractice';
+import { getBestForSong } from './ui/history';
+
+/* ═══════════════════ DOM 结构 ═══════════════════ */
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 app.innerHTML = `
-  <!-- ===== 选歌页 ===== -->
   <div id="song-list-page" class="page">
     <header class="song-list-header">
       <div class="song-list-header-row">
@@ -40,17 +45,11 @@ app.innerHTML = `
     </header>
     <div class="song-list-body">
       <div class="history-panel">
-        <div class="history-panel-header">
-          <h3 class="history-panel-title">历史成绩</h3>
-        </div>
-        <div id="history-list" class="history-list">
-          <div class="history-empty">选择歌曲后显示历史成绩</div>
-        </div>
+        <div class="history-panel-header"><h3 class="history-panel-title">历史成绩</h3></div>
+        <div id="history-list" class="history-list"><div class="history-empty">选择歌曲后显示历史成绩</div></div>
       </div>
       <div class="song-list-column">
-        <div id="song-list" class="song-list" tabindex="0">
-          <div class="song-list-loading">加载中…</div>
-        </div>
+        <div id="song-list" class="song-list" tabindex="0"><div class="song-list-loading">加载中…</div></div>
         <div class="song-list-actions">
           <button type="button" id="btn-song-practice" class="btn primary" disabled>🎹 练习模式</button>
           <label class="file-btn file-btn--local">
@@ -62,7 +61,6 @@ app.innerHTML = `
     </div>
   </div>
 
-  <!-- ===== 钢琴页 ===== -->
   <div id="piano-page" class="page" hidden>
     <header class="toolbar">
       <h1 class="title">MIDI 乐谱</h1>
@@ -73,7 +71,6 @@ app.innerHTML = `
         <button type="button" id="btn-stop" class="btn secondary" disabled>停止</button>
         <button type="button" id="btn-edit" class="btn secondary" hidden>编辑</button>
         <button type="button" id="btn-download-log" class="btn secondary" title="下载按键日志">📥 日志</button>
-        <!-- 保留隐藏元素供 JS 引用 -->
         <select id="midi-input" hidden aria-label="MIDI 输入设备"></select>
         <button id="btn-midi-refresh" hidden></button>
       </div>
@@ -90,17 +87,16 @@ app.innerHTML = `
       <span id="progress-time" class="progress-time">0:00 / 0:00</span>
       <span id="practice-time" class="practice-time" hidden></span>
     </div>
-    <!-- 练习模式控制栏 -->
     <div id="practice-controls-bar" class="practice-controls-bar" hidden>
       <div class="practice-measure-range">
         <span>循环小节</span>
-        <button type="button" id="practice-start-dec" class="btn secondary practice-btn-sm" title="减小起始小节">◀</button>
+        <button type="button" id="practice-start-dec" class="btn secondary practice-btn-sm">◀</button>
         <input type="number" class="practice-measure-input" id="practice-start-label" value="1" min="1" step="1" />
-        <button type="button" id="practice-start-inc" class="btn secondary practice-btn-sm" title="增大起始小节">▶</button>
+        <button type="button" id="practice-start-inc" class="btn secondary practice-btn-sm">▶</button>
         <span>–</span>
-        <button type="button" id="practice-end-dec" class="btn secondary practice-btn-sm" title="减小结束小节">◀</button>
+        <button type="button" id="practice-end-dec" class="btn secondary practice-btn-sm">◀</button>
         <input type="number" class="practice-measure-input" id="practice-end-label" value="1" min="1" step="1" />
-        <button type="button" id="practice-end-inc" class="btn secondary practice-btn-sm" title="增大结束小节">▶</button>
+        <button type="button" id="practice-end-inc" class="btn secondary practice-btn-sm">▶</button>
       </div>
       <div class="practice-loop-info">
         <span class="practice-loop-counter" id="practice-loop-counter">第 1 轮</span>
@@ -123,7 +119,6 @@ app.innerHTML = `
         </div>
       </section>
     </main>
-    <!-- 练习模式右侧面板 -->
     <div id="practice-side-panel" class="practice-side-panel" hidden>
       <div id="score-display" class="score-display score-display--side" hidden>
         <span class="score-display-score" id="score-value">0</span>
@@ -137,7 +132,6 @@ app.innerHTML = `
     </div>
   </div>
 
-  <!-- ===== 结果页 ===== -->
   <div id="result-page" class="page" hidden>
     <div class="result-card">
       <div class="result-title">结算</div>
@@ -149,27 +143,16 @@ app.innerHTML = `
         <div class="result-score-label">理论最高</div>
         <div class="result-max-score" id="result-max-score">0</div>
       </div>
-      <div class="result-ratio-section">
-        <div class="result-ratio" id="result-ratio">-</div>
-      </div>
+      <div class="result-ratio-section"><div class="result-ratio" id="result-ratio">-</div></div>
       <div class="result-accuracy-section">
         <div class="result-accuracy" id="result-accuracy">100.00%</div>
         <div class="result-maxcombo" id="result-maxcombo">最高 Combo: 0</div>
       </div>
       <div class="result-timing-section" id="result-timing-section" hidden>
         <div class="result-timing-title">用时统计（跟弹模式）</div>
-        <div class="result-timing-row">
-          <span class="result-timing-label">原曲时长</span>
-          <span class="result-timing-value" id="result-timing-original">0:00</span>
-        </div>
-        <div class="result-timing-row">
-          <span class="result-timing-label">实际用时</span>
-          <span class="result-timing-value" id="result-timing-actual">0:00</span>
-        </div>
-        <div class="result-timing-row result-timing-row--highlight">
-          <span class="result-timing-label">用时占比</span>
-          <span class="result-timing-value" id="result-timing-slower">0%</span>
-        </div>
+        <div class="result-timing-row"><span class="result-timing-label">原曲时长</span><span class="result-timing-value" id="result-timing-original">0:00</span></div>
+        <div class="result-timing-row"><span class="result-timing-label">实际用时</span><span class="result-timing-value" id="result-timing-actual">0:00</span></div>
+        <div class="result-timing-row result-timing-row--highlight"><span class="result-timing-label">用时占比</span><span class="result-timing-value" id="result-timing-slower">0%</span></div>
       </div>
       <div class="result-judgements">
         <div class="result-judge-row"><span class="judge-label judge--perfect">PERFECT</span><span class="judge-count" id="judge-perfect">0</span></div>
@@ -183,15 +166,11 @@ app.innerHTML = `
         <span class="detail-legend-item"><span class="detail-dot detail-dot--miss"></span> MISS</span>
         <span class="detail-legend-item"><span class="detail-dot detail-dot--wrong"></span> WRONG</span>
       </div>
-      <div class="result-chart-wrap">
-        <canvas id="result-chart-canvas" class="result-chart-canvas"></canvas>
-      </div>
+      <div class="result-chart-wrap"><canvas id="result-chart-canvas" class="result-chart-canvas"></canvas></div>
       <button type="button" id="result-back-btn" class="btn primary result-back-btn">返回选歌</button>
     </div>
   </div>
 
-  <!-- ===== 成绩详情页 ===== -->
-  <!-- ===== 设置页 ===== -->
   <div id="settings-page" class="page" hidden>
     <div class="settings-card">
       <div class="settings-header">
@@ -207,7 +186,6 @@ app.innerHTML = `
             <label><input type="radio" name="settings-mode" value="keyboard" /> MIDI 跟弹</label>
           </div>
         </div>
-
         <div class="settings-group">
           <label class="settings-label">五线谱渲染方式</label>
           <div class="settings-mode-group">
@@ -215,37 +193,27 @@ app.innerHTML = `
             <label><input type="radio" name="settings-render" value="original" /> 原始五线谱</label>
           </div>
         </div>
-
         <div class="settings-group">
           <label class="settings-label" for="settings-falling-speed">下落速度</label>
           <div class="settings-slider-row">
-            <span>快</span>
-            <input type="range" id="settings-falling-speed" min="0.5" max="6" step="0.5" value="3" />
-            <span>慢</span>
+            <span>快</span><input type="range" id="settings-falling-speed" min="0.5" max="6" step="0.5" value="3" /><span>慢</span>
             <span class="settings-value" id="settings-falling-speed-val">3.0s</span>
           </div>
         </div>
-
         <div class="settings-group">
           <label class="settings-label" for="settings-playback-speed">播放速度</label>
           <div class="settings-slider-row">
-            <span>0.5×</span>
-            <input type="range" id="settings-playback-speed" min="0.5" max="2" step="0.1" value="1" />
-            <span>2.0×</span>
+            <span>0.5×</span><input type="range" id="settings-playback-speed" min="0.5" max="2" step="0.1" value="1" /><span>2.0×</span>
             <span class="settings-value" id="settings-playback-speed-val">1.0×</span>
           </div>
         </div>
-
         <div class="settings-group">
           <label class="settings-label" for="settings-measure-width">小节宽度</label>
           <div class="settings-slider-row">
-            <span>100</span>
-            <input type="range" id="settings-measure-width" min="100" max="400" step="10" value="180" />
-            <span>400</span>
+            <span>100</span><input type="range" id="settings-measure-width" min="100" max="400" step="10" value="180" /><span>400</span>
             <span class="settings-value" id="settings-measure-width-val">180px</span>
           </div>
         </div>
-
         <div class="settings-group">
           <label class="settings-label">判定难度</label>
           <div class="settings-difficulty-group">
@@ -259,7 +227,6 @@ app.innerHTML = `
     </div>
   </div>
 
-  <!-- ===== 自定义确认对话框 ===== -->
   <div id="confirm-dialog" class="confirm-dialog" hidden>
     <div class="confirm-dialog-card">
       <p id="confirm-dialog-msg" class="confirm-dialog-msg"></p>
@@ -271,31 +238,22 @@ app.innerHTML = `
   </div>
 `;
 
-/* ── DOM 引用 ── */
+/* ═══════════════════ DOM 引用 ═══════════════════ */
 
 const songListPage = document.querySelector<HTMLDivElement>('#song-list-page')!;
-const pianoPage = document.querySelector<HTMLDivElement>('#piano-page')!;
+const pianoPageEl = document.querySelector<HTMLDivElement>('#piano-page')!;
+const settingsPage = document.querySelector<HTMLDivElement>('#settings-page')!;
+
 const songList = document.querySelector<HTMLDivElement>('#song-list')!;
 const fileInput = document.querySelector<HTMLInputElement>('#midi-file')!;
-const btnBack = document.querySelector<HTMLButtonElement>('#btn-back')!;
+const historyList = document.querySelector<HTMLDivElement>('#history-list')!;
+const btnSongPractice = document.querySelector<HTMLButtonElement>('#btn-song-practice')!;
+
 const scoreEl = document.querySelector<HTMLDivElement>('#score')!;
 const scoreScrollEl = document.querySelector<HTMLDivElement>('#score-scroll')!;
 const scorePagerEl = document.querySelector<HTMLDivElement>('#score-pager')!;
-const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
-const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
-const btnEdit = document.querySelector<HTMLButtonElement>('#btn-edit')!;
-const btnDownloadLog = document.querySelector<HTMLButtonElement>('#btn-download-log')!;
-const btnFinger = document.querySelector<HTMLButtonElement>('#btn-finger')!;
-const btnSlur = document.querySelector<HTMLButtonElement>('#btn-slur')!;
-const btnTie = document.querySelector<HTMLButtonElement>('#btn-tie')!;
-const btnStem = document.querySelector<HTMLButtonElement>('#btn-stem')!;
-const editToolbar = document.querySelector<HTMLDivElement>('.edit-toolbar')!;
-const btnSaveEdits = document.querySelector<HTMLButtonElement>('#btn-save-edits')!;
-const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
-const fallingNotes = createFallingNotesLane(keyboardStack);
-const midiInputSelect = document.querySelector<HTMLSelectElement>('#midi-input')!;
-const btnMidiRefresh = document.querySelector<HTMLButtonElement>('#btn-midi-refresh')!;
+const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const keyboardHint = document.querySelector<HTMLParagraphElement>('#keyboard-hint')!;
 const measureInfoEl = document.querySelector<HTMLSpanElement>('#measure-info')!;
 const progressBar = document.querySelector<HTMLInputElement>('#progress-bar')!;
@@ -303,32 +261,21 @@ const progressTime = document.querySelector<HTMLSpanElement>('#progress-time')!;
 const practiceTime = document.querySelector<HTMLSpanElement>('#practice-time')!;
 const scoreDisplay = document.querySelector<HTMLDivElement>('#score-display')!;
 const scoreValueEl = document.querySelector<HTMLSpanElement>('#score-value')!;
-const scoreComboEl = document.querySelector<HTMLSpanElement>('#score-combo')!;
 const scoreAccuEl = document.querySelector<HTMLSpanElement>('#score-accu')!;
+const scoreComboEl = document.querySelector<HTMLSpanElement>('#score-combo')!;
 const scoreJudgeEl = document.querySelector<HTMLSpanElement>('#score-judge')!;
 const scoreWrongEl = document.querySelector<HTMLSpanElement>('#score-wrong')!;
-const scoringEngine = new ScoringEngine();
 
-const resultPage = document.querySelector<HTMLDivElement>('#result-page')!;
-const resultOverlay = document.querySelector<HTMLDivElement>('#result-overlay')!;
-const resultScoreEl = document.querySelector<HTMLSpanElement>('#result-score')!;
-const resultMaxScoreEl = document.querySelector<HTMLDivElement>('#result-max-score')!;
-const resultRatioEl = document.querySelector<HTMLDivElement>('#result-ratio')!;
-const resultAccuracyEl = document.querySelector<HTMLSpanElement>('#result-accuracy')!;
-const resultMaxComboEl = document.querySelector<HTMLSpanElement>('#result-maxcombo')!;
-const resultJudgePerfect = document.querySelector<HTMLSpanElement>('#judge-perfect')!;
-const resultJudgeOk = document.querySelector<HTMLSpanElement>('#judge-ok')!;
-const resultJudgeMiss = document.querySelector<HTMLSpanElement>('#judge-miss')!;
-const resultJudgeWrong = document.querySelector<HTMLSpanElement>('#judge-wrong')!;
-const resultTimingSection = document.querySelector<HTMLDivElement>('#result-timing-section')!;
-const resultTimingOriginal = document.querySelector<HTMLSpanElement>('#result-timing-original')!;
-const resultTimingActual = document.querySelector<HTMLSpanElement>('#result-timing-actual')!;
-const resultTimingSlower = document.querySelector<HTMLSpanElement>('#result-timing-slower')!;
-const resultChartCanvas = document.querySelector<HTMLCanvasElement>('#result-chart-canvas')!;
-const resultBackBtn = document.querySelector<HTMLButtonElement>('#result-back-btn')!;
-const historyList = document.querySelector<HTMLDivElement>('#history-list')!;
+const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
+const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
+const btnEdit = document.querySelector<HTMLButtonElement>('#btn-edit')!;
+const btnFinger = document.querySelector<HTMLButtonElement>('#btn-finger')!;
+const btnSlur = document.querySelector<HTMLButtonElement>('#btn-slur')!;
+const btnTie = document.querySelector<HTMLButtonElement>('#btn-tie')!;
+const btnStem = document.querySelector<HTMLButtonElement>('#btn-stem')!;
+const btnSaveEdits = document.querySelector<HTMLButtonElement>('#btn-save-edits')!;
+const editToolbar = document.querySelector<HTMLDivElement>('.edit-toolbar')!;
 
-const settingsPage = document.querySelector<HTMLDivElement>('#settings-page')!;
 const settingsBtn = document.querySelector<HTMLButtonElement>('#settings-btn')!;
 const settingsBackBtn = document.querySelector<HTMLButtonElement>('#settings-back-btn')!;
 const settingsFallingSpeed = document.querySelector<HTMLInputElement>('#settings-falling-speed')!;
@@ -340,646 +287,78 @@ const settingsMeasureWidthVal = document.querySelector<HTMLSpanElement>('#settin
 const settingsDifficultyInfo = document.querySelector<HTMLSpanElement>('#settings-difficulty-info')!;
 const settingsSummaryEl = document.querySelector<HTMLDivElement>('#settings-summary')!;
 
-const confirmDialog = document.querySelector<HTMLDivElement>('#confirm-dialog')!;
-const confirmDialogMsg = document.querySelector<HTMLParagraphElement>('#confirm-dialog-msg')!;
-const confirmDialogOk = document.querySelector<HTMLButtonElement>('#confirm-dialog-ok')!;
-const confirmDialogCancel = document.querySelector<HTMLButtonElement>('#confirm-dialog-cancel')!;
-
-/* ── 选歌页 MIDI 输入选择 ── */
-const songListMidiInputSelect = document.querySelector<HTMLSelectElement>('#song-list-midi-input')!;
+const songListMidiSelect = document.querySelector<HTMLSelectElement>('#song-list-midi-input')!;
 const songListMidiRefresh = document.querySelector<HTMLButtonElement>('#song-list-midi-refresh')!;
 const songListMidiStatus = document.querySelector<HTMLSpanElement>('#song-list-midi-status')!;
-const btnSongPractice = document.querySelector<HTMLButtonElement>('#btn-song-practice')!;
 
-function updateSettingsSummary(s: AppSettings) {
-  const modeLabel = s.mode === 'normal' ? '普通模式' : s.mode === 'auto' ? '自动播放' : 'MIDI跟弹';
-  const diffLabel = s.difficulty === 'easy' ? '宽松' : s.difficulty === 'normal' ? '普通' : '严格';
-  settingsSummaryEl.textContent = `${modeLabel} · 下落 ${s.fallingSpeed.toFixed(1)}s · 速度 ${s.playbackSpeed.toFixed(1)}× · ${diffLabel}判定`;
-}
+const midiInputSelect = document.querySelector<HTMLSelectElement>('#midi-input')!;
+const btnMidiRefresh = document.querySelector<HTMLButtonElement>('#btn-midi-refresh')!;
 
-let currentMidi: Midi | null = null;
-let flatNotes: FlatNote[] = [];
-let keyEls = createPianoKeyboard(keyboardHost);
-let playback: PlaybackController | null = null;
-let midiAccess: MIDIAccess | null = null;
-let totalDurationSec = 0;
-let seeking = false;
-/** 当前正在播放的歌曲文件名（用于保存历史） */
-let currentSongFile: string | null = null;
-let currentSongName: string = '';
-/** 跟弹模式：记录最终的实际用时（秒） */
-let finalWallTimeSec = 0;
+const resultOverlay = document.querySelector<HTMLDivElement>('#result-overlay')!;
 
-/* ── 练习模式状态 ── */
-const practiceControlsBar = document.querySelector<HTMLDivElement>('#practice-controls-bar')!;
-const practiceStartLabel = document.querySelector<HTMLInputElement>('#practice-start-label')!;
-const practiceEndLabel = document.querySelector<HTMLInputElement>('#practice-end-label')!;
-const practiceLoopCounter = document.querySelector<HTMLSpanElement>('#practice-loop-counter')!;
-const practiceLoopBest = document.querySelector<HTMLSpanElement>('#practice-loop-best')!;
-const practiceStartDec = document.querySelector<HTMLButtonElement>('#practice-start-dec')!;
-const practiceStartInc = document.querySelector<HTMLButtonElement>('#practice-start-inc')!;
-const practiceEndDec = document.querySelector<HTMLButtonElement>('#practice-end-dec')!;
-const practiceEndInc = document.querySelector<HTMLButtonElement>('#practice-end-inc')!;
-const practiceSidePanel = document.querySelector<HTMLDivElement>('#practice-side-panel')!;
-const practiceSideHeader = document.querySelector<HTMLDivElement>('#practice-side-header')!;
-const practiceSideScores = document.querySelector<HTMLDivElement>('#practice-side-scores')!;
+const btnBack = document.querySelector<HTMLButtonElement>('#btn-back')!;
+const btnDownloadLog = document.querySelector<HTMLButtonElement>('#btn-download-log')!;
 
-interface PracticeLoopRecord {
-  round: number;
-  score: number;
-  maxScore: number;
-  accuracy: number;
-  elapsedSec: number;
-  loopDurationSec: number;
-  counts: Record<string, number>;
-  noteResults: NoteResult[];
-  wrongKeyRecords: WrongKeyRecord[];
-}
+const confirmDialogEl = document.querySelector<HTMLDivElement>('#confirm-dialog')!;
+const confirmDialogMsgEl = document.querySelector<HTMLParagraphElement>('#confirm-dialog-msg')!;
+const confirmDialogOkEl = document.querySelector<HTMLButtonElement>('#confirm-dialog-ok')!;
+const confirmDialogCancelEl = document.querySelector<HTMLButtonElement>('#confirm-dialog-cancel')!;
 
-let practiceMeasureStart = 0;
-let practiceMeasureEnd = 0;
-let practiceTotalMeasures = 0;
-let practiceLoopRound = 0;
-let practiceLoopRecords: PracticeLoopRecord[] = [];
-let practiceBestScore = 0;
-let practiceActive = false;
-let practiceRestarting = false;
-let practiceLoopNotes: FlatNote[] = [];
-let practiceLoopStartFn: (() => void) | null = null;
-let practiceLoopDurationSec = 0;
-let practiceCurrentWallSec = 0;
+/* ═══════════════════ 初始化组件 ═══════════════════ */
 
-/* ── 五线谱编辑模式 ── */
-let staffEditState = createStaffEditState();
-let editModeActive = false;
-let editTool: EditTool = 'select' as EditTool;
-/** 当前选中的 NoteKey 集合（多选 + 框选） */
-let selectedNoteKeys = new Set<string>();
-/** 框选状态 */
-let selDragStart: { x: number; y: number } | null = null;
-let selRectEl: HTMLDivElement | null = null;
+const fallingNotes = createFallingNotesLane(keyboardStack);
 
-/* ── 历史成绩持久化（完整记录列表） ── */
+const midiSetup = new MidiSetup({
+  pianoSelect: midiInputSelect,
+  pianoRefresh: btnMidiRefresh,
+  songListSelect: songListMidiSelect,
+  songListRefresh: songListMidiRefresh,
+  songListStatus: songListMidiStatus,
+});
 
-interface PlayHistoryEntry {
-  songFile: string;
-  songName: string;
-  score: number;
-  accuracy: number;
-  maxCombo: number;
-  mode: string;
-  date: string; // ISO
-  /** 当时的设置快照 */
-  settings: {
-    fallingSpeed: number;
-    playbackSpeed: number;
-    difficulty: string;
-  };
-  /** 逐音符判定结果（用于回放可视化） */
-  noteResults?: NoteResult[];
-  /** 按错键记录 */
-  wrongKeyRecords?: WrongKeyRecord[];
-  /** 真实墙上用时（跟弹模式） */
-  wallTimeSec?: number;
-  /** 原始歌曲时长 */
-  originalDurationSec?: number;
-}
-
-const HISTORY_KEY = 'midi-piano-history';
-
-function loadHistory(): PlayHistoryEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function addHistoryEntry(entry: PlayHistoryEntry) {
-  const all = loadHistory();
-  all.push(entry);
-  // 最多保留 500 条
-  if (all.length > 500) all.splice(0, all.length - 500);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(all));
-}
-
-function clearAllHistory() {
-  localStorage.removeItem(HISTORY_KEY);
-}
-
-/** 非阻塞确认对话框（类似设置页，不阻塞音频播放） */
-function showConfirm(msg: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    confirmDialogMsg.textContent = msg;
-    confirmDialog.hidden = false;
-    const cleanup = (result: boolean) => {
-      confirmDialog.hidden = true;
-      resolve(result);
-    };
-    const onOk = () => cleanup(true);
-    const onCancel = () => cleanup(false);
-    confirmDialogOk.addEventListener('click', onOk, { once: true });
-    confirmDialogCancel.addEventListener('click', onCancel, { once: true });
-  });
-}
-
-/** 删除单条历史记录（根据 date 精确匹配） */
-function deleteHistoryEntry(songFile: string, date: string) {
-  const all = loadHistory();
-  const idx = all.findIndex(e => e.songFile === songFile && e.date === date);
-  if (idx !== -1) {
-    all.splice(idx, 1);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(all));
-    return true;
-  }
-  return false;
-}
-
-/** 获取某首歌的最佳记录（从完整历史中推导） */
-function getBestForSong(songFile: string): { bestScore: number; bestAccuracy: number; bestCombo: number; totalPlays: number } | null {
-  const entries = loadHistory().filter(e => e.songFile === songFile);
-  if (entries.length === 0) return null;
-  let bestScore = 0, bestAccuracy = 0, bestCombo = 0;
-  for (const e of entries) {
-    if (e.score > bestScore) bestScore = e.score;
-    if (e.accuracy > bestAccuracy) bestAccuracy = e.accuracy;
-    if (e.maxCombo > bestCombo) bestCombo = e.maxCombo;
-  }
-  return { bestScore, bestAccuracy, bestCombo, totalPlays: entries.length };
-}
-
-/** 获取某首歌的历史条目（按分数降序） */
-function getHistoryForSong(songFile: string): PlayHistoryEntry[] {
-  return loadHistory().filter(e => e.songFile === songFile).sort((a, b) => b.score - a.score);
-}
-
-/* ── 设置系统 ── */
-
-interface AppSettings {
-  mode: PlayMode;
-  fallingSpeed: number;   // VISIBLE_WINDOW_SEC (1.5 ~ 5)
-  playbackSpeed: number;  // 倍率 (0.5 ~ 2.0)
-  difficulty: 'easy' | 'normal' | 'hard';
-  renderMode: 'image' | 'original';  // 五线谱渲染方式
-  measureWidth: number;   // 每小节宽度 (px)
-}
-
-const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: string; windows: Partial<import('./scoring').TimingWindows> }> = {
-  easy: {
-    label: 'PERFECT ≤ 40ms · OK ≤ 260ms',
-    windows: { perfect: 40, ok: 260 },
-  },
-  normal: {
-    label: 'PERFECT ≤ 25ms · OK ≤ 180ms',
-    windows: { perfect: 25, ok: 180 },
-  },
-  hard: {
-    label: 'PERFECT ≤ 15ms · OK ≤ 120ms',
-    windows: { perfect: 15, ok: 120 },
-  },
+const resultElements = {
+  page: document.querySelector<HTMLDivElement>('#result-page')!,
+  overlay: resultOverlay,
+  scoreEl: document.querySelector<HTMLSpanElement>('#result-score')!,
+  maxScoreEl: document.querySelector<HTMLDivElement>('#result-max-score')!,
+  ratioEl: document.querySelector<HTMLDivElement>('#result-ratio')!,
+  accuracyEl: document.querySelector<HTMLSpanElement>('#result-accuracy')!,
+  maxComboEl: document.querySelector<HTMLSpanElement>('#result-maxcombo')!,
+  judgePerfect: document.querySelector<HTMLSpanElement>('#judge-perfect')!,
+  judgeOk: document.querySelector<HTMLSpanElement>('#judge-ok')!,
+  judgeMiss: document.querySelector<HTMLSpanElement>('#judge-miss')!,
+  judgeWrong: document.querySelector<HTMLSpanElement>('#judge-wrong')!,
+  timingSection: document.querySelector<HTMLDivElement>('#result-timing-section')!,
+  timingOriginal: document.querySelector<HTMLSpanElement>('#result-timing-original')!,
+  timingActual: document.querySelector<HTMLSpanElement>('#result-timing-actual')!,
+  timingSlower: document.querySelector<HTMLSpanElement>('#result-timing-slower')!,
+  chartCanvas: document.querySelector<HTMLCanvasElement>('#result-chart-canvas')!,
 };
 
-function loadSettings(): AppSettings {
-  const defaults: AppSettings = { mode: 'normal', fallingSpeed: 3, playbackSpeed: 1, difficulty: 'normal', renderMode: 'image', measureWidth: 180 };
-  try {
-    return { ...defaults, ...JSON.parse(localStorage.getItem('midi-piano-settings') || '{}') };
-  } catch {
-    return defaults;
-  }
-}
-
-function saveSettings(s: AppSettings) {
-  localStorage.setItem('midi-piano-settings', JSON.stringify(s));
-}
-
-function applySettingsToUI(s: AppSettings) {
-  const modeRadio = document.querySelector<HTMLInputElement>(`input[name="settings-mode"][value="${s.mode}"]`);
-  if (modeRadio) modeRadio.checked = true;
-  settingsFallingSpeed.value = String(s.fallingSpeed);
-  settingsFallingSpeedVal.textContent = `${s.fallingSpeed.toFixed(1)}s`;
-  settingsPlaybackSpeed.value = String(s.playbackSpeed);
-  settingsPlaybackSpeedVal.textContent = `${s.playbackSpeed.toFixed(1)}×`;
-  settingsMeasureWidth.value = String(s.measureWidth);
-  settingsMeasureWidthVal.textContent = `${s.measureWidth}px`;
-  const diffRadio = document.querySelector<HTMLInputElement>(`input[name="settings-difficulty"][value="${s.difficulty}"]`);
-  if (diffRadio) diffRadio.checked = true;
-  settingsDifficultyInfo.textContent = DIFFICULTY_WINDOWS[s.difficulty].label;
-  const renderRadio = document.querySelector<HTMLInputElement>(`input[name="settings-render"][value="${s.renderMode}"]`);
-  if (renderRadio) renderRadio.checked = true;
-}
-
-function applySettings(s: AppSettings) {
-  setPlayMode(s.mode);
-  fallingNotes.setSpeed(s.fallingSpeed);
-  scoringEngine.setWindows(DIFFICULTY_WINDOWS[s.difficulty].windows);
-  updateSettingsSummary(s);
-}
-
-// 打开/关闭设置
-settingsBtn.addEventListener('click', () => {
-  const s = loadSettings();
-  applySettingsToUI(s);
-  songListPage.hidden = true;
-  settingsPage.hidden = false;
+const pianoPage = new PianoPage({
+  pianoPageEl, scoreEl, scoreScrollEl, scorePagerEl, keyboardHost, keyboardStack,
+  keyboardHint, measureInfoEl, progressBar, progressTime, practiceTime, scoreDisplay,
+  btnPlay, btnStop, btnEdit, btnFinger, btnSlur, btnTie, btnStem, btnSaveEdits, editToolbar,
+  scoreValueEl, scoreAccuEl, scoreComboEl, scoreJudgeEl, scoreWrongEl,
+  resultElements, midiSetup, fallingNotes,
 });
 
-settingsBackBtn.addEventListener('click', () => {
-  // 保存设置
-    const mode = document.querySelector<HTMLInputElement>('input[name="settings-mode"]:checked')?.value as PlayMode ?? 'normal';
-    const fallingSpeed = Number(settingsFallingSpeed.value);
-    const playbackSpeed = Number(settingsPlaybackSpeed.value);
-    const measureWidth = Number(settingsMeasureWidth.value);
-    const difficulty = document.querySelector<HTMLInputElement>('input[name="settings-difficulty"]:checked')?.value as AppSettings['difficulty'] ?? 'normal';
-    const renderMode = (document.querySelector<HTMLInputElement>('input[name="settings-render"]:checked')?.value as 'image' | 'original') ?? 'image';
-    const s: AppSettings = { mode, fallingSpeed, playbackSpeed, difficulty, renderMode, measureWidth };
-  saveSettings(s);
-  applySettings(s);
-  settingsPage.hidden = true;
-  songListPage.hidden = false;
-});
+pianoPage.onGoBack = () => showSongList();
 
-// 设置滑块实时显示
-settingsFallingSpeed.addEventListener('input', () => {
-  settingsFallingSpeedVal.textContent = `${Number(settingsFallingSpeed.value).toFixed(1)}s`;
-});
-settingsPlaybackSpeed.addEventListener('input', () => {
-  settingsPlaybackSpeedVal.textContent = `${Number(settingsPlaybackSpeed.value).toFixed(1)}×`;
-});
-settingsMeasureWidth.addEventListener('input', () => {
-  settingsMeasureWidthVal.textContent = `${Number(settingsMeasureWidth.value)}px`;
-});
-
-// 判定难度切换显示说明
-document.querySelectorAll<HTMLInputElement>('input[name="settings-difficulty"]').forEach((r) => {
-  r.addEventListener('change', () => {
-    if (!r.checked) return;
-    settingsDifficultyInfo.textContent = DIFFICULTY_WINDOWS[r.value as AppSettings['difficulty']].label;
-  });
-});
-
-// 初始化：加载已保存的设置
-const initialSettings = loadSettings();
-applySettings(initialSettings);
-
-/* ── 页面切换 ── */
-
-function showSongList() {
-  stopPreview();
-  pianoPage.hidden = true;
-  songListPage.hidden = false;
-  stopPlayback();
-  refreshSongList();
-}
-
-resultBackBtn.addEventListener('click', () => {
-  resultPage.hidden = true;
-  resultOverlay.hidden = true;
-  scoringEngine.reset();
-  pianoPage.hidden = true;
-  hideScorePlayhead();
-  fallingNotes.clear();
-  applyKeyVisuals(keyEls, {});
-  resetProgressBar();
-  practiceTime.hidden = true;
-  finalWallTimeSec = 0;
-  songListPage.hidden = false;
-  // 刷新历史面板（如有新成绩），但不重建整个列表以免断预览
-  if (currentSongFile) {
-    refreshSongListSilent(currentSongFile);
-  }
-});
-
-function showResultScreen(entry?: PlayHistoryEntry) {
-  // 从当前演奏状态构建 entry（如果未传入）
-  if (!entry) {
-    const curSettings = loadSettings();
-    const state = scoringEngine.getState();
-    entry = {
-      songFile: currentSongFile ?? '',
-      songName: currentSongName,
-      score: scoringEngine.getTotalScore(),
-      accuracy: state.accuracy,
-      maxCombo: state.maxCombo,
-      mode: curSettings.mode,
-      date: new Date().toISOString(),
-      settings: {
-        fallingSpeed: curSettings.fallingSpeed,
-        playbackSpeed: curSettings.playbackSpeed,
-        difficulty: curSettings.difficulty,
-      },
-      noteResults: scoringEngine.noteResults,
-      wrongKeyRecords: scoringEngine.wrongKeyRecords,
-      wallTimeSec: finalWallTimeSec || undefined,
-      originalDurationSec: totalDurationSec || undefined,
-    };
-    // 仅当前演奏时保存到历史
-    if (currentSongFile) addHistoryEntry(entry);
-  }
-
-  const e = entry;
-  const maxScore = scoringEngine.getMaxTheoreticalScore();
-  resultScoreEl.textContent = e.score.toLocaleString();
-  resultMaxScoreEl.textContent = maxScore.toLocaleString();
-  const ratio = maxScore > 0 ? (e.score / maxScore) * 100 : 0;
-  resultRatioEl.textContent = `${ratio.toFixed(1)}%`;
-  resultRatioEl.style.color = ratio >= 95 ? '#22c55e' : ratio >= 80 ? '#fbbf24' : '#ef4444';
-  resultAccuracyEl.textContent = `${(e.accuracy * 100).toFixed(2)}%`;
-  resultMaxComboEl.textContent = `Max Combo: ${e.maxCombo}`;
-  resultJudgePerfect.textContent = String(e.noteResults?.filter(n => n.judgement === 'PERFECT').length ?? 0);
-  resultJudgeOk.textContent = String(e.noteResults?.filter(n => n.judgement === 'OK').length ?? 0);
-  resultJudgeMiss.textContent = String(e.noteResults?.filter(n => n.judgement === 'MISS').length ?? 0);
-  resultJudgeWrong.textContent = String(e.wrongKeyRecords?.length ?? 0);
-
-  // 跟弹模式：显示用时比较
-  const isKeyboardMode = e.mode === 'keyboard';
-  if (isKeyboardMode && e.wallTimeSec && e.wallTimeSec > 0 && e.originalDurationSec && e.originalDurationSec > 0) {
-    resultTimingSection.hidden = false;
-    resultTimingOriginal.textContent = formatTime(e.originalDurationSec);
-    resultTimingActual.textContent = formatTime(e.wallTimeSec);
-    const pct = (e.wallTimeSec / e.originalDurationSec) * 100;
-    resultTimingSlower.textContent = `${pct.toFixed(1)}%`;
-  } else {
-    resultTimingSection.hidden = true;
-  }
-
-  // 绘制判定时间线
-  requestAnimationFrame(() => {
-    renderTimelineToCanvas(resultChartCanvas, e);
-  });
-
-  // 隐藏来源页面
-  songListPage.hidden = true;
-  pianoPage.hidden = true;
-  resultOverlay.hidden = false;
-  resultPage.hidden = false;
-}
-
-async function setupPianoPage(midi: Midi) {
-  stopPreview();
-  songListPage.hidden = true;
-  pianoPage.hidden = false;
-  // 加载新歌时重置编辑状态
-  editModeActive = false;
-  selectedNoteKeys.clear();
-  staffEditState = createStaffEditState();
-
-  // 尝试恢复已保存的编辑
-  if (currentSongFile) {
-    const saved = localStorage.getItem(`midi-edits-${currentSongFile}`);
-    if (saved) {
-      try {
-        const raw = JSON.parse(saved);
-        staffEditState.fingerNumbers = new Map(raw.fingerNumbers ?? []);
-        staffEditState.slurs = raw.slurs ?? [];
-        staffEditState.ties = raw.ties ?? [];
-        staffEditState.stemDirections = new Map((raw.stemDirections ?? []).map(
-          ([k, v]: [string, number]) => [k, v as 1 | -1],
-        ));
-      } catch { /* ignore */ }
-    }
-  }
-  renderAll(midi);
-  // 使用设置中的模式
-  setPlayMode(loadSettings().mode);
-}
-
-async function enterPianoPageAndPlay(midi: Midi) {
-  await setupPianoPage(midi);
-  // 非练习播放模式：显示右侧面板（仅成绩条）
-  practiceActive = false;
-  practiceSidePanel.hidden = false;
-  practiceSideHeader.hidden = true;
-  practiceSideScores.hidden = true;
-  // 3 秒倒计时
-  await countdown(3);
-  await startPlayFrom(0);
-}
-
-async function enterPianoPagePractice(midi: Midi) {
-  await setupPianoPage(midi);
-  practiceActive = true;
-  practiceControlsBar.hidden = false;
-  practiceSidePanel.hidden = false;
-  practiceSideHeader.hidden = false;
-  practiceSideScores.hidden = false;
-  practiceSideScores.innerHTML = '';
-  initPracticeRange(measureCount(midi, getMeasureContext(midi)));
-  updatePracticeUI();
-  btnPlay.disabled = true;
-  btnStop.disabled = false;
-  await startPlayFrom(0);
-}
-
-function countdown(seconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'countdown-overlay';
-    pianoPage.appendChild(overlay);
-
-    let remaining = seconds;
-    const tick = () => {
-      overlay.textContent = String(remaining);
-      remaining--;
-      if (remaining < 0) {
-        overlay.remove();
-        resolve();
-      } else {
-        setTimeout(tick, 1000);
-      }
-    };
-    tick();
-  });
-}
-
-btnBack.addEventListener('click', showSongList);
-
-/* ── 歌曲列表（音游式选择） ── */
+/* ═══════════════════ 曲目/文件加载 ═══════════════════ */
 
 let songFiles: string[] = [];
 let selectedIndex = 0;
 
-function updateHistoryPanel(songFile: string | null) {
-  if (!songFile || !songFiles.includes(songFile)) {
-    historyList.innerHTML = '<div class="history-empty">选择歌曲后显示历史成绩</div>';
-    return;
-  }
-  const entries = getHistoryForSong(songFile);
-  if (entries.length === 0) {
-    historyList.innerHTML = '<div class="history-empty">该歌曲暂无历史成绩</div>';
-    return;
-  }
-  historyList.innerHTML = entries.map((e, i) => {
-    const date = new Date(e.date);
-    const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-    const modeLabel = e.mode === 'normal' ? '普通' : e.mode === 'keyboard' ? '跟弹' : e.mode;
-    const diffLabel = e.settings?.difficulty === 'easy' ? '宽松' : e.settings?.difficulty === 'hard' ? '严格' : '普通';
-    const speedLabel = e.settings?.playbackSpeed !== undefined ? `${e.settings.playbackSpeed.toFixed(1)}×` : '';
-    return `<div class="history-entry ${i === 0 ? 'history-entry--latest' : ''}" data-song="${e.songFile}" data-date="${e.date}">
-      <div class="history-entry-score">${e.score.toLocaleString()}</div>
-      <div class="history-entry-meta">
-        <span class="history-entry-accu">${(e.accuracy * 100).toFixed(1)}%</span>
-        <span class="history-entry-combo">×${e.maxCombo}</span>
-        <span class="history-entry-mode">${modeLabel}</span>
-        ${speedLabel ? `<span class="history-entry-speed">${speedLabel}</span>` : ''}
-        <span class="history-entry-diff">${diffLabel}</span>
-      </div>
-      <div class="history-entry-date">${dateStr}</div>
-    </div>`;
-  }).join('');
-
-  // 点击查看详情、右键删除
-  historyList.querySelectorAll<HTMLElement>('.history-entry').forEach((el) => {
-    el.addEventListener('click', () => {
-      const song = el.dataset.song;
-      const date = el.dataset.date;
-      if (!song || !date) return;
-      const entry = loadHistory().find(e => e.songFile === song && e.date === date);
-      if (entry) showResultScreen(entry);
-    });
-    el.addEventListener('contextmenu', async (e) => {
-      e.preventDefault();
-      const song = el.dataset.song;
-      const date = el.dataset.date;
-      if (!song || !date) return;
-      const ok = await showConfirm(`确定删除这条成绩（${el.querySelector('.history-entry-score')?.textContent}）？`);
-      if (ok) {
-        deleteHistoryEntry(song, date);
-        updateHistoryPanel(songFile);
-      }
-    });
-  });
+async function loadSongFile(filename: string): Promise<Midi> {
+  const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  return new Midi(buf);
 }
 
-function renderTimelineToCanvas(canvas: HTMLCanvasElement, entry: PlayHistoryEntry) {
-  const notes = entry.noteResults ?? [];
-  const wrongs = entry.wrongKeyRecords ?? [];
-  const dpr = window.devicePixelRatio || 1;
-
-  // 计算歌曲时长
-  let maxTime = 0;
-  for (const n of notes) maxTime = Math.max(maxTime, n.time);
-  for (const w of wrongs) maxTime = Math.max(maxTime, w.timeSec);
-  if (maxTime <= 0) maxTime = 60;
-  const duration = maxTime + 2;
-
-  // Canvas 尺寸
-  const w = canvas.parentElement!.clientWidth;
-  const h = 200;
-  canvas.style.width = `${w}px`;
-  canvas.style.height = `${h}px`;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  const ctx = canvas.getContext('2d')!;
-  ctx.scale(dpr, dpr);
-
-  // 背景
-  ctx.fillStyle = '#f8f9fb';
-  ctx.fillRect(0, 0, w, h);
-
-  const padding = { top: 16, right: 16, bottom: 24, left: 36 };
-  const plotW = w - padding.left - padding.right;
-  const plotH = h - padding.top - padding.bottom;
-  const timeToX = (t: number) => padding.left + (t / duration) * plotW;
-
-  // 网格线
-  ctx.strokeStyle = '#e8ecf0';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 5; i++) {
-    const y = padding.top + (i / 5) * plotH;
-    ctx.beginPath();
-    ctx.moveTo(padding.left, y);
-    ctx.lineTo(padding.left + plotW, y);
-    ctx.stroke();
-  }
-
-  // MIDI 范围
-  const midiMin = 21;
-  const midiMax = 108;
-  const midiToY = (midi: number) => {
-    const ratio = 1 - (midi - midiMin) / (midiMax - midiMin);
-    return padding.top + ratio * plotH;
-  };
-
-  // 绘制音符
-  const barH = Math.max(2, (plotH / 88) * 3);
-  for (const n of notes) {
-    const x = timeToX(n.time);
-    const y = midiToY(n.midi) - barH / 2;
-    let color: string;
-    if (n.judgement === 'PERFECT') color = '#fbbf24';
-    else if (n.judgement === 'OK') color = '#a78bfa';
-    else color = '#ef4444';
-
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, Math.max(3, w / 400), barH);
-  }
-
-  // 绘制按错键（小红点）
-  for (const w of wrongs) {
-    const x = timeToX(w.timeSec);
-    const y = midiToY(w.midi);
-    ctx.fillStyle = '#f87171';
-    ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // 横轴刻度
-  ctx.fillStyle = '#6b7280';
-  ctx.font = '10px system-ui';
-  for (let t = 0; t <= duration; t += Math.ceil(duration / 6)) {
-    const x = timeToX(t);
-    ctx.fillText(t < 60 ? `${t}s` : `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`, x - 12, h - 6);
-  }
-}
-
-/** 仅刷新历史面板，不重建歌曲列表 */
-function refreshSongListSilent(songFile: string) {
-  // 刷新歌曲元数据（最佳成绩等可能变化）
-  const best = getBestForSong(songFile);
-  const items = songList.querySelectorAll<HTMLElement>('.song-list-item');
-  for (const item of items) {
-    if (item.dataset.file !== songFile) continue;
-    const historySpan = item.querySelector('.song-list-history');
-    if (best) {
-      const html = `最佳 <span class="history-score">${best.bestScore.toLocaleString()}</span> · ${(best.bestAccuracy * 100).toFixed(1)}% · ${best.totalPlays} 次`;
-      if (historySpan) historySpan.innerHTML = html;
-      else {
-        const span = document.createElement('span');
-        span.className = 'song-list-history';
-        span.innerHTML = html;
-        item.querySelector('.song-list-body-col')?.appendChild(span);
-      }
-    }
-  }
-  updateHistoryPanel(songFile);
-}
-
-function selectSong(index: number) {
-  const items = songList.querySelectorAll<HTMLElement>('.song-list-item');
-  if (index < 0) index = 0;
-  if (index >= items.length) index = items.length - 1;
-  selectedIndex = index;
-
-  for (let i = 0; i < items.length; i++) {
-    items[i].classList.toggle('selected', i === index);
-  }
-
-  // 滚动到可见
-  items[index]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-
-  // 更新左侧历史面板
-  updateHistoryPanel(songFiles[index] ?? null);
-
-  // 启用/禁用练习按钮
-  btnSongPractice.disabled = !songFiles[index];
-
-  // 自动预览选中歌曲
-  if (songFiles[index]) startPreview(songFiles[index]);
-}
-
-/** 加载单首歌曲的元数据 JSON（{midName}.json） */
-async function fetchSongMeta(filename: string) {
+/** 加载歌曲元数据 JSON（{filename}.json） */
+async function fetchSongMeta(filename: string): Promise<{ starRating: number; noteCount: number; bpm: number } | null> {
   try {
     const res = await fetch(`/songs/${encodeURIComponent(filename)}.json`);
     if (!res.ok) return null;
@@ -989,80 +368,144 @@ async function fetchSongMeta(filename: string) {
   }
 }
 
-async function refreshSongList() {
-  songList.innerHTML = '<div class="song-list-loading">加载中…</div>';
-  try {
-    const res = await fetch('/api/songs');
-    const files: string[] = await res.json();
-    songFiles = files;
-
-    if (files.length === 0) {
-      songList.innerHTML = '<div class="song-list-empty">暂无歌曲，请将 .mid 文件放入 public/songs/ 目录</div>';
-      return;
-    }
-
-    // 并行加载所有歌曲的元数据
-    const metas = await Promise.all(files.map(fetchSongMeta));
-
-    songList.innerHTML = '';
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      const info = metas[i];
-      const name = f.replace(/\.(mid|midi)$/i, '');
-      const stars = info ? renderStars(info.starRating) : '';
-      const meta = info
-        ? `<span class="song-list-meta">${info.noteCount} 音符 · ${info.bpm}BPM</span>`
-        : '';
-
-      const item = document.createElement('div');
-      item.className = 'song-list-item';
-      item.dataset.file = f;
-      const best = getBestForSong(f);
-      const historyHtml = best
-        ? `<span class="song-list-history">最佳 <span class="history-score">${best.bestScore.toLocaleString()}</span> · ${(best.bestAccuracy * 100).toFixed(1)}% · ${best.totalPlays} 次</span>`
-        : '';
-      item.innerHTML = `
-        <span class="song-list-index">${i + 1}</span>
-        <span class="song-list-body-col">
-          <span class="song-list-name">${name}</span>
-          <span class="song-list-stars">${stars}</span>
-          ${meta}
-          ${historyHtml}
-        </span>
-        <span class="song-list-arrow">▶</span>
-      `;
-      item.addEventListener('click', () => {
-        const idx = songFiles.indexOf(f);
-        if (idx === selectedIndex) {
-          // 已选中，进入游戏
-          loadAndGo(f);
-        } else {
-          // 未选中，切换到该歌曲
-          selectSong(idx);
-        }
-      });
-      songList.appendChild(item);
-    }
-
-    selectedIndex = 0;
-    selectSong(0);
-    songList.focus();
-  } catch {
-    songList.innerHTML = '<div class="song-list-empty">无法加载歌曲列表（仅开发模式支持）</div>';
-  }
-}
-
 function renderStars(rating: number): string {
   const full = Math.floor(rating);
   const frac = rating - full;
   let html = '';
   for (let i = 0; i < full; i++) html += '★';
-  if (frac >= 0.25) html += '☆';
-  const numeric = rating.toFixed(2);
-  return `<span class="star-display" title="${numeric}">${html}</span>`;
+  if (frac >= 0.5) html += '☆';
+  if (!html) return '';
+  const numeric = rating > 0 ? ` (${rating.toFixed(1)})` : '';
+  return `<span class="star-display">${html}${numeric}</span>`;
 }
 
-/* ── 键盘选择 ── */
+async function goPlaySong(filename: string): Promise<void> {
+  stopPreview();
+  pianoPage.currentSongFile = filename;
+  pianoPage.currentSongName = filename.replace(/\.(mid|midi)$/i, '');
+  pianoPage.pianoPageEl.hidden = false;
+  songListPage.hidden = true;
+  try {
+    const midi = await loadSongFile(filename);
+    await pianoPage.enterAndPlay(midi);
+  } catch {
+    alert(`加载歌曲失败：${filename}`);
+  }
+}
+
+async function goPractice(filename: string): Promise<void> {
+  stopPreview();
+  pianoPage.currentSongFile = filename;
+  pianoPage.currentSongName = filename.replace(/\.(mid|midi)$/i, '');
+  pianoPage.pianoPageEl.hidden = false;
+  songListPage.hidden = true;
+  try {
+    const midi = await loadSongFile(filename);
+    await pianoPage.enterPractice(midi);
+  } catch {
+    alert(`加载歌曲失败：${filename}`);
+  }
+}
+
+/* ═══════════════════ 歌曲列表 ═══════════════════ */
+
+async function refreshSongList(): Promise<void> {
+  try {
+    songFiles = await fetchSongList();
+  } catch {
+    songList.innerHTML = '<div class="song-list-empty">无法加载曲目列表</div>';
+    return;
+  }
+
+  if (songFiles.length === 0) {
+    songList.innerHTML = '<div class="song-list-empty">public/songs/ 目录为空，请放入 .mid 文件</div>';
+    btnSongPractice.disabled = true;
+    return;
+  }
+
+  const metas = await Promise.all(songFiles.map(fetchSongMeta));
+
+  songList.innerHTML = '';
+  for (let i = 0; i < songFiles.length; i++) {
+    const f = songFiles[i];
+    const info = metas[i];
+    const name = f.replace(/\.(mid|midi)$/i, '');
+    const stars = info ? renderStars(info.starRating) : '';
+    const meta = info
+      ? `<span class="song-list-meta">${info.noteCount} 音符 · ${info.bpm}BPM</span>`
+      : '';
+    const best = getBestForSong(f);
+    const historyHtml = best
+      ? `<span class="song-list-history">最佳 <span class="history-score">${best.bestScore.toLocaleString()}</span> · ${(best.bestAccuracy * 100).toFixed(1)}% · ${best.totalPlays} 次</span>`
+      : '';
+
+    const item = document.createElement('div');
+    item.className = i === selectedIndex ? 'song-list-item selected' : 'song-list-item';
+    item.dataset.file = f;
+    item.dataset.index = String(i);
+    item.innerHTML = `
+      <span class="song-list-index">${i + 1}</span>
+      <div class="song-list-body-col">
+        <span class="song-list-name">${name}</span>
+        <span class="song-list-stars">${stars}</span>
+        ${meta}
+        ${historyHtml}
+      </div>
+      <span class="song-list-arrow">›</span>
+    `;
+
+    item.addEventListener('click', () => {
+      const idx = songFiles.indexOf(f);
+      if (idx === selectedIndex) {
+        goPlaySong(f);
+      } else {
+        selectSong(idx);
+      }
+    });
+
+    songList.appendChild(item);
+  }
+
+  if (songFiles.length > 0) {
+    selectSong(selectedIndex, false);
+  }
+}
+
+function selectSong(index: number, scroll = true): void {
+  index = Math.max(0, Math.min(songFiles.length - 1, index));
+  selectedIndex = index;
+
+  for (const item of songList.querySelectorAll<HTMLElement>('.song-list-item')) {
+    item.classList.toggle('selected', Number(item.dataset.index) === index);
+  }
+
+  const file = songFiles[index];
+  if (file) {
+    startPreview(file);
+    updateHistoryPanel(file, songFiles, historyList, {
+      onShowResult: (entry) => {
+        showResultScreen(entry, pianoPage.scoringEngine.getMaxTheoreticalScore(), resultElements);
+        songListPage.hidden = true;
+      },
+      onShowConfirm: (msg) => showConfirm(msg, {
+        dialog: confirmDialogEl,
+        msgEl: confirmDialogMsgEl,
+        okBtn: confirmDialogOkEl,
+        cancelBtn: confirmDialogCancelEl,
+      }),
+    });
+    btnSongPractice.disabled = false;
+  }
+
+  if (scroll) {
+    const item = songList.querySelector<HTMLElement>(`.song-list-item[data-index="${index}"]`);
+    if (item) {
+      item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+}
+
+/* ── 歌曲列表键盘导航 ── */
 
 document.addEventListener('keydown', (e) => {
   if (songListPage.hidden || songFiles.length === 0) return;
@@ -1076,1359 +519,166 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
     const file = songFiles[selectedIndex];
-    if (file) loadAndGo(file);
+    if (file) goPlaySong(file);
   }
 });
 
-async function loadAndGo(filename: string) {
-  stopPreview(); // 立即停止预览，防止 fetch 期间音频重叠
-  currentSongFile = filename;
-  currentSongName = filename.replace(/\.(mid|midi)$/i, '');
-  try {
-    const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    const midi = new Midi(buf);
-    await enterPianoPageAndPlay(midi);
-  } catch {
-    alert(`加载歌曲失败：${filename}`);
-  }
-}
+/* ═══════════════════ 页面路由 ═══════════════════ */
 
-async function practiceAndGo(filename: string) {
+function showSongList(): void {
   stopPreview();
-  currentSongFile = filename;
-  currentSongName = filename.replace(/\.(mid|midi)$/i, '');
-  try {
-    const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    const midi = new Midi(buf);
-    await enterPianoPagePractice(midi);
-  } catch {
-    alert(`加载歌曲失败：${filename}`);
+  pianoPage.pianoPageEl.hidden = true;
+  songListPage.hidden = false;
+  pianoPage.stopPlayback();
+  refreshSongList();
+}
+
+btnBack.addEventListener('click', showSongList);
+
+const resultBackBtn = document.querySelector<HTMLButtonElement>('#result-back-btn')!;
+resultBackBtn.addEventListener('click', () => {
+  hideResultScreen(resultElements);
+  pianoPage.scoringEngine.reset();
+  pianoPage.pianoPageEl.hidden = true;
+  pianoPage.hideScorePlayhead();
+  pianoPage.fallingNotes.clear();
+  pianoPage.progressBar.value = '0';
+  pianoPage.progressTime.textContent = '0:00 / 0:00';
+  pianoPage.practiceTime.hidden = true;
+  pianoPage.finalWallTimeSec = 0;
+  songListPage.hidden = false;
+  if (pianoPage.currentSongFile) {
+    refreshSongBest(pianoPage.currentSongFile, songList);
   }
-}
+});
 
-/* ── 悬浮预览 ── */
+/* ═══════════════════ 设置 ═══════════════════ */
 
-let previewTimers: number[] = [];
-let previewCancelled = false;
+settingsBtn.addEventListener('click', () => {
+  const s = loadSettings();
+  applySettingsToUI(s, {
+    modeRadios: document.querySelectorAll<HTMLInputElement>('input[name="settings-mode"]'),
+    fallingSpeed: settingsFallingSpeed,
+    fallingSpeedVal: settingsFallingSpeedVal,
+    playbackSpeed: settingsPlaybackSpeed,
+    playbackSpeedVal: settingsPlaybackSpeedVal,
+    measureWidth: settingsMeasureWidth,
+    measureWidthVal: settingsMeasureWidthVal,
+    diffRadios: document.querySelectorAll<HTMLInputElement>('input[name="settings-difficulty"]'),
+    difficultyInfo: settingsDifficultyInfo,
+    renderRadios: document.querySelectorAll<HTMLInputElement>('input[name="settings-render"]'),
+  });
+  songListPage.hidden = true;
+  settingsPage.hidden = false;
+});
 
-async function startPreview(filename: string) {
-  stopPreview();
-  previewCancelled = false;
+settingsBackBtn.addEventListener('click', () => {
+  const s = collectSettingsFromUI();
+  saveSettings(s);
+  applySettings(s, fallingNotes, pianoPage.scoringEngine, settingsSummaryEl);
+  settingsPage.hidden = true;
+  songListPage.hidden = false;
+});
 
-  try {
-    await ensurePiano();
+settingsFallingSpeed.addEventListener('input', () => {
+  settingsFallingSpeedVal.textContent = `${Number(settingsFallingSpeed.value).toFixed(1)}s`;
+});
+settingsPlaybackSpeed.addEventListener('input', () => {
+  settingsPlaybackSpeedVal.textContent = `${Number(settingsPlaybackSpeed.value).toFixed(1)}×`;
+});
+settingsMeasureWidth.addEventListener('input', () => {
+  settingsMeasureWidthVal.textContent = `${Number(settingsMeasureWidth.value)}px`;
+});
 
-    const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
-    if (!res.ok || previewCancelled) return;
-    const buf = await res.arrayBuffer();
-    const midi = new Midi(buf);
-    if (previewCancelled) return;
+document.querySelectorAll<HTMLInputElement>('input[name="settings-difficulty"]').forEach((r) => {
+  r.addEventListener('change', () => {
+    if (!r.checked) return;
+    settingsDifficultyInfo.textContent = DIFFICULTY_WINDOWS[r.value as AppSettings['difficulty']].label;
+  });
+});
 
-    const PREVIEW_SEC = 8;
+/* 初始化设置 */
+const initialSettings = loadSettings();
+applySettings(initialSettings, fallingNotes, pianoPage.scoringEngine, settingsSummaryEl);
 
-    for (const track of midi.tracks) {
-      for (const note of track.notes) {
-        if (note.time > PREVIEW_SEC) continue;
-        if (previewCancelled) return;
-
-        const delayMs = note.time * 1000;
-        const dur = Math.max(0.05, note.duration);
-        const vel = (note.velocity as number) ?? 0.78;
-
-        const id = window.setTimeout(() => {
-          if (previewCancelled) return;
-          playPianoMidi(note.midi, dur, vel);
-        }, delayMs);
-
-        previewTimers.push(id);
-      }
-    }
-  } catch {
-    // preview 失败静默处理
-  }
-}
-
-function stopPreview() {
-  previewCancelled = true;
-  for (const id of previewTimers) clearTimeout(id);
-  previewTimers = [];
-  releaseAllPiano();
-}
+/* ═══════════════════ 按钮事件 ═══════════════════ */
 
 fileInput.addEventListener('change', async () => {
   const f = fileInput.files?.[0];
   if (!f) return;
-  currentSongFile = null;
-  currentSongName = f.name.replace(/\.(mid|midi)$/i, '');
+  pianoPage.currentSongFile = null;
+  pianoPage.currentSongName = f.name.replace(/\.(mid|midi)$/i, '');
   try {
     const buf = await f.arrayBuffer();
     const midi = new Midi(buf);
-    await enterPianoPageAndPlay(midi);
+    pianoPage.pianoPageEl.hidden = false;
+    songListPage.hidden = true;
+    await pianoPage.enterAndPlay(midi);
   } catch {
     alert('加载 MIDI 文件失败');
   }
   fileInput.value = '';
 });
 
-/* ── 进度条 ── */
-
-function formatTime(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function updateProgressBar(timeSec: number) {
-  if (seeking) return;
-  const duration = practiceActive && practiceLoopDurationSec > 0 ? practiceLoopDurationSec : totalDurationSec;
-  const pct = duration > 0 ? (timeSec / duration) * 1000 : 0;
-  progressBar.value = String(Math.round(pct));
-  progressTime.textContent = `${formatTime(timeSec)} / ${formatTime(duration)}`;
-}
-
-function resetProgressBar() {
-  progressBar.value = '0';
-  const duration = practiceActive && practiceLoopDurationSec > 0 ? practiceLoopDurationSec : totalDurationSec;
-  progressTime.textContent = `0:00 / ${formatTime(duration)}`;
-}
-
-/* ── 模式切换 ── */
-
-type PlayMode = 'normal' | 'auto' | 'keyboard';
-
-function getPlayMode(): PlayMode {
-  return loadSettings().mode;
-}
-
-function setPlayMode(_mode: PlayMode) {
-  syncModeUi();
-}
-
-function updateKeyboardHint() {
-  const mode = getPlayMode();
-  if (mode === 'auto') {
-    keyboardHint.textContent = '根据 MIDI 生成的五线谱（高音 / 低音谱表）。琴键上方为下落式音符（绿左 / 蓝右；白键稍亮、黑键更深）。键盘高亮同上。';
-  } else if (mode === 'keyboard') {
-    keyboardHint.textContent = 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；弹对后条缩短并发声前进；紫红色外圈为正在按下的键，错音不出声。';
-  } else {
-    keyboardHint.textContent = '普通模式：自动播放曲目，可同时使用 MIDI 键盘弹奏，实时判定计分。';
-  }
-}
-
-function syncModeUi() {
-  scoreDisplay.hidden = getPlayMode() === 'auto';
-  // 非播放/练习状态时，根据模式决定侧面板显示
-  if (!playback && !practiceActive) {
-    practiceSidePanel.hidden = getPlayMode() === 'auto';
-  }
-  updateKeyboardHint();
-  btnEdit.hidden = pianoPage.hidden || getRenderMode() !== 'original';
-  // 跟弹模式下禁止进度条拖拽（视觉 + 逻辑）
-  const isKeyboard = getPlayMode() === 'keyboard';
-  progressBar.style.pointerEvents = isKeyboard ? 'none' : '';
-  progressBar.style.opacity = isKeyboard ? '0.55' : '';
-}
-
-/** 计分 UI 更新 */
-function updateScoreUI(state: ScoreState) {
-  scoreValueEl.textContent = `${state.score.toLocaleString()}`;
-  scoreValueEl.title = `${state.score.toLocaleString()} / ${state.maxScore.toLocaleString()} (含 combo 加成)`;
-  scoreAccuEl.textContent = `${(state.accuracy * 100).toFixed(2)}%`;
-  if (state.combo > 1) {
-    scoreComboEl.textContent = `${state.combo} combo`;
-  } else {
-    scoreComboEl.textContent = '';
-  }
-
-  // 按错键次数
-  if (state.wrongKeys > 0) {
-    scoreWrongEl.textContent = `WRONG ${state.wrongKeys}`;
-  } else {
-    scoreWrongEl.textContent = '';
-  }
-
-  // 判定闪烁提示
-  if (state.lastJudgement) {
-    const judgeMap: Record<string, string> = {
-      PERFECT: 'PERFECT',
-      OK: 'OK',
-      MISS: 'MISS',
-    };
-    scoreJudgeEl.textContent = judgeMap[state.lastJudgement] ?? '';
-    scoreJudgeEl.className = 'score-display-judge';
-    // 触发 CSS 动画
-    requestAnimationFrame(() => {
-      scoreJudgeEl.classList.add(`judge--${state.lastJudgement.toLowerCase()}`);
-    });
-  }
-}
-
-/* ── 练习模式控制 ── */
-
-function updatePracticeRangeBar() {
-  if (!practiceActive || practiceTotalMeasures <= 0) {
-    progressBar.style.background = '';
-    return;
-  }
-  const startPct = (practiceMeasureStart / practiceTotalMeasures) * 100;
-  const endPct = ((practiceMeasureEnd + 1) / practiceTotalMeasures) * 100;
-  // 使用渐变标记循环范围
-  progressBar.style.background = `linear-gradient(to right,
-    rgba(255,255,255,0.18) 0%,
-    rgba(255,255,255,0.18) ${startPct}%,
-    rgba(59,108,255,0.5) ${startPct}%,
-    rgba(59,108,255,0.5) ${endPct}%,
-    rgba(255,255,255,0.18) ${endPct}%,
-    rgba(255,255,255,0.18) 100%)`;
-}
-
-function initPracticeRange(totalMeasures: number) {
-  practiceTotalMeasures = Math.max(1, totalMeasures);
-  // 默认循环整个曲子
-  practiceMeasureStart = 0;
-  practiceMeasureEnd = practiceTotalMeasures - 1;
-  practiceLoopRound = 0;
-  practiceLoopRecords = [];
-  practiceBestScore = 0;
-  updatePracticeRangeBar();
-}
-
-function clampMeasure(v: number): number {
-  return Math.max(0, Math.min(practiceTotalMeasures - 1, v));
-}
-
-function updatePracticeUI() {
-  practiceStartLabel.value = String(practiceMeasureStart + 1);
-  practiceStartLabel.max = String(practiceTotalMeasures);
-  practiceEndLabel.value = String(practiceMeasureEnd + 1);
-  practiceEndLabel.max = String(practiceTotalMeasures);
-  practiceLoopCounter.textContent = `第 ${practiceLoopRound + 1} 轮`;
-  if (practiceBestScore > 0) {
-    practiceLoopBest.textContent = `最佳: ${practiceBestScore.toLocaleString()}`;
-  } else {
-    practiceLoopBest.textContent = '';
-  }
-  renderPracticeSidePanel();
-  updatePracticeRangeBar();
-}
-
-function restartPracticeLoop() {
-  if (!practiceActive || !currentMidi || !practiceLoopStartFn) return;
-
-  const totalM = measureCount(currentMidi!, getMeasureContext(currentMidi!));
-  console.log(`[练习循环] 重启循环: 小节 ${practiceMeasureStart + 1} → ${practiceMeasureEnd + 1} / ${totalM}`);
-
-  practiceRestarting = true;
-  playback?.stop();
-  playback = null;
-  fallingNotes.clear();
-  hideScorePlayhead();
-  resetProgressBar();
-  updateMeasureInfo(0, practiceMeasureEnd - practiceMeasureStart + 1);
-
-  const midi = currentMidi;
-  const ctx = getMeasureContext(midi);
-  const ticksPerMeasure = ctx.ticksPerMeasure;
-  const startTick = practiceMeasureStart * ticksPerMeasure;
-  const endTick = (practiceMeasureEnd + 1) * ticksPerMeasure;
-  const startTimeSec = midi.header.ticksToSeconds(startTick);
-  const endTimeSec = midi.header.ticksToSeconds(endTick);
-  practiceLoopDurationSec = endTimeSec - startTimeSec;
-
-  practiceLoopNotes = flatNotes
-    .filter(n => n.ticks >= startTick && n.ticks < endTick)
-    .map(n => ({
-      ...n,
-      time: n.time - startTimeSec,
-      ticks: n.ticks - startTick,
-    }));
-
-  practiceLoopStartFn();
-  practiceRestarting = false;
-}
-
-function renderPracticeSidePanel() {
-  if (practiceLoopRecords.length === 0) {
-    practiceSideScores.innerHTML = '<div class="practice-side-empty">暂无循环记录</div>';
-    return;
-  }
-  // 找最佳轮
-  let bestIdx = 0;
-  let bestScore = 0;
-  for (let i = 0; i < practiceLoopRecords.length; i++) {
-    if (practiceLoopRecords[i].score > bestScore) {
-      bestScore = practiceLoopRecords[i].score;
-      bestIdx = i;
-    }
-  }
-  practiceSideScores.innerHTML = practiceLoopRecords.map((r, i) => {
-    const isBest = i === bestIdx && practiceLoopRecords.length > 1;
-    const cls = isBest ? 'practice-side-score-item practice-side-score-item--best' : 'practice-side-score-item';
-    const timePct = r.loopDurationSec > 0 ? (r.elapsedSec / r.loopDurationSec) * 100 : 0;
-    const timeColor = timePct <= 100 ? '#22c55e' : timePct <= 130 ? '#fbbf24' : '#ef4444';
-    return `<div class="${cls}">
-      <div class="practice-side-score-row">
-        <span class="practice-side-score-round">#${r.round}</span>
-        <span class="practice-side-score-value">${r.score.toLocaleString()}</span>
-      </div>
-      <div class="practice-side-score-row">
-        <span class="practice-side-score-acc">${(r.accuracy * 100).toFixed(1)}%</span>
-        <span class="practice-side-score-time" style="color:${timeColor}">⏱ ${timePct.toFixed(0)}%</span>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-practiceStartDec.addEventListener('click', () => {
-  practiceMeasureStart = clampMeasure(practiceMeasureStart - 1);
-  if (practiceMeasureStart > practiceMeasureEnd) practiceMeasureEnd = practiceMeasureStart;
-  updatePracticeUI();
-  restartPracticeLoop();
-});
-
-practiceStartInc.addEventListener('click', () => {
-  practiceMeasureStart = clampMeasure(practiceMeasureStart + 1);
-  if (practiceMeasureStart > practiceMeasureEnd) practiceMeasureEnd = practiceMeasureStart;
-  updatePracticeUI();
-  restartPracticeLoop();
-});
-
-practiceEndDec.addEventListener('click', () => {
-  practiceMeasureEnd = clampMeasure(practiceMeasureEnd - 1);
-  if (practiceMeasureEnd < practiceMeasureStart) practiceMeasureStart = practiceMeasureEnd;
-  updatePracticeUI();
-  restartPracticeLoop();
-});
-
-practiceEndInc.addEventListener('click', () => {
-  practiceMeasureEnd = clampMeasure(practiceMeasureEnd + 1);
-  if (practiceMeasureEnd < practiceMeasureStart) practiceMeasureStart = practiceMeasureEnd;
-  updatePracticeUI();
-  restartPracticeLoop();
-});
-
-// 允许直接输入小节号
-practiceStartLabel.addEventListener('change', () => {
-  const v = parseInt(practiceStartLabel.value, 10);
-  if (isNaN(v) || v < 1) {
-    updatePracticeUI();
-    return;
-  }
-  practiceMeasureStart = clampMeasure(v - 1);
-  if (practiceMeasureStart > practiceMeasureEnd) practiceMeasureEnd = practiceMeasureStart;
-  updatePracticeUI();
-  restartPracticeLoop();
-});
-
-practiceEndLabel.addEventListener('change', () => {
-  const v = parseInt(practiceEndLabel.value, 10);
-  if (isNaN(v) || v < 1) {
-    updatePracticeUI();
-    return;
-  }
-  practiceMeasureEnd = clampMeasure(v - 1);
-  if (practiceMeasureEnd < practiceMeasureStart) practiceMeasureStart = practiceMeasureEnd;
-  updatePracticeUI();
-  restartPracticeLoop();
-});
-
-async function ensureMidiAccess(): Promise<MIDIAccess | null> {
-  if (!navigator.requestMIDIAccess) return null;
-  try {
-    const access = await navigator.requestMIDIAccess({ sysex: false });
-    midiAccess = access;
-    access.onstatechange = () => refillMidiSelect();
-    return access;
-  } catch {
-    return null;
-  }
-}
-
-function refillMidiSelect() {
-  const sel = midiInputSelect;
-  const prev = sel.value;
-  sel.innerHTML = '';
-  if (!midiAccess) return;
-  midiAccess.inputs.forEach((input) => {
-    const opt = document.createElement('option');
-    opt.value = input.id;
-    opt.textContent = input.name || input.id || 'MIDI 输入';
-    sel.appendChild(opt);
-  });
-  if (prev && [...sel.options].some((o) => o.value === prev)) {
-    sel.value = prev;
-  }
-  // 同步到选歌页的 select
-  syncSongListMidiSelect();
-}
-
-function syncSongListMidiSelect() {
-  const sel = midiInputSelect;
-  const songSel = songListMidiInputSelect;
-  if (!songSel) return;
-  const prev = songSel.value;
-  songSel.innerHTML = '';
-  if (!midiAccess) return;
-  midiAccess.inputs.forEach((input) => {
-    const opt = document.createElement('option');
-    opt.value = input.id;
-    opt.textContent = input.name || input.id || 'MIDI 输入';
-    songSel.appendChild(opt);
-  });
-  // 优先恢复之前选中的设备，否则同步钢琴页的选择
-  const restoreValue = prev && [...songSel.options].some((o) => o.value === prev) ? prev : sel.value;
-  if (restoreValue && [...songSel.options].some((o) => o.value === restoreValue)) {
-    songSel.value = restoreValue;
-  }
-  // 设备状态显示
-  if (midiAccess && midiAccess.inputs.size === 0) {
-    songListMidiStatus.textContent = '未检测到设备';
-    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
-  } else {
-    const selectedName = songSel.selectedOptions[0]?.textContent || '';
-    songListMidiStatus.textContent = selectedName ? `已连接: ${selectedName}` : `${midiAccess.inputs.size} 个设备`;
-    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--ok';
-  }
-}
-
-btnMidiRefresh.addEventListener('click', async () => {
-  const access = await ensureMidiAccess();
-  if (!access) {
-    alert('无法访问 MIDI（浏览器不支持或权限被拒绝）。建议使用 Chrome / Edge。');
-    return;
-  }
-  refillMidiSelect();
-});
-
-/* ── 选歌页 MIDI 输入选择 ── */
-
-songListMidiRefresh.addEventListener('click', async () => {
-  const access = await ensureMidiAccess();
-  if (!access) {
-    songListMidiStatus.textContent = '无 MIDI 支持';
-    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
-    return;
-  }
-  refillMidiSelect();
-});
-
-// 选歌页 select 变更时同步到钢琴页 select
-songListMidiInputSelect.addEventListener('change', () => {
-  if (midiInputSelect.value !== songListMidiInputSelect.value) {
-    midiInputSelect.value = songListMidiInputSelect.value;
-    updateSongListMidiStatus();
-  }
-});
-
-// 钢琴页 select 变更时同步到选歌页 select
-midiInputSelect.addEventListener('change', () => {
-  if (songListMidiInputSelect.value !== midiInputSelect.value) {
-    songListMidiInputSelect.value = midiInputSelect.value;
-    updateSongListMidiStatus();
-  }
-});
-
-function updateSongListMidiStatus() {
-  if (!midiAccess) {
-    songListMidiStatus.textContent = '';
-    return;
-  }
-  const sel = songListMidiInputSelect;
-  if (sel.value && sel.selectedOptions[0]) {
-    songListMidiStatus.textContent = `已连接: ${sel.selectedOptions[0].textContent}`;
-    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--ok';
-  } else if (midiAccess.inputs.size === 0) {
-    songListMidiStatus.textContent = '未检测到设备';
-    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
-  } else {
-    songListMidiStatus.textContent = `${midiAccess.inputs.size} 个设备可用`;
-    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--ok';
-  }
-}
-
-// 加载选歌页时自动检测 MIDI 设备
-async function initSongListMidi() {
-  const access = await ensureMidiAccess();
-  if (access) {
-    refillMidiSelect();
-  } else {
-    songListMidiStatus.textContent = '浏览器不支持 MIDI';
-    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
-  }
-}
-initSongListMidi();
-
-interface ScorePagerState {
-  ctx: MeasureContext;
-  midi: Midi;
-  nMeas: number;
-  measureWidth: number;
-}
-
-let scorePagerState: ScorePagerState | null = null;
-
-/* ═══════════════════ 图片滚动模式 ═══════════════════ */
-
-function renderStaffImage(stripEl: HTMLElement, midi: Midi, measureWidth: number) {
-  const ctx = getMeasureContext(midi);
-  const nMeas = measureCount(midi, ctx);
-
-  const columns: GrandStaffColumn[] = [];
-  for (let i = 0; i < nMeas; i++) {
-    columns.push({
-      measureIndex: i,
-      trebleAtoms: buildAtomsForHand(flatNotes, midi, 'treble', ctx, i),
-      bassAtoms: buildAtomsForHand(flatNotes, midi, 'bass', ctx, i),
-      showStaffHeader: i === 0,
-    });
-  }
-  const { height: stripHeight } = renderGrandStaffRow(
-    stripEl, columns, ctx, measureWidth, true,
-    staffEditState,
-    editModeActive ? selectedNoteKeys : undefined,
-  );
-
-  scorePagerState = { ctx, midi, nMeas, measureWidth };
-  stripEl.style.minHeight = `${stripHeight}px`;
-}
-
-function addJudgmentLine() {
-  const old = scoreScrollEl.querySelector('.judgment-line');
-  if (old) old.remove();
-  const line = document.createElement('div');
-  line.className = 'judgment-line';
-  line.setAttribute('aria-hidden', 'true');
-  scoreScrollEl.appendChild(line);
-}
-
-function resetStaffScroll() {
-  scoreEl.style.transform = `translateX(${getJudgeX()}px)`;
-}
-
-function getJudgeX(): number {
-  const vpW = scoreScrollEl.clientWidth;
-  return Math.max(80, Math.floor(vpW * 0.25));
-}
-
-function scrollStaffToProgress(progress01: number) {
-  const st = scorePagerState;
-  if (!st) return;
-  const totalStrip = st.nMeas * st.measureWidth;
-  scoreEl.style.transform = `translateX(${getJudgeX() - progress01 * totalStrip}px)`;
-}
-
-function updateMeasureInfo(current: number, total: number) {
-  if (total <= 0) {
-    measureInfoEl.textContent = '';
-    return;
-  }
-  measureInfoEl.textContent = `第 ${current + 1} / ${total} 小节`;
-}
-
-/* ═══════════════════ 原始五线谱模式 ═══════════════════ */
-
-const SCORE_LAYOUT = { measuresPerRow: 2 } as const;
-
-function renderStaffOriginal(parent: HTMLElement, midi: Midi, measureWidth: number) {
-  const ctx = getMeasureContext(midi);
-  const nMeas = measureCount(midi, ctx);
-  const measuresPerRow = SCORE_LAYOUT.measuresPerRow;
-
-  scorePagerState = { ctx, midi, nMeas, measureWidth };
-
-  parent.style.cssText = '';
-  scoreScrollEl.style.cssText = 'overflow:auto;position:relative';
-
-  for (let start = 0; start < nMeas; start += measuresPerRow) {
-    const rowWrap = document.createElement('div');
-    rowWrap.className = 'score-measure-row';
-    parent.appendChild(rowWrap);
-    const end = Math.min(nMeas, start + measuresPerRow);
-    const columns: GrandStaffColumn[] = [];
-    for (let i = start; i < end; i++) {
-      columns.push({
-        measureIndex: i,
-        trebleAtoms: buildAtomsForHand(flatNotes, midi, 'treble', ctx, i),
-        bassAtoms: buildAtomsForHand(flatNotes, midi, 'bass', ctx, i),
-        showStaffHeader: i === start,
-      });
-    }
-    renderGrandStaffRowSVG(
-      rowWrap, columns, ctx, measureWidth,
-      staffEditState,
-      editModeActive ? selectedNoteKeys : undefined,
-    );
-  }
-}
-
-function updateScorePlayhead(timeSec: number) {
-  const mode = loadSettings().renderMode;
-  if (mode === 'image') {
-    updatePlayheadImage(timeSec);
-  } else {
-    updatePlayheadOriginal(timeSec);
-  }
-}
-
-function hideScorePlayhead() {
-  const mode = loadSettings().renderMode;
-  if (mode === 'image') {
-    resetStaffScroll();
-  } else {
-    for (const ph of scoreEl.querySelectorAll<HTMLElement>('.playhead')) {
-      ph.classList.remove('is-visible');
-    }
-  }
-}
-
-function updatePlayheadImage(timeSec: number) {
-  const st = scorePagerState;
-  const midi = currentMidi;
-  if (!st || !midi) { resetStaffScroll(); return; }
-  if (timeSec >= midi.duration - 1e-3 || timeSec < 0) { resetStaffScroll(); return; }
-
-  const ticks = midi.header.secondsToTicks(Math.max(0, timeSec));
-  const progress = Math.min(1, Math.max(0, ticks / midi.durationTicks));
-  scrollStaffToProgress(progress);
-
-  const m = Math.floor(ticks / st.ctx.ticksPerMeasure);
-  updateMeasureInfo(Math.min(m, st.nMeas - 1), st.nMeas);
-}
-
-function updatePlayheadOriginal(timeSec: number) {
-  const st = scorePagerState;
-  const midi = currentMidi;
-  if (!st || !midi) { hideScorePlayhead(); return; }
-  if (timeSec >= midi.duration - 1e-3 || timeSec < 0) { hideScorePlayhead(); return; }
-
-  const ctx = st.ctx;
-  const ticks = midi.header.secondsToTicks(Math.max(0, timeSec));
-  let m = Math.floor(ticks / ctx.ticksPerMeasure);
-  if (m < 0) m = 0;
-  if (m >= st.nMeas) m = st.nMeas - 1;
-  updateMeasureInfo(m, st.nMeas);
-
-  const measureStartTick = m * ctx.ticksPerMeasure;
-  const progress = Math.min(1, Math.max(0, (ticks - measureStartTick) / ctx.ticksPerMeasure));
-  const w = st.measureWidth;
-  const measuresPerRow = SCORE_LAYOUT.measuresPerRow;
-  const colInRow = m % measuresPerRow;
-
-  for (const row of scoreEl.querySelectorAll<HTMLElement>('.score-measure')) {
-    const ph = row.querySelector<HTMLElement>('.playhead');
-    if (!ph) continue;
-    const midx = Number(row.dataset.measureIndex);
-    if (midx !== m) {
-      ph.classList.remove('is-visible');
-      continue;
-    }
-    const hasHeader = row.dataset.hasStaffHeader === '1';
-    ph.style.left = `${playheadXInMeasureOverlay(measuresPerRow, w, colInRow, hasHeader, progress)}px`;
-    ph.classList.add('is-visible');
-  }
-}
-
-function noteRange(notes: typeof flatNotes): { min: number; max: number } {
-  if (notes.length === 0) return { min: 57, max: 72 };
-  let min = 127;
-  let max = 0;
-  for (const n of notes) {
-    min = Math.min(min, n.midi);
-    max = Math.max(max, n.midi);
-  }
-  const pad = 2;
-  return {
-    min: Math.max(21, min - pad),
-    max: Math.min(108, max + pad),
-  };
-}
-
-function renderAll(midi: Midi) {
-  currentMidi = midi;
-  flatNotes = flattenNotes(midi);
-  scoreEl.innerHTML = '';
-
-  const settings = loadSettings();
-  const mode = settings.renderMode;
-  const measureWidth = settings.measureWidth;
-
-  if (mode === 'image') {
-    // ── 图片滚动模式 ──
-    scoreEl.style.cssText = 'position:relative;will-change:transform';
-    scoreScrollEl.style.cssText = 'overflow:hidden;position:relative';
-    renderStaffImage(scoreEl, midi, measureWidth);
-    addJudgmentLine();
-    scoreEl.style.transform = `translateX(${getJudgeX()}px)`;
-  } else {
-    // ── 原始五线谱模式 ──
-    scoreEl.style.cssText = '';
-    scoreScrollEl.style.cssText = 'overflow:auto;position:relative';
-    // 移除可能残留的判定线（image 模式遗留）
-    scoreScrollEl.querySelector('.judgment-line')?.remove();
-    renderStaffOriginal(scoreEl, midi, measureWidth);
-    hideScorePlayhead();
-  }
-
-  const range = noteRange(flatNotes);
-  keyEls = createPianoKeyboard(keyboardHost, range.min, range.max);
-  fallingNotes.setRange(range.min, range.max);
-  fallingNotes.setSource(flatNotes, midi);
-  fallingNotes.clear();
-
-  if (scorePagerState) updateMeasureInfo(0, scorePagerState.nMeas);
-
-  totalDurationSec = midi.duration;
-  resetProgressBar();
-}
-
-function stopPlayback() {
-  playback?.stop();
-  playback = null;
-  hideScorePlayhead();
-  if (scorePagerState) updateMeasureInfo(0, scorePagerState.nMeas);
-  fallingNotes.clear();
-  applyKeyVisuals(keyEls, {});
-  btnPlay.disabled = false;
-  btnStop.disabled = true;
-  resetProgressBar();
-  practiceTime.hidden = true;
-  finalWallTimeSec = 0;
-  practiceActive = false;
-  progressBar.style.background = '';
-  practiceSideHeader.hidden = false;
-  practiceSideScores.hidden = false;
-  practiceSideScores.innerHTML = '';
-}
-
-btnPlay.addEventListener('click', async () => {
-  if (!currentMidi || flatNotes.length === 0) return;
-  startPlayFrom(0);
-});
-
-async function startPlayFrom(offsetSec: number) {
-  if (!currentMidi || flatNotes.length === 0) return;
-  // stopPlayback 会重置 practiceActive，先保存
-  const wasPracticeActive = practiceActive;
-  stopPlayback();
-  practiceActive = wasPracticeActive;
-
-  btnPlay.disabled = true;
-  btnStop.disabled = false;
-
-  const mode = getPlayMode();
-  const settings = loadSettings();
-
-  console.log('═══════════════════════════════════════');
-  console.log(`[播放开始] 模式: ${mode === 'auto' ? '自动播放' : mode === 'keyboard' ? 'MIDI跟弹' : '普通模式'}${practiceActive ? ' + 练习循环' : ''}`);
-  console.log(`[播放开始] 设置: 下落=${settings.fallingSpeed.toFixed(1)}s | 速度=${settings.playbackSpeed.toFixed(1)}× | 判定=${settings.difficulty === 'easy' ? '宽松' : settings.difficulty === 'hard' ? '严格' : '普通'} | 渲染=${settings.renderMode}`);
-  if (practiceActive) {
-    const totalM = measureCount(currentMidi!, getMeasureContext(currentMidi!));
-    console.log(`[播放开始] 练习循环: 小节 ${practiceMeasureStart + 1} → ${practiceMeasureEnd + 1} / ${totalM} | 第 ${practiceLoopRound + 1} 轮`);
-  }
-  console.log('═══════════════════════════════════════');
-
-  const onPlaybackEnded = () => {
-    hideScorePlayhead();
-    fallingNotes.clear();
-    btnPlay.disabled = false;
-    btnStop.disabled = true;
-    playback = null;
-    resetProgressBar();
-
-    // 非自动播放模式显示结算画面
-    if (getPlayMode() !== 'auto') {
-      showResultScreen();
-    }
-  };
-
-  {
-    let retries = 3;
-    let lastErr: unknown;
-    while (retries > 0) {
-      try {
-        await ensurePiano();
-        lastErr = undefined;
-        break;
-      } catch (err) {
-        lastErr = err;
-        retries--;
-        if (retries > 0) {
-          // 清理旧 AudioContext 状态，短暂等待后重试
-          console.warn(`音频引擎初始化失败，剩余重试次数: ${retries}`, err);
-          await new Promise((r) => setTimeout(r, 500));
-        }
-      }
-    }
-    if (lastErr) {
-      console.error('[startPlayFrom] 重试耗尽，初始化失败:', lastErr);
-      alert('音频引擎初始化失败，请刷新页面重试。');
-      onPlaybackEnded();
-      return;
-    }
-  }
-
-  /* ── 自动播放模式 ── */
-  if (mode === 'auto') {
-    const sorted = [...flatNotes].sort((a, b) => {
-      const ha = assignHandForNote(a, currentMidi!);
-      const hb = assignHandForNote(b, currentMidi!);
-      if (ha !== hb) return ha === 'treble' ? -1 : 1;
-      return a.time - b.time || a.midi - b.midi;
-    });
-    scoreDisplay.hidden = true;
-    playback = playNotes(
-      sorted,
-      currentMidi,
-      currentMidi.duration,
-      (active) => applyKeyVisuals(keyEls, { active }),
-      onPlaybackEnded,
-      (t) => {
-        updateScorePlayhead(t);
-        fallingNotes.update(t);
-        updateProgressBar(t);
-      },
-      offsetSec,
-      settings.playbackSpeed,
-    );
-    return;
-  }
-
-  /* ── 需要 MIDI 输入的模式 ── */
-  const access = await ensureMidiAccess();
-  if (!access) {
-    alert('当前浏览器不支持 Web MIDI，或用户拒绝了权限。请使用 Chrome / Edge 等浏览器。');
-    onPlaybackEnded();
-    return;
-  }
-  refillMidiSelect();
-  let input: MIDIInput | undefined;
-  const id = midiInputSelect.value;
-  if (id) input = access.inputs.get(id);
-  if (!input) {
-    const first = [...access.inputs.values()][0];
-    input = first;
-  }
-  if (!input) {
-    alert('未检测到 MIDI 输入设备。请先连接键盘，或点击「刷新设备」后再试。');
-    onPlaybackEnded();
-    return;
-  }
-  try {
-    await input.open();
-  } catch {
-    alert('无法打开所选 MIDI 输入端口。');
-    onPlaybackEnded();
-    return;
-  }
-
-  /* ── 练习模式 ── */
-  if (practiceActive) {
-    const midi = currentMidi!;
-
-    practiceLoopRound = 0;
-    practiceLoopRecords = [];
-    practiceBestScore = 0;
-    updatePracticeUI();
-
-    const ctx = getMeasureContext(midi);
-    const ticksPerMeasure = ctx.ticksPerMeasure;
-    const startTick = practiceMeasureStart * ticksPerMeasure;
-    const endTick = (practiceMeasureEnd + 1) * ticksPerMeasure;
-    const startTimeSec = midi.header.ticksToSeconds(startTick);
-    const endTimeSec = midi.header.ticksToSeconds(endTick);
-    practiceLoopDurationSec = endTimeSec - startTimeSec;
-
-    // Filter notes within measure range and offset times
-    practiceLoopNotes = flatNotes
-      .filter(n => n.ticks >= startTick && n.ticks < endTick)
-      .map(n => ({
-        ...n,
-        time: n.time - startTimeSec,
-        ticks: n.ticks - startTick,
-      }));
-
-    scoreDisplay.hidden = false;
-
-    const startLoop = () => {
-      if (!practiceActive) return;
-      console.log(`[练习循环] 开始第 ${practiceLoopRound + 1} 轮 | 音符数: ${practiceLoopNotes.length} | 小节 ${practiceMeasureStart + 1}→${practiceMeasureEnd + 1}`);
-      const holdCount = practiceLoopNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
-      scoringEngine.reset({ totalNotes: practiceLoopNotes.length, holdNoteCount: holdCount });
-      updateScoreUI(scoringEngine.getState());
-      practiceCurrentWallSec = 0;
-
-      const onLoopEnded = () => {
-        hideScorePlayhead();
-        fallingNotes.clear();
-        playback = null;
-        resetProgressBar();
-        updateMeasureInfo(0, practiceMeasureEnd - practiceMeasureStart + 1);
-
-        if (!practiceActive) {
-          btnPlay.disabled = false;
-          btnStop.disabled = true;
-          return;
-        }
-
-        // 通过小节按钮触发的重启，不记录成绩、不自动开始下一轮
-        if (practiceRestarting) return;
-
-        // 记录本轮成绩
-        practiceLoopRound++;
-        const snap = scoringEngine.snapshot();
-        const record: PracticeLoopRecord = {
-          round: practiceLoopRound,
-          score: snap.score,
-          maxScore: snap.maxScore,
-          accuracy: snap.accuracy,
-          elapsedSec: practiceCurrentWallSec,
-          loopDurationSec: practiceLoopDurationSec,
-          counts: snap.counts,
-          noteResults: snap.noteResults,
-          wrongKeyRecords: snap.wrongKeyRecords,
-        };
-        practiceLoopRecords.push(record);
-        if (snap.score > practiceBestScore) practiceBestScore = snap.score;
-        updatePracticeUI();
-
-        console.log(`[练习循环] 第 ${practiceLoopRound} 轮结束 | 分数: ${snap.score.toLocaleString()} | 准确率: ${(snap.accuracy * 100).toFixed(1)}% | combo: ${snap.maxCombo} | 用时: ${practiceCurrentWallSec.toFixed(1)}s`);
-
-        // 自动重新开始下一轮
-        setTimeout(() => {
-          if (!practiceActive) return;
-          startLoop();
-        }, 500);
-      };
-
-      playback = startKeyboardPractice(
-        practiceLoopNotes,
-        midi,
-        keyEls,
-        input,
-        onLoopEnded,
-        (t) => {
-          updateScorePlayhead(t);
-          updateProgressBar(t);
-          // 练习模式：显示循环内小节而非整首歌曲小节
-          const currentTick = startTick + midi.header.secondsToTicks(t);
-          const currentMeasure = Math.floor(currentTick / ticksPerMeasure);
-          const loopMeasure = Math.max(0, Math.min(currentMeasure - practiceMeasureStart, practiceMeasureEnd - practiceMeasureStart));
-          updateMeasureInfo(loopMeasure, practiceMeasureEnd - practiceMeasureStart + 1);
-        },
-        (s) => fallingNotes.updateKeyboardPractice(s),
-        scoringEngine,
-        updateScoreUI,
-        false, // freePlay → 跟弹模式
-        settings.playbackSpeed,
-        (wallSec) => {
-          practiceCurrentWallSec = wallSec;
-        },
-      );
-    };
-
-    practiceLoopStartFn = startLoop;
-    startLoop();
-    return;
-  }
-
-  /* ── 普通模式：MIDI 键盘自由弹奏 + 计分 ── */
-  if (mode === 'normal') {
-    scoreDisplay.hidden = false;
-    const holdCount = flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
-    scoringEngine.reset({ totalNotes: flatNotes.length, holdNoteCount: holdCount });
-    updateScoreUI(scoringEngine.getState());
-
-    playback = startKeyboardPractice(
-      flatNotes,
-      currentMidi,
-      keyEls,
-      input,
-      onPlaybackEnded,
-      (t) => {
-        updateScorePlayhead(t);
-        updateProgressBar(t);
-      },
-      (s) => fallingNotes.updateKeyboardPractice(s),
-      scoringEngine,
-      updateScoreUI,
-      true, // freePlay → 时间自动前进，不等待按键
-      settings.playbackSpeed,
-    );
-    return;
-  }
-
-  /* ── MIDI 跟弹模式 ── */
-  if (mode === 'keyboard') {
-  scoreDisplay.hidden = false;
-  const holdCount = flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
-  scoringEngine.reset({ totalNotes: flatNotes.length, holdNoteCount: holdCount });
-  updateScoreUI(scoringEngine.getState());
-
-  // 显示跟弹实时用时
-  practiceTime.hidden = false;
-  finalWallTimeSec = 0;
-  let lastGameTimeSec = 0;
-
-  playback = startKeyboardPractice(
-    flatNotes,
-    currentMidi,
-    keyEls,
-    input,
-    onPlaybackEnded,
-    (t) => {
-      updateScorePlayhead(t);
-      updateProgressBar(t);
-      lastGameTimeSec = t;
-    },
-    (s) => fallingNotes.updateKeyboardPractice(s),
-    scoringEngine,
-    updateScoreUI,
-    false, // freePlay = false → 跟弹等待模式
-    settings.playbackSpeed,
-    (wallSec) => {
-      // 更新实时用时显示：当前用时 / 原曲当前时间 × 100%
-      finalWallTimeSec = wallSec;
-      const refTimeSec = lastGameTimeSec > 0 ? lastGameTimeSec : totalDurationSec;
-      const pct = refTimeSec > 0
-        ? Math.max(0, (wallSec / refTimeSec) * 100)
-        : 0;
-      practiceTime.textContent = `用时 ${formatTime(wallSec)} · ${pct.toFixed(1)}%`;
-    },
-  );
-  return;
-  }
-}
-
-/* ── 进度条拖拽跳转 ── */
-
-let wasPlayingBeforeSeek = false;
-
-progressBar.addEventListener('input', () => {
-  // 跟弹模式和练习模式下禁止拖拽进度条
-  if (getPlayMode() === 'keyboard' || practiceActive) return;
-
-  seeking = true;
-  if (playback && !wasPlayingBeforeSeek) {
-    wasPlayingBeforeSeek = true;
-    playback.stop();
-    playback = null;
-    btnPlay.disabled = false;
-    btnStop.disabled = true;
-  }
-
-  if (!currentMidi || flatNotes.length === 0) return;
-  const pct = Number(progressBar.value) / 1000;
-  const timeSec = pct * totalDurationSec;
-  updateProgressBar(timeSec);
-  if (getRenderMode() === 'image') scrollStaffToProgress(pct);
-});
-
-function getRenderMode(): 'image' | 'original' {
-  return loadSettings().renderMode;
-}
-
-progressBar.addEventListener('change', () => {
-  // 跟弹模式和练习模式下禁止拖拽进度条
-  if (getPlayMode() === 'keyboard' || practiceActive) return;
-
-  seeking = false;
-  if (!currentMidi || flatNotes.length === 0) return;
-  const pct = Number(progressBar.value) / 1000;
-  const timeSec = pct * totalDurationSec;
-  updateProgressBar(timeSec);
-  scrollStaffToProgress(pct);
-  if (wasPlayingBeforeSeek) {
-    wasPlayingBeforeSeek = false;
-    startPlayFrom(timeSec);
-  }
-});
-
-btnStop.addEventListener('click', () => {
-  // 练习模式：停止循环并显示结算
-  if (practiceActive) {
-    stopPlayback();
-    // 使用最佳一轮的成绩来展示/保存
-    if (practiceLoopRecords.length > 0) {
-      let best = practiceLoopRecords[0];
-      for (const r of practiceLoopRecords) {
-        if (r.score > best.score) best = r;
-      }
-      // 构造历史条目用于结算显示
-      const curSettings = loadSettings();
-      const entry: PlayHistoryEntry = {
-        songFile: currentSongFile ?? '',
-        songName: currentSongName,
-        score: best.score,
-        accuracy: best.accuracy,
-        maxCombo: best.noteResults
-          ? Math.max(...best.noteResults.map((_: NoteResult, i: number) => i + 1), best.noteResults.length)
-          : 0,
-        mode: 'practice',
-        date: new Date().toISOString(),
-        settings: {
-          fallingSpeed: curSettings.fallingSpeed,
-          playbackSpeed: curSettings.playbackSpeed,
-          difficulty: curSettings.difficulty,
-        },
-        noteResults: best.noteResults,
-        wrongKeyRecords: best.wrongKeyRecords,
-        wallTimeSec: finalWallTimeSec || undefined,
-        originalDurationSec: undefined,
-      };
-      // 手动计算 maxCombo
-      let maxComboRun = 0;
-      let curRun = 0;
-      for (const nr of best.noteResults) {
-        if (nr.judgement !== 'MISS') {
-          curRun++;
-          if (curRun > maxComboRun) maxComboRun = curRun;
-        } else {
-          curRun = 0;
-        }
-      }
-      entry.maxCombo = maxComboRun;
-      if (currentSongFile) addHistoryEntry(entry);
-      showResultScreen(entry);
-    }
-    return;
-  }
-  stopPlayback();
-});
-
 btnSongPractice.addEventListener('click', async () => {
   const file = songFiles[selectedIndex];
-  if (!file) {
-    alert('请先选择一首歌曲');
-    return;
-  }
-  await practiceAndGo(file);
+  if (!file) { alert('请先选择一首歌曲'); return; }
+  await goPractice(file);
 });
 
 btnDownloadLog.addEventListener('click', () => {
   downloadMidiLogs();
 });
 
-/* ── 编辑模式 ── */
+/* ═══════════════════ MIDI 设备列表同步 ═══════════════════ */
 
-btnEdit.addEventListener('click', () => {
-  editModeActive = !editModeActive;
-  syncEditModeUI();
-  if (editModeActive) {
-    stopPlayback();
-    selectedNoteKeys.clear();
-    renderAll(currentMidi!);
-  } else {
-    selectedNoteKeys.clear();
-  }
-});
-
-btnFinger.addEventListener('click', () => {
-  editTool = 'select';
-  syncEditModeUI();
-  keyboardHint.textContent = '指法编辑：点击/框选音符后按 1-5 设指法，Shift+单击多选';
-});
-
-btnSlur.addEventListener('click', () => {
-  editTool = 'slur';
-  selectedNoteKeys.clear();
-  syncEditModeUI();
-  renderAll(currentMidi!);
-  keyboardHint.textContent = '连音编辑：依次单击两个音符创建连线';
-});
-
-btnTie.addEventListener('click', () => {
-  editTool = 'tie';
-  selectedNoteKeys.clear();
-  syncEditModeUI();
-  renderAll(currentMidi!);
-  keyboardHint.textContent = '连尾编辑：依次单击两个相邻音符将其符杆/符尾相连';
-});
-
-btnStem.addEventListener('click', () => {
-  if (selectedNoteKeys.size === 0) return;
-  // 检查选中音符是否有任一为 DOWN，有则全部切为 UP，否则全部 DOWN
-  let hasDown = false;
-  for (const nk of selectedNoteKeys) {
-    if (staffEditState.stemDirections.get(nk) === -1) { hasDown = true; break; }
-  }
-  const dir: 1 | -1 = hasDown ? 1 : -1;
-  for (const nk of selectedNoteKeys) {
-    staffEditState.stemDirections.set(nk, dir);
-  }
-  renderAll(currentMidi!);
-});
-
-btnSaveEdits.addEventListener('click', () => {
-  if (!currentSongFile) { alert('未加载歌曲'); return; }
-  const key = `midi-edits-${currentSongFile}`;
-  const json = JSON.stringify({
-    fingerNumbers: [...staffEditState.fingerNumbers.entries()],
-    slurs: staffEditState.slurs,
-    ties: staffEditState.ties,
-    stemDirections: [...staffEditState.stemDirections.entries()],
-  });
-  localStorage.setItem(key, json);
-  btnSaveEdits.textContent = '✓ 已保存';
-  setTimeout(() => { btnSaveEdits.textContent = '保存'; }, 2000);
-});
-
-function syncEditModeUI() {
-  const show = editModeActive;
-  btnEdit.textContent = show ? '✓ 编辑' : '编辑';
-  btnEdit.classList.toggle('primary', show);
-  btnEdit.classList.toggle('secondary', !show);
-  editToolbar.hidden = !show;
-
-  btnFinger.classList.toggle('primary', editTool === 'select');
-  btnFinger.classList.toggle('secondary', editTool !== 'select');
-  btnSlur.classList.toggle('primary', editTool === 'slur');
-  btnSlur.classList.toggle('secondary', editTool !== 'slur');
-  btnTie.classList.toggle('primary', editTool === 'tie');
-  btnTie.classList.toggle('secondary', editTool !== 'tie');
-
-  if (!show) {
-    keyboardHint.textContent = keyboardHint.textContent?.replace(/编辑.*?。/, '') ?? '';
-  }
-}
-
-// 创建框选矩形
-function ensureSelRect() {
-  if (!selRectEl) {
-    selRectEl = document.createElement('div');
-    selRectEl.className = 'sel-rect';
-    scoreScrollEl.appendChild(selRectEl);
-  }
-  return selRectEl;
-}
-function removeSelRect() {
-  if (selRectEl) { selRectEl.style.display = 'none'; selRectEl.style.width = '0'; selRectEl.style.height = '0'; }
-}
-
-// 在编辑模式下用键盘设置指法（支持多选）
-document.addEventListener('keydown', (e) => {
-  if (!editModeActive || selectedNoteKeys.size === 0 || getPlayMode() === 'auto') return;
-  if (e.repeat) return;
-
-  if (e.key >= '1' && e.key <= '5') {
-    e.preventDefault();
-    for (const nk of selectedNoteKeys) {
-      staffEditState.fingerNumbers.set(nk, Number(e.key));
-    }
-    renderAll(currentMidi!);
-  } else if (e.key === '0' || e.key === 'Delete' || e.key === 'Backspace') {
-    e.preventDefault();
-    for (const nk of selectedNoteKeys) {
-      staffEditState.fingerNumbers.delete(nk);
-      staffEditState.slurs = staffEditState.slurs.filter(
-        (s) => s.from !== nk && s.to !== nk,
-      );
-      staffEditState.ties = staffEditState.ties.filter(
-        (t) => t.from !== nk && t.to !== nk,
-      );
-      staffEditState.stemDirections.delete(nk);
-    }
-    selectedNoteKeys.clear();
-    renderAll(currentMidi!);
-  }
-});
-
-/* ── 音符选择 + 框选 ── */
-
-scoreEl.addEventListener('mousedown', (e) => {
-  if (!editModeActive || getRenderMode() !== 'original') return;
-
-  const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
-
-  if (hit && hit.dataset.noteKey) {
-    // 点击了音符 hit area
-    const nk = hit.dataset.noteKey;
-
-    if (e.shiftKey) {
-      // Shift+click: 切换选择
-      if (selectedNoteKeys.has(nk)) selectedNoteKeys.delete(nk);
-      else selectedNoteKeys.add(nk);
-    } else {
-      selectedNoteKeys.clear();
-      selectedNoteKeys.add(nk);
-    }
-
-    if (selectedNoteKeys.size === 2) {
-      const [a, b] = [...selectedNoteKeys];
-      if (editTool === 'slur') {
-        staffEditState.slurs.push({ from: a, to: b });
-      } else if (editTool === 'tie') {
-        staffEditState.ties.push({ from: a, to: b });
-      }
-      selectedNoteKeys.clear();
-    }
-
-    renderAll(currentMidi!);
-    e.preventDefault();
-    e.stopPropagation();
+btnMidiRefresh.addEventListener('click', async () => {
+  const access = await midiSetup.ensureAccess();
+  if (!access) {
+    alert('无法访问 MIDI（浏览器不支持或权限被拒绝）。建议使用 Chrome / Edge。');
     return;
   }
-
-  // 点击空白区域 → 开始框选
-  selectedNoteKeys.clear();
-  renderAll(currentMidi!);
-
-  const rect = scoreScrollEl.getBoundingClientRect();
-  const relX = e.clientX - rect.left + scoreScrollEl.scrollLeft;
-  const relY = e.clientY - rect.top + scoreScrollEl.scrollTop;
-  selDragStart = { x: relX, y: relY };
-
-  const sel = ensureSelRect();
-  sel.style.display = 'block';
-  sel.style.left = `${relX}px`;
-  sel.style.top = `${relY}px`;
-  sel.style.width = '0';
-  sel.style.height = '0';
+  midiSetup.refillSelects();
 });
 
-scoreScrollEl.addEventListener('mousemove', (e) => {
-  if (!selDragStart || !selRectEl) return;
-  e.preventDefault();
-
-  const rect = scoreScrollEl.getBoundingClientRect();
-  const curX = e.clientX - rect.left + scoreScrollEl.scrollLeft;
-  const curY = e.clientY - rect.top + scoreScrollEl.scrollTop;
-
-  const l = Math.min(selDragStart.x, curX);
-  const t = Math.min(selDragStart.y, curY);
-  const w = Math.abs(curX - selDragStart.x);
-  const h = Math.abs(curY - selDragStart.y);
-
-  selRectEl.style.left = `${l}px`;
-  selRectEl.style.top = `${t}px`;
-  selRectEl.style.width = `${w}px`;
-  selRectEl.style.height = `${h}px`;
-});
-
-document.addEventListener('mouseup', () => {
-  if (!selDragStart || !selRectEl) return;
-  if (selRectEl.style.display === 'none') { selDragStart = null; return; }
-
-  // 收集框选区域内的 note-hitarea
-  const rect = selRectEl.getBoundingClientRect();
-  const hits = scoreScrollEl.querySelectorAll<HTMLElement>('.note-hitarea');
-
-  selectedNoteKeys.clear();
-  for (const h of hits) {
-    const hRect = h.getBoundingClientRect();
-    if (hRect.right > rect.left && hRect.left < rect.right &&
-        hRect.bottom > rect.top && hRect.top < rect.bottom) {
-      if (h.dataset.noteKey) selectedNoteKeys.add(h.dataset.noteKey);
-    }
+songListMidiRefresh.addEventListener('click', async () => {
+  const access = await midiSetup.ensureAccess();
+  if (!access) {
+    songListMidiStatus.textContent = '无 MIDI 支持';
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
+    return;
   }
-
-  removeSelRect();
-  selDragStart = null;
-  renderAll(currentMidi!);
+  midiSetup.refillSelects();
 });
 
-syncModeUi();
-showSongList();
+songListMidiSelect.addEventListener('change', () => {
+  if (midiInputSelect.value !== songListMidiSelect.value) {
+    midiInputSelect.value = songListMidiSelect.value;
+    midiSetup.updateSongListStatus();
+  }
+});
+
+midiInputSelect.addEventListener('change', () => {
+  if (songListMidiSelect.value !== midiInputSelect.value) {
+    songListMidiSelect.value = midiInputSelect.value;
+    midiSetup.updateSongListStatus();
+  }
+});
+
+/* ═══════════════════ 初始化 ═══════════════════ */
+
+// 鼠标离开歌曲列表区域时停止预览
+
+async function init(): Promise<void> {
+  const access = await midiSetup.ensureAccess();
+  if (access) {
+    midiSetup.refillSelects();
+  } else {
+    songListMidiStatus.textContent = '浏览器不支持 MIDI';
+    songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
+  }
+  pianoPage.syncModeUi();
+  showSongList();
+}
+
+init();

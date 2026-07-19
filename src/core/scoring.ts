@@ -64,6 +64,8 @@ export class ScoringEngine {
   runningScore = 0;
   /** hold 累计加分（runningScore 的子集，已含逐帧累分） */
   holdScoreAccumulated = 0;
+  /** hold 浮点累加器，避免逐帧 Math.round 误差累积 */
+  private holdScoreFloat = 0;
   /** 含 hold 的音符数（duration > 0），用于计算理论最高分 */
   holdNoteCount = 0;
   lastJudgement: Judgement | null = null;
@@ -118,14 +120,9 @@ export class ScoringEngine {
    */
   holdTick(holdRatio: number, tapWeight: number): void {
     if (holdRatio <= 0 || this.totalNotes <= 0) return;
-    // 单音符 hold 满分 = 权重比例 × (MAX_SCORE / 总音符数) × 0.3
     const maxHoldScore = (tapWeight / 320) * (MAX_SCORE / this.totalNotes) * 0.3;
-    const added = Math.round(Math.min(holdRatio, 1.0) * maxHoldScore);
-    if (added > 0) {
-      this.runningScore += added;
-      this.holdScoreAccumulated += added;
-      this.emitUpdate();
-    }
+    this.holdScoreFloat += Math.min(holdRatio, 1.0) * maxHoldScore;
+    this.emitUpdate();
   }
 
   /** 按错键：准确度计 MISS 权重，中断 combo */
@@ -173,14 +170,14 @@ export class ScoringEngine {
 
   /** 当前运行时分数（含 combo 加成 + hold 实时累分） */
   getScore(): number {
-    return this.runningScore;
+    return this.runningScore + Math.round(this.holdScoreFloat);
   }
 
   /**
    * 结算总分数 = 运行时累加分（已含 tap + combo + hold，同一尺度）
    */
   getTotalScore(): number {
-    return this.runningScore;
+    return this.getScore();
   }
 
   /**
@@ -263,6 +260,7 @@ export class ScoringEngine {
     this.achievedWeight = 0;
     this.runningScore = 0;
     this.holdScoreAccumulated = 0;
+    this.holdScoreFloat = 0;
     this.lastJudgement = null;
     this.counts = { PERFECT: 0, OK: 0, MISS: 0 };
     this.wrongKeys = 0;

@@ -1,5 +1,5 @@
 import type { Midi } from '@tonejs/midi';
-import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
+import { assignHandForNote, type FlatNote, type Hand } from '../core/midiScore';
 import { isWhiteKey, keyCenterXInKeyboard, keyboardInnerWidthPx, PIANO_LAYOUT } from './pianoKeyboard';
 
 const LANE_MIN_HEIGHT = 220;

@@ -1,4 +1,4 @@
-import type { Hand } from './midiScore';
+import type { Hand } from '../core/midiScore';
 
 const WHITE_PC = new Set([0, 2, 4, 5, 7, 9, 11]);
 

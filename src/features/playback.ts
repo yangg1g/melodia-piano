@@ -1,6 +1,6 @@
 import type { Midi } from '@tonejs/midi';
-import { assignHandForNote, type FlatNote, type Hand } from './midiScore';
-import { playPianoMidi, releaseAllPiano, getPianoAudioTime } from './salamanderPiano';
+import { assignHandForNote, type FlatNote, type Hand } from '../core/midiScore';
+import { playPianoMidi, releaseAllPiano, getPianoAudioTime } from '../audio/salamanderPiano';
 
 export interface PlaybackController {
   stop: () => void;

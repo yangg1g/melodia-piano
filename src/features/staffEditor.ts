@@ -2,7 +2,7 @@
  * 五线谱编辑模式：手指编号 + 连音符号
  */
 
-import { assignHandForNote, type FlatNote, type Hand, type MeasureContext, type VoiceAtom } from './midiScore';
+import { assignHandForNote, type FlatNote, type Hand, type MeasureContext, type VoiceAtom } from '../core/midiScore';
 
 /** 音符的唯一标识：`小节序号:谱表:VoiceAtom序号:键序号` */
 export type NoteKey = string;
@@ -128,8 +128,8 @@ function findFlatForKey(
   ctx: MeasureContext,
   measureIdx: number,
   hand: Hand,
-  atom: VoiceAtom,
-  keyIdx: number,
+  _atom: VoiceAtom,
+  _keyIdx: number,
   vexKey: string,
 ): FlatNote | undefined {
   // 根据 VexFlow key 反查 midi 音高
