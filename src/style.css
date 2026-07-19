@@ -1457,3 +1457,279 @@ body {
   gap: 12px;
   justify-content: center;
 }
+
+/* ── 练习模式 ── */
+.practice-controls-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 6px 20px;
+  background: #f8f9fc;
+  border-bottom: 1px solid var(--border);
+}
+
+.practice-controls-bar[hidden] {
+  display: none;
+}
+
+.practice-measure-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.practice-measure-label,
+.practice-measure-input {
+  color: var(--text);
+  font-weight: 700;
+  min-width: 1.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-measure-input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  width: 3.5em;
+  -moz-appearance: textfield;
+}
+.practice-measure-input::-webkit-inner-spin-button,
+.practice-measure-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.practice-loop-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  padding: 3px 12px;
+  background: var(--accent-dim);
+  border-radius: 8px;
+}
+
+.practice-loop-counter {
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-loop-best {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.practice-btn-sm {
+  padding: 2px 8px !important;
+  font-size: 0.7rem !important;
+  border-radius: 4px !important;
+  line-height: 1.4;
+  min-width: 26px;
+}
+
+.practice-loop-scores-panel {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow-x: auto;
+  max-width: 320px;
+}
+
+.practice-loop-score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex-shrink: 0;
+  min-width: 54px;
+}
+
+.practice-loop-score-round {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.practice-loop-score-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-loop-score-acc {
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-loop-score-item.practice-loop-score-item--best {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, #fefce8 0%, #fff7ed 100%);
+}
+
+.practice-loop-score-item.practice-loop-score-item--best .practice-loop-score-value {
+  color: #e07b30;
+}
+
+/* ── 练习模式右侧面板内的成绩条 ── */
+.score-display--side {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-display--side .score-display-score {
+  font-size: 1.5rem;
+  text-align: center;
+  min-width: unset;
+}
+
+.score-display--side .score-display-accu {
+  font-size: 1rem;
+  text-align: center;
+}
+
+.score-display--side .score-display-combo {
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.score-display--side .score-display-judge {
+  font-size: 1rem;
+  margin-left: 0;
+  text-align: center;
+}
+
+.score-display--side .score-display-wrong {
+  font-size: 0.85rem;
+  margin-left: 0;
+  text-align: center;
+}
+
+/* ── 练习模式右侧面板 ── */
+.practice-side-panel {
+  position: fixed;
+  right: 16px;
+  top: 124px;
+  width: 180px;
+  max-height: calc(100% - 150px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+  overflow: hidden;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.practice-side-panel[hidden] {
+  display: none !important;
+}
+
+.practice-side-panel-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.practice-side-scores {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.practice-side-empty {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px 4px;
+}
+
+.practice-side-score-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: #f8f9fc;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.practice-side-score-item--best {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, #fefce8 0%, #fff7ed 100%);
+}
+
+.practice-side-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.practice-side-score-round {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-side-score-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-side-score-acc {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-side-score-time {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1100px) {
+  .practice-side-panel {
+    display: none;
+  }
+}

@@ -107,6 +107,8 @@ export class MidiMatchEngine {
   private finishScheduled = false;
   private _stopped = false;
   private startWallTimeMs: number;
+  private hasFirstPress = false;
+  private firstPressWallSec = 0;
 
   constructor(flatNotes: FlatNote[], callbacks: MidiMatchCallbacks, options: EngineOptions) {
     this.flatNotes = flatNotes;
@@ -125,6 +127,8 @@ export class MidiMatchEngine {
           const firstNoteTime = flatNotes.length > 0
             ? Math.min(...flatNotes.map(n => n.time))
             : 0;
+          // 跟弹模式：时间从第一个音符开始，让音符立即可见（hasFirstPress 会冻结时间直到首次按键）
+          if (!options.freePlay) return Math.max(0, firstNoteTime - 0.3);
           return firstNoteTime - 1.5;
         })();
 
@@ -358,16 +362,23 @@ export class MidiMatchEngine {
       const allDone = this.noteStates.every(ns =>
         ns.note.time + Math.max(0, ns.note.duration) < effectiveTimeSec
       );
-      if (allDone) {
+      // 跟弹模式：所有音符已命中 → 立即触发结束（不等时间走过）
+      const allHit = !this.freePlay && this.noteStates.every(ns => ns.isHit);
+      if (allDone || allHit) {
         this.finishScheduled = true;
-        this.callbacks.log(`[MIDI] 所有音符时间已过，自动结束。游戏时间=${effectiveTimeSec.toFixed(3)}s`);
+        const reason = allHit ? '所有音符已命中' : '所有音符时间已过';
+        this.callbacks.log(`[MIDI] ${reason}，自动结束。游戏时间=${effectiveTimeSec.toFixed(3)}s`);
         setTimeout(() => this.stop(), 500);
         return;
       }
     }
 
     this.callbacks.onTimeSec?.(effectiveTimeSec);
-    this.callbacks.onWallTimeSec?.(wallTimeSec);
+    // 跟弹模式：扣除首次按键前的等待时间，UI 计时从首次按键开始
+    const adjustedWallSec = this.freePlay
+      ? wallTimeSec
+      : (this.hasFirstPress ? Math.max(0, wallTimeSec - this.firstPressWallSec) : 0);
+    this.callbacks.onWallTimeSec?.(adjustedWallSec);
   }
 
   // ─── MIDI 事件处理 (对应原 onMidi()) ─────────────────────
@@ -388,6 +399,13 @@ export class MidiMatchEngine {
     if (!keyEv) return;
 
     if (keyEv.down) {
+      // 跟弹模式：首次按键启动计时
+      if (!this.freePlay && !this.hasFirstPress) {
+        this.hasFirstPress = true;
+        this.firstPressWallSec = wallTimeSec;
+        this.callbacks.log(`[MIDI] 首次按键，开始计时  游戏时间=${gameSec.toFixed(3)}s  墙上时间=${wallTimeSec.toFixed(3)}s`);
+      }
+
       // 记录按键状态
       this.pressedMidis.add(keyEv.note);
       // 不在此处清除 consumedPresses：
@@ -436,6 +454,8 @@ export class MidiMatchEngine {
   stop(): void {
     if (this._stopped) return;
     this._stopped = true;
+    this.hasFirstPress = false;
+    this.firstPressWallSec = 0;
     this.pressedMidis.clear();
     this.sustainedNotes.clear();
     this.soundedNotes.clear();
@@ -462,6 +482,9 @@ export class MidiMatchEngine {
       this.accumulatedTimeSec += deltaSec * this.speedMultiplier;
       return false;
     }
+
+    // 跟弹模式：按下第一个音之前，时间暂停
+    if (!this.hasFirstPress) return true;
 
     for (let idx = 0; idx < this.noteStates.length; idx++) {
       const ns = this.noteStates[idx];

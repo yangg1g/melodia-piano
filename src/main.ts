@@ -52,6 +52,7 @@ app.innerHTML = `
           <div class="song-list-loading">加载中…</div>
         </div>
         <div class="song-list-actions">
+          <button type="button" id="btn-song-practice" class="btn primary" disabled>🎹 练习模式</button>
           <label class="file-btn file-btn--local">
             打开本地 MIDI 文件
             <input type="file" id="midi-file" accept=".mid,.midi,audio/midi" hidden />
@@ -89,6 +90,23 @@ app.innerHTML = `
       <span id="progress-time" class="progress-time">0:00 / 0:00</span>
       <span id="practice-time" class="practice-time" hidden></span>
     </div>
+    <!-- 练习模式控制栏 -->
+    <div id="practice-controls-bar" class="practice-controls-bar" hidden>
+      <div class="practice-measure-range">
+        <span>循环小节</span>
+        <button type="button" id="practice-start-dec" class="btn secondary practice-btn-sm" title="减小起始小节">◀</button>
+        <input type="number" class="practice-measure-input" id="practice-start-label" value="1" min="1" step="1" />
+        <button type="button" id="practice-start-inc" class="btn secondary practice-btn-sm" title="增大起始小节">▶</button>
+        <span>–</span>
+        <button type="button" id="practice-end-dec" class="btn secondary practice-btn-sm" title="减小结束小节">◀</button>
+        <input type="number" class="practice-measure-input" id="practice-end-label" value="1" min="1" step="1" />
+        <button type="button" id="practice-end-inc" class="btn secondary practice-btn-sm" title="增大结束小节">▶</button>
+      </div>
+      <div class="practice-loop-info">
+        <span class="practice-loop-counter" id="practice-loop-counter">第 1 轮</span>
+        <span class="practice-loop-best" id="practice-loop-best"></span>
+      </div>
+    </div>
     <main class="main">
       <div id="score-scroll" class="score-scroll">
         <div id="score-pager" class="score-pager" hidden>
@@ -99,19 +117,24 @@ app.innerHTML = `
         <div id="score" class="score"></div>
       </div>
       <section class="keyboard-section">
-        <div id="score-display" class="score-display" hidden>
-          <span class="score-display-score" id="score-value">0</span>
-          <span class="score-display-combo" id="score-combo"></span>
-          <span class="score-display-accu" id="score-accu">100.00%</span>
-          <span class="score-display-judge" id="score-judge"></span>
-          <span class="score-display-wrong" id="score-wrong"></span>
-        </div>
         <p class="hint" id="keyboard-hint"></p>
         <div id="keyboard-stack" class="keyboard-stack">
           <div id="keyboard-host"></div>
         </div>
       </section>
     </main>
+    <!-- 练习模式右侧面板 -->
+    <div id="practice-side-panel" class="practice-side-panel" hidden>
+      <div id="score-display" class="score-display score-display--side" hidden>
+        <span class="score-display-score" id="score-value">0</span>
+        <span class="score-display-accu" id="score-accu">100.00%</span>
+        <span class="score-display-combo" id="score-combo"></span>
+        <span class="score-display-judge" id="score-judge"></span>
+        <span class="score-display-wrong" id="score-wrong"></span>
+      </div>
+      <div class="practice-side-panel-header" id="practice-side-header">练习记录</div>
+      <div id="practice-side-scores" class="practice-side-scores"></div>
+    </div>
   </div>
 
   <!-- ===== 结果页 ===== -->
@@ -326,6 +349,7 @@ const confirmDialogCancel = document.querySelector<HTMLButtonElement>('#confirm-
 const songListMidiInputSelect = document.querySelector<HTMLSelectElement>('#song-list-midi-input')!;
 const songListMidiRefresh = document.querySelector<HTMLButtonElement>('#song-list-midi-refresh')!;
 const songListMidiStatus = document.querySelector<HTMLSpanElement>('#song-list-midi-status')!;
+const btnSongPractice = document.querySelector<HTMLButtonElement>('#btn-song-practice')!;
 
 function updateSettingsSummary(s: AppSettings) {
   const modeLabel = s.mode === 'normal' ? '普通模式' : s.mode === 'auto' ? '自动播放' : 'MIDI跟弹';
@@ -345,6 +369,45 @@ let currentSongFile: string | null = null;
 let currentSongName: string = '';
 /** 跟弹模式：记录最终的实际用时（秒） */
 let finalWallTimeSec = 0;
+
+/* ── 练习模式状态 ── */
+const practiceControlsBar = document.querySelector<HTMLDivElement>('#practice-controls-bar')!;
+const practiceStartLabel = document.querySelector<HTMLInputElement>('#practice-start-label')!;
+const practiceEndLabel = document.querySelector<HTMLInputElement>('#practice-end-label')!;
+const practiceLoopCounter = document.querySelector<HTMLSpanElement>('#practice-loop-counter')!;
+const practiceLoopBest = document.querySelector<HTMLSpanElement>('#practice-loop-best')!;
+const practiceStartDec = document.querySelector<HTMLButtonElement>('#practice-start-dec')!;
+const practiceStartInc = document.querySelector<HTMLButtonElement>('#practice-start-inc')!;
+const practiceEndDec = document.querySelector<HTMLButtonElement>('#practice-end-dec')!;
+const practiceEndInc = document.querySelector<HTMLButtonElement>('#practice-end-inc')!;
+const practiceSidePanel = document.querySelector<HTMLDivElement>('#practice-side-panel')!;
+const practiceSideHeader = document.querySelector<HTMLDivElement>('#practice-side-header')!;
+const practiceSideScores = document.querySelector<HTMLDivElement>('#practice-side-scores')!;
+
+interface PracticeLoopRecord {
+  round: number;
+  score: number;
+  maxScore: number;
+  accuracy: number;
+  elapsedSec: number;
+  loopDurationSec: number;
+  counts: Record<string, number>;
+  noteResults: NoteResult[];
+  wrongKeyRecords: WrongKeyRecord[];
+}
+
+let practiceMeasureStart = 0;
+let practiceMeasureEnd = 0;
+let practiceTotalMeasures = 0;
+let practiceLoopRound = 0;
+let practiceLoopRecords: PracticeLoopRecord[] = [];
+let practiceBestScore = 0;
+let practiceActive = false;
+let practiceRestarting = false;
+let practiceLoopNotes: FlatNote[] = [];
+let practiceLoopStartFn: (() => void) | null = null;
+let practiceLoopDurationSec = 0;
+let practiceCurrentWallSec = 0;
 
 /* ── 五线谱编辑模式 ── */
 let staffEditState = createStaffEditState();
@@ -651,7 +714,7 @@ function showResultScreen(entry?: PlayHistoryEntry) {
   resultPage.hidden = false;
 }
 
-async function enterPianoPageAndPlay(midi: Midi) {
+async function setupPianoPage(midi: Midi) {
   stopPreview();
   songListPage.hidden = true;
   pianoPage.hidden = false;
@@ -678,9 +741,32 @@ async function enterPianoPageAndPlay(midi: Midi) {
   renderAll(midi);
   // 使用设置中的模式
   setPlayMode(loadSettings().mode);
+}
 
+async function enterPianoPageAndPlay(midi: Midi) {
+  await setupPianoPage(midi);
+  // 非练习播放模式：显示右侧面板（仅成绩条）
+  practiceActive = false;
+  practiceSidePanel.hidden = false;
+  practiceSideHeader.hidden = true;
+  practiceSideScores.hidden = true;
   // 3 秒倒计时
   await countdown(3);
+  await startPlayFrom(0);
+}
+
+async function enterPianoPagePractice(midi: Midi) {
+  await setupPianoPage(midi);
+  practiceActive = true;
+  practiceControlsBar.hidden = false;
+  practiceSidePanel.hidden = false;
+  practiceSideHeader.hidden = false;
+  practiceSideScores.hidden = false;
+  practiceSideScores.innerHTML = '';
+  initPracticeRange(measureCount(midi, getMeasureContext(midi)));
+  updatePracticeUI();
+  btnPlay.disabled = true;
+  btnStop.disabled = false;
   await startPlayFrom(0);
 }
 
@@ -885,6 +971,9 @@ function selectSong(index: number) {
   // 更新左侧历史面板
   updateHistoryPanel(songFiles[index] ?? null);
 
+  // 启用/禁用练习按钮
+  btnSongPractice.disabled = !songFiles[index];
+
   // 自动预览选中歌曲
   if (songFiles[index]) startPreview(songFiles[index]);
 }
@@ -1006,6 +1095,21 @@ async function loadAndGo(filename: string) {
   }
 }
 
+async function practiceAndGo(filename: string) {
+  stopPreview();
+  currentSongFile = filename;
+  currentSongName = filename.replace(/\.(mid|midi)$/i, '');
+  try {
+    const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    const midi = new Midi(buf);
+    await enterPianoPagePractice(midi);
+  } catch {
+    alert(`加载歌曲失败：${filename}`);
+  }
+}
+
 /* ── 悬浮预览 ── */
 
 let previewTimers: number[] = [];
@@ -1080,14 +1184,16 @@ function formatTime(sec: number): string {
 
 function updateProgressBar(timeSec: number) {
   if (seeking) return;
-  const pct = totalDurationSec > 0 ? (timeSec / totalDurationSec) * 1000 : 0;
+  const duration = practiceActive && practiceLoopDurationSec > 0 ? practiceLoopDurationSec : totalDurationSec;
+  const pct = duration > 0 ? (timeSec / duration) * 1000 : 0;
   progressBar.value = String(Math.round(pct));
-  progressTime.textContent = `${formatTime(timeSec)} / ${formatTime(totalDurationSec)}`;
+  progressTime.textContent = `${formatTime(timeSec)} / ${formatTime(duration)}`;
 }
 
 function resetProgressBar() {
   progressBar.value = '0';
-  progressTime.textContent = `0:00 / ${formatTime(totalDurationSec)}`;
+  const duration = practiceActive && practiceLoopDurationSec > 0 ? practiceLoopDurationSec : totalDurationSec;
+  progressTime.textContent = `0:00 / ${formatTime(duration)}`;
 }
 
 /* ── 模式切换 ── */
@@ -1115,6 +1221,10 @@ function updateKeyboardHint() {
 
 function syncModeUi() {
   scoreDisplay.hidden = getPlayMode() === 'auto';
+  // 非播放/练习状态时，根据模式决定侧面板显示
+  if (!playback && !practiceActive) {
+    practiceSidePanel.hidden = getPlayMode() === 'auto';
+  }
   updateKeyboardHint();
   btnEdit.hidden = pianoPage.hidden || getRenderMode() !== 'original';
   // 跟弹模式下禁止进度条拖拽（视觉 + 逻辑）
@@ -1156,6 +1266,175 @@ function updateScoreUI(state: ScoreState) {
     });
   }
 }
+
+/* ── 练习模式控制 ── */
+
+function updatePracticeRangeBar() {
+  if (!practiceActive || practiceTotalMeasures <= 0) {
+    progressBar.style.background = '';
+    return;
+  }
+  const startPct = (practiceMeasureStart / practiceTotalMeasures) * 100;
+  const endPct = ((practiceMeasureEnd + 1) / practiceTotalMeasures) * 100;
+  // 使用渐变标记循环范围
+  progressBar.style.background = `linear-gradient(to right,
+    rgba(255,255,255,0.18) 0%,
+    rgba(255,255,255,0.18) ${startPct}%,
+    rgba(59,108,255,0.5) ${startPct}%,
+    rgba(59,108,255,0.5) ${endPct}%,
+    rgba(255,255,255,0.18) ${endPct}%,
+    rgba(255,255,255,0.18) 100%)`;
+}
+
+function initPracticeRange(totalMeasures: number) {
+  practiceTotalMeasures = Math.max(1, totalMeasures);
+  // 默认循环整个曲子
+  practiceMeasureStart = 0;
+  practiceMeasureEnd = practiceTotalMeasures - 1;
+  practiceLoopRound = 0;
+  practiceLoopRecords = [];
+  practiceBestScore = 0;
+  updatePracticeRangeBar();
+}
+
+function clampMeasure(v: number): number {
+  return Math.max(0, Math.min(practiceTotalMeasures - 1, v));
+}
+
+function updatePracticeUI() {
+  practiceStartLabel.value = String(practiceMeasureStart + 1);
+  practiceStartLabel.max = String(practiceTotalMeasures);
+  practiceEndLabel.value = String(practiceMeasureEnd + 1);
+  practiceEndLabel.max = String(practiceTotalMeasures);
+  practiceLoopCounter.textContent = `第 ${practiceLoopRound + 1} 轮`;
+  if (practiceBestScore > 0) {
+    practiceLoopBest.textContent = `最佳: ${practiceBestScore.toLocaleString()}`;
+  } else {
+    practiceLoopBest.textContent = '';
+  }
+  renderPracticeSidePanel();
+  updatePracticeRangeBar();
+}
+
+function restartPracticeLoop() {
+  if (!practiceActive || !currentMidi || !practiceLoopStartFn) return;
+
+  const totalM = measureCount(currentMidi!, getMeasureContext(currentMidi!));
+  console.log(`[练习循环] 重启循环: 小节 ${practiceMeasureStart + 1} → ${practiceMeasureEnd + 1} / ${totalM}`);
+
+  practiceRestarting = true;
+  playback?.stop();
+  playback = null;
+  fallingNotes.clear();
+  hideScorePlayhead();
+  resetProgressBar();
+  updateMeasureInfo(0, practiceMeasureEnd - practiceMeasureStart + 1);
+
+  const midi = currentMidi;
+  const ctx = getMeasureContext(midi);
+  const ticksPerMeasure = ctx.ticksPerMeasure;
+  const startTick = practiceMeasureStart * ticksPerMeasure;
+  const endTick = (practiceMeasureEnd + 1) * ticksPerMeasure;
+  const startTimeSec = midi.header.ticksToSeconds(startTick);
+  const endTimeSec = midi.header.ticksToSeconds(endTick);
+  practiceLoopDurationSec = endTimeSec - startTimeSec;
+
+  practiceLoopNotes = flatNotes
+    .filter(n => n.ticks >= startTick && n.ticks < endTick)
+    .map(n => ({
+      ...n,
+      time: n.time - startTimeSec,
+      ticks: n.ticks - startTick,
+    }));
+
+  practiceLoopStartFn();
+  practiceRestarting = false;
+}
+
+function renderPracticeSidePanel() {
+  if (practiceLoopRecords.length === 0) {
+    practiceSideScores.innerHTML = '<div class="practice-side-empty">暂无循环记录</div>';
+    return;
+  }
+  // 找最佳轮
+  let bestIdx = 0;
+  let bestScore = 0;
+  for (let i = 0; i < practiceLoopRecords.length; i++) {
+    if (practiceLoopRecords[i].score > bestScore) {
+      bestScore = practiceLoopRecords[i].score;
+      bestIdx = i;
+    }
+  }
+  practiceSideScores.innerHTML = practiceLoopRecords.map((r, i) => {
+    const isBest = i === bestIdx && practiceLoopRecords.length > 1;
+    const cls = isBest ? 'practice-side-score-item practice-side-score-item--best' : 'practice-side-score-item';
+    const timePct = r.loopDurationSec > 0 ? (r.elapsedSec / r.loopDurationSec) * 100 : 0;
+    const timeColor = timePct <= 100 ? '#22c55e' : timePct <= 130 ? '#fbbf24' : '#ef4444';
+    return `<div class="${cls}">
+      <div class="practice-side-score-row">
+        <span class="practice-side-score-round">#${r.round}</span>
+        <span class="practice-side-score-value">${r.score.toLocaleString()}</span>
+      </div>
+      <div class="practice-side-score-row">
+        <span class="practice-side-score-acc">${(r.accuracy * 100).toFixed(1)}%</span>
+        <span class="practice-side-score-time" style="color:${timeColor}">⏱ ${timePct.toFixed(0)}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+practiceStartDec.addEventListener('click', () => {
+  practiceMeasureStart = clampMeasure(practiceMeasureStart - 1);
+  if (practiceMeasureStart > practiceMeasureEnd) practiceMeasureEnd = practiceMeasureStart;
+  updatePracticeUI();
+  restartPracticeLoop();
+});
+
+practiceStartInc.addEventListener('click', () => {
+  practiceMeasureStart = clampMeasure(practiceMeasureStart + 1);
+  if (practiceMeasureStart > practiceMeasureEnd) practiceMeasureEnd = practiceMeasureStart;
+  updatePracticeUI();
+  restartPracticeLoop();
+});
+
+practiceEndDec.addEventListener('click', () => {
+  practiceMeasureEnd = clampMeasure(practiceMeasureEnd - 1);
+  if (practiceMeasureEnd < practiceMeasureStart) practiceMeasureStart = practiceMeasureEnd;
+  updatePracticeUI();
+  restartPracticeLoop();
+});
+
+practiceEndInc.addEventListener('click', () => {
+  practiceMeasureEnd = clampMeasure(practiceMeasureEnd + 1);
+  if (practiceMeasureEnd < practiceMeasureStart) practiceMeasureStart = practiceMeasureEnd;
+  updatePracticeUI();
+  restartPracticeLoop();
+});
+
+// 允许直接输入小节号
+practiceStartLabel.addEventListener('change', () => {
+  const v = parseInt(practiceStartLabel.value, 10);
+  if (isNaN(v) || v < 1) {
+    updatePracticeUI();
+    return;
+  }
+  practiceMeasureStart = clampMeasure(v - 1);
+  if (practiceMeasureStart > practiceMeasureEnd) practiceMeasureEnd = practiceMeasureStart;
+  updatePracticeUI();
+  restartPracticeLoop();
+});
+
+practiceEndLabel.addEventListener('change', () => {
+  const v = parseInt(practiceEndLabel.value, 10);
+  if (isNaN(v) || v < 1) {
+    updatePracticeUI();
+    return;
+  }
+  practiceMeasureEnd = clampMeasure(v - 1);
+  if (practiceMeasureEnd < practiceMeasureStart) practiceMeasureStart = practiceMeasureEnd;
+  updatePracticeUI();
+  restartPracticeLoop();
+});
 
 async function ensureMidiAccess(): Promise<MIDIAccess | null> {
   if (!navigator.requestMIDIAccess) return null;
@@ -1518,6 +1797,11 @@ function stopPlayback() {
   resetProgressBar();
   practiceTime.hidden = true;
   finalWallTimeSec = 0;
+  practiceActive = false;
+  progressBar.style.background = '';
+  practiceSideHeader.hidden = false;
+  practiceSideScores.hidden = false;
+  practiceSideScores.innerHTML = '';
 }
 
 btnPlay.addEventListener('click', async () => {
@@ -1527,12 +1811,25 @@ btnPlay.addEventListener('click', async () => {
 
 async function startPlayFrom(offsetSec: number) {
   if (!currentMidi || flatNotes.length === 0) return;
+  // stopPlayback 会重置 practiceActive，先保存
+  const wasPracticeActive = practiceActive;
   stopPlayback();
+  practiceActive = wasPracticeActive;
+
   btnPlay.disabled = true;
   btnStop.disabled = false;
 
   const mode = getPlayMode();
   const settings = loadSettings();
+
+  console.log('═══════════════════════════════════════');
+  console.log(`[播放开始] 模式: ${mode === 'auto' ? '自动播放' : mode === 'keyboard' ? 'MIDI跟弹' : '普通模式'}${practiceActive ? ' + 练习循环' : ''}`);
+  console.log(`[播放开始] 设置: 下落=${settings.fallingSpeed.toFixed(1)}s | 速度=${settings.playbackSpeed.toFixed(1)}× | 判定=${settings.difficulty === 'easy' ? '宽松' : settings.difficulty === 'hard' ? '严格' : '普通'} | 渲染=${settings.renderMode}`);
+  if (practiceActive) {
+    const totalM = measureCount(currentMidi!, getMeasureContext(currentMidi!));
+    console.log(`[播放开始] 练习循环: 小节 ${practiceMeasureStart + 1} → ${practiceMeasureEnd + 1} / ${totalM} | 第 ${practiceLoopRound + 1} 轮`);
+  }
+  console.log('═══════════════════════════════════════');
 
   const onPlaybackEnded = () => {
     hideScorePlayhead();
@@ -1628,6 +1925,116 @@ async function startPlayFrom(offsetSec: number) {
     return;
   }
 
+  /* ── 练习模式 ── */
+  if (practiceActive) {
+    const midi = currentMidi!;
+
+    practiceLoopRound = 0;
+    practiceLoopRecords = [];
+    practiceBestScore = 0;
+    updatePracticeUI();
+
+    const ctx = getMeasureContext(midi);
+    const ticksPerMeasure = ctx.ticksPerMeasure;
+    const startTick = practiceMeasureStart * ticksPerMeasure;
+    const endTick = (practiceMeasureEnd + 1) * ticksPerMeasure;
+    const startTimeSec = midi.header.ticksToSeconds(startTick);
+    const endTimeSec = midi.header.ticksToSeconds(endTick);
+    practiceLoopDurationSec = endTimeSec - startTimeSec;
+
+    // Filter notes within measure range and offset times
+    practiceLoopNotes = flatNotes
+      .filter(n => n.ticks >= startTick && n.ticks < endTick)
+      .map(n => ({
+        ...n,
+        time: n.time - startTimeSec,
+        ticks: n.ticks - startTick,
+      }));
+
+    scoreDisplay.hidden = false;
+
+    const startLoop = () => {
+      if (!practiceActive) return;
+      console.log(`[练习循环] 开始第 ${practiceLoopRound + 1} 轮 | 音符数: ${practiceLoopNotes.length} | 小节 ${practiceMeasureStart + 1}→${practiceMeasureEnd + 1}`);
+      const holdCount = practiceLoopNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
+      scoringEngine.reset({ totalNotes: practiceLoopNotes.length, holdNoteCount: holdCount });
+      updateScoreUI(scoringEngine.getState());
+      practiceCurrentWallSec = 0;
+
+      const onLoopEnded = () => {
+        hideScorePlayhead();
+        fallingNotes.clear();
+        playback = null;
+        resetProgressBar();
+        updateMeasureInfo(0, practiceMeasureEnd - practiceMeasureStart + 1);
+
+        if (!practiceActive) {
+          btnPlay.disabled = false;
+          btnStop.disabled = true;
+          return;
+        }
+
+        // 通过小节按钮触发的重启，不记录成绩、不自动开始下一轮
+        if (practiceRestarting) return;
+
+        // 记录本轮成绩
+        practiceLoopRound++;
+        const snap = scoringEngine.snapshot();
+        const record: PracticeLoopRecord = {
+          round: practiceLoopRound,
+          score: snap.score,
+          maxScore: snap.maxScore,
+          accuracy: snap.accuracy,
+          elapsedSec: practiceCurrentWallSec,
+          loopDurationSec: practiceLoopDurationSec,
+          counts: snap.counts,
+          noteResults: snap.noteResults,
+          wrongKeyRecords: snap.wrongKeyRecords,
+        };
+        practiceLoopRecords.push(record);
+        if (snap.score > practiceBestScore) practiceBestScore = snap.score;
+        updatePracticeUI();
+
+        console.log(`[练习循环] 第 ${practiceLoopRound} 轮结束 | 分数: ${snap.score.toLocaleString()} | 准确率: ${(snap.accuracy * 100).toFixed(1)}% | combo: ${snap.maxCombo} | 用时: ${practiceCurrentWallSec.toFixed(1)}s`);
+
+        // 自动重新开始下一轮
+        setTimeout(() => {
+          if (!practiceActive) return;
+          startLoop();
+        }, 500);
+      };
+
+      playback = startKeyboardPractice(
+        practiceLoopNotes,
+        midi,
+        keyEls,
+        input,
+        onLoopEnded,
+        (t) => {
+          updateScorePlayhead(t);
+          updateProgressBar(t);
+          // 练习模式：显示循环内小节而非整首歌曲小节
+          const currentTick = startTick + midi.header.secondsToTicks(t);
+          const currentMeasure = Math.floor(currentTick / ticksPerMeasure);
+          const loopMeasure = Math.max(0, Math.min(currentMeasure - practiceMeasureStart, practiceMeasureEnd - practiceMeasureStart));
+          updateMeasureInfo(loopMeasure, practiceMeasureEnd - practiceMeasureStart + 1);
+        },
+        (s) => fallingNotes.updateKeyboardPractice(s),
+        scoringEngine,
+        updateScoreUI,
+        false, // freePlay → 跟弹模式
+        settings.playbackSpeed,
+        (wallSec) => {
+          practiceCurrentWallSec = wallSec;
+        },
+      );
+    };
+
+    practiceLoopStartFn = startLoop;
+    startLoop();
+    return;
+  }
+
   /* ── 普通模式：MIDI 键盘自由弹奏 + 计分 ── */
   if (mode === 'normal') {
     scoreDisplay.hidden = false;
@@ -1655,6 +2062,7 @@ async function startPlayFrom(offsetSec: number) {
   }
 
   /* ── MIDI 跟弹模式 ── */
+  if (mode === 'keyboard') {
   scoreDisplay.hidden = false;
   const holdCount = flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
   scoringEngine.reset({ totalNotes: flatNotes.length, holdNoteCount: holdCount });
@@ -1691,6 +2099,8 @@ async function startPlayFrom(offsetSec: number) {
       practiceTime.textContent = `用时 ${formatTime(wallSec)} · ${pct.toFixed(1)}%`;
     },
   );
+  return;
+  }
 }
 
 /* ── 进度条拖拽跳转 ── */
@@ -1698,8 +2108,8 @@ async function startPlayFrom(offsetSec: number) {
 let wasPlayingBeforeSeek = false;
 
 progressBar.addEventListener('input', () => {
-  // 跟弹模式不允许拖拽进度条
-  if (getPlayMode() === 'keyboard') return;
+  // 跟弹模式和练习模式下禁止拖拽进度条
+  if (getPlayMode() === 'keyboard' || practiceActive) return;
 
   seeking = true;
   if (playback && !wasPlayingBeforeSeek) {
@@ -1722,8 +2132,8 @@ function getRenderMode(): 'image' | 'original' {
 }
 
 progressBar.addEventListener('change', () => {
-  // 跟弹模式不允许拖拽进度条
-  if (getPlayMode() === 'keyboard') return;
+  // 跟弹模式和练习模式下禁止拖拽进度条
+  if (getPlayMode() === 'keyboard' || practiceActive) return;
 
   seeking = false;
   if (!currentMidi || flatNotes.length === 0) return;
@@ -1738,7 +2148,64 @@ progressBar.addEventListener('change', () => {
 });
 
 btnStop.addEventListener('click', () => {
+  // 练习模式：停止循环并显示结算
+  if (practiceActive) {
+    stopPlayback();
+    // 使用最佳一轮的成绩来展示/保存
+    if (practiceLoopRecords.length > 0) {
+      let best = practiceLoopRecords[0];
+      for (const r of practiceLoopRecords) {
+        if (r.score > best.score) best = r;
+      }
+      // 构造历史条目用于结算显示
+      const curSettings = loadSettings();
+      const entry: PlayHistoryEntry = {
+        songFile: currentSongFile ?? '',
+        songName: currentSongName,
+        score: best.score,
+        accuracy: best.accuracy,
+        maxCombo: best.noteResults
+          ? Math.max(...best.noteResults.map((_: NoteResult, i: number) => i + 1), best.noteResults.length)
+          : 0,
+        mode: 'practice',
+        date: new Date().toISOString(),
+        settings: {
+          fallingSpeed: curSettings.fallingSpeed,
+          playbackSpeed: curSettings.playbackSpeed,
+          difficulty: curSettings.difficulty,
+        },
+        noteResults: best.noteResults,
+        wrongKeyRecords: best.wrongKeyRecords,
+        wallTimeSec: finalWallTimeSec || undefined,
+        originalDurationSec: undefined,
+      };
+      // 手动计算 maxCombo
+      let maxComboRun = 0;
+      let curRun = 0;
+      for (const nr of best.noteResults) {
+        if (nr.judgement !== 'MISS') {
+          curRun++;
+          if (curRun > maxComboRun) maxComboRun = curRun;
+        } else {
+          curRun = 0;
+        }
+      }
+      entry.maxCombo = maxComboRun;
+      if (currentSongFile) addHistoryEntry(entry);
+      showResultScreen(entry);
+    }
+    return;
+  }
   stopPlayback();
+});
+
+btnSongPractice.addEventListener('click', async () => {
+  const file = songFiles[selectedIndex];
+  if (!file) {
+    alert('请先选择一首歌曲');
+    return;
+  }
+  await practiceAndGo(file);
 });
 
 btnDownloadLog.addEventListener('click', () => {

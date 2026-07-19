@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
+    "chrome-devtools-mcp": "^1.6.0",
     "vexflow": "^5.0.0"
   }
 }

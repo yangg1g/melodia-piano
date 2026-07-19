@@ -231,6 +231,31 @@ export class ScoringEngine {
     this.onUpdate?.(this.getState());
   }
 
+  /** 生成当前计分快照（练习模式每轮记录用） */
+  snapshot(): {
+    score: number;
+    maxScore: number;
+    combo: number;
+    maxCombo: number;
+    accuracy: number;
+    counts: Record<Judgement, number>;
+    wrongKeys: number;
+    noteResults: NoteResult[];
+    wrongKeyRecords: WrongKeyRecord[];
+  } {
+    return {
+      score: this.getScore(),
+      maxScore: this.getMaxTheoreticalScore(),
+      combo: this.combo,
+      maxCombo: this.maxCombo,
+      accuracy: this.getAccuracy(),
+      counts: { ...this.counts },
+      wrongKeys: this.wrongKeys,
+      noteResults: [...this.noteResults],
+      wrongKeyRecords: [...this.wrongKeyRecords],
+    };
+  }
+
   reset(opts?: { totalNotes?: number; modMultiplier?: number; holdNoteCount?: number }): void {
     this.combo = 0;
     this.maxCombo = 0;
