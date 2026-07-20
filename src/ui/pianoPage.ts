@@ -81,6 +81,10 @@ export class PianoPage {
   playback: PlaybackController | null = null;
   seeking = false;
   finalWallTimeSec = 0;
+  /** 最后一次键盘弹奏的录制事件（用于回放） */
+  lastRecordedEvents: import('../features/playback').MidiEventRecord[] = [];
+  /** 最后一次弹奏的模式（用于回放时匹配正确的 freePlay） */
+  lastRecordedMode: string = '';
 
   // 乐谱状态
   scorePagerState: ScorePagerState | null = null;
@@ -405,15 +409,20 @@ export class PianoPage {
           wrongKeyRecords: best.wrongKeyRecords,
           wallTimeSec: this.finalWallTimeSec || undefined,
           originalDurationSec: undefined,
+          recordedEvents: this.lastRecordedEvents.length > 0
+            ? this.lastRecordedEvents.map(e => ({ data: Array.from(e.data), wallTimeSec: e.wallTimeSec }))
+            : undefined,
         };
         if (this.currentSongFile) {
           try { addHistoryEntry(entry); } catch { /* ignore */ }
         }
         this.pianoPageEl.hidden = true;
-        showResultScreen(entry, this.scoringEngine.getMaxTheoreticalScore(), this.resultElements);
+        showResultScreen(entry, this.scoringEngine.getMaxTheoreticalScore(), this.resultElements,
+          this.lastRecordedEvents.length > 0);
       }
     }
 
+    this.lastRecordedEvents = this.playback?.getRecordedEvents?.() ?? [];
     this.playback?.stop();
     this.playback = null;
     this.hideScorePlayhead();
@@ -447,6 +456,9 @@ export class PianoPage {
     const settings = loadSettings();
 
     const onPlaybackEnded = () => {
+      // 保存录制事件和模式（用于回放）
+      this.lastRecordedEvents = this.playback?.getRecordedEvents?.() ?? [];
+      this.lastRecordedMode = mode;
       this.hideScorePlayhead();
       this.fallingNotes.clear();
       this.btnPlay.disabled = false;
@@ -471,13 +483,17 @@ export class PianoPage {
           wrongKeyRecords: this.scoringEngine.wrongKeyRecords,
           wallTimeSec: this.finalWallTimeSec || undefined,
           originalDurationSec: this.totalDurationSec || undefined,
+          recordedEvents: this.lastRecordedEvents.length > 0
+            ? this.lastRecordedEvents.map(e => ({ data: Array.from(e.data), wallTimeSec: e.wallTimeSec }))
+            : undefined,
         };
         if (this.currentSongFile) {
           try { addHistoryEntry(entry); } catch { /* 忽略存储错误 */ }
         }
         // 先隐藏钢琴页，再显示结算画面
         this.pianoPageEl.hidden = true;
-        showResultScreen(entry, this.scoringEngine.getMaxTheoreticalScore(), this.resultElements);
+        showResultScreen(entry, this.scoringEngine.getMaxTheoreticalScore(), this.resultElements,
+          this.lastRecordedEvents.length > 0);
       }
     };
 
@@ -710,11 +726,12 @@ export class PianoPage {
 
   /* ── 乐谱播放头 ── */
 
-  private updateScorePlayhead(timeSec: number): void {
+  /** 更新乐谱播放头位置（回放也用到） */
+  updateScorePlayhead(sec: number): void {
     if (this.getRenderMode() === 'image') {
-      this.updatePlayheadImage(timeSec);
+      this.updatePlayheadImage(sec);
     } else {
-      this.updatePlayheadOriginal(timeSec);
+      this.updatePlayheadOriginal(sec);
     }
   }
 

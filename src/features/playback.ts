@@ -1,6 +1,9 @@
 import type { Midi } from '@tonejs/midi';
 import { assignHandForNote, type FlatNote, type Hand } from '../core/midiScore';
-import { playPianoMidi, releaseAllPiano, getPianoAudioTime } from '../audio/salamanderPiano';
+import { playPianoMidi, releaseAllPiano, getPianoAudioTime, startPianoNote, releasePianoNote } from '../audio/salamanderPiano';
+import { MidiMatchEngine } from '../core/midiMatchEngine';
+import { ScoringEngine } from '../core/scoring';
+import { applyKeyVisuals } from '../rendering/pianoKeyboard';
 
 export interface PlaybackController {
   stop: () => void;
@@ -9,6 +12,14 @@ export interface PlaybackController {
   getLogs?: () => string;
   /** 下载日志文件（键盘练习模式） */
   downloadLogs?: () => void;
+  /** 录制的 MIDI 事件（用于回放） */
+  getRecordedEvents?: () => MidiEventRecord[];
+}
+
+/** 录制的单个 MIDI 事件 */
+export interface MidiEventRecord {
+  data: Uint8Array;
+  wallTimeSec: number;
 }
 
 /** 自动播放：用 setTimeout 对齐 note on/off 以高亮键盘（按左右手上色） */
@@ -95,7 +106,87 @@ export function playNotes(
       active.clear();
       onKeys(active);
       releaseAllPiano();
-    },
-    isPlaying: () => !stopped,
-  };
-}
+          },
+          isPlaying: () => !stopped,
+        };
+      }
+
+      /** 回放录制的 MIDI 事件 */
+      export function startMidiReplay(
+        events: MidiEventRecord[],
+        flatNotes: FlatNote[],
+        midiFile: Midi,
+        keyEls: Map<number, HTMLElement>,
+        scoring: ScoringEngine,
+        freePlay: boolean,
+        onPaintState?: (notes: import('../core/midiMatchEngine').NoteState[], timeSec: number) => void,
+        onTimeSec?: (sec: number) => void,
+        onEnded?: () => void,
+      ): PlaybackController {
+        const base = performance.now();
+        let stopped = false;
+        let raf: number | null = null;
+        const timers: number[] = [];
+
+        const log = (msg: string) => console.log('[REPLAY]', msg);
+
+        scoring.reset({ totalNotes: flatNotes.length });
+
+        const engine = new MidiMatchEngine(flatNotes, {
+          log,
+          onNoteStart: (midi, vel) => startPianoNote(midi, vel),
+          onNoteRelease: (midi) => releasePianoNote(midi),
+          onWrongKey: (midi, vel) => playPianoMidi(midi, 0.3, vel),
+          onVisualUpdate: (expected, pressed) => applyKeyVisuals(keyEls, { expected, active: undefined, pressed }),
+          onPaintState: (notes, t) => onPaintState?.(notes, t),
+          onScoreUpdate: () => {},
+          onTimeSec: (t) => onTimeSec?.(t),
+          onEnded: () => { releaseAllPiano(); onEnded?.(); },
+        }, {
+          freePlay,
+          speedMultiplier: 1,
+          hitWindowMs: scoring.windows.ok,
+          perfectMs: scoring.windows.perfect,
+          scoring,
+          getHandForNote: (note) => assignHandForNote(note, midiFile),
+          startWallTimeMs: base,
+        });
+
+        // 按 wallTimeSec 排序
+        const sorted = [...events].sort((a, b) => a.wallTimeSec - b.wallTimeSec);
+        const shiftSec = sorted.length > 0 ? sorted[0].wallTimeSec : 0;
+
+        for (const ev of sorted) {
+          const delayMs = (ev.wallTimeSec - shiftSec) * 1000;
+          timers.push(window.setTimeout(() => {
+            if (stopped) return;
+            engine.processMidiEvent(new Uint8Array(ev.data), ev.wallTimeSec - shiftSec);
+          }, delayMs));
+        }
+
+        // 动画帧循环推进 engine
+        let lastMs = performance.now();
+        const tick = () => {
+          if (stopped) return;
+          const nowMs = performance.now();
+          const delta = (nowMs - lastMs) / 1000;
+          lastMs = nowMs;
+          const wallTimeSec = (nowMs - base) / 1000;
+          engine.processFrame(delta, wallTimeSec);
+          if (!engine.stopped) {
+            raf = requestAnimationFrame(tick);
+          }
+        };
+        raf = requestAnimationFrame(tick);
+
+        return {
+          stop: () => {
+            stopped = true;
+            if (raf) cancelAnimationFrame(raf);
+            for (const id of timers) clearTimeout(id);
+            engine.stop();
+            releaseAllPiano();
+          },
+          isPlaying: () => !stopped,
+        };
+      }

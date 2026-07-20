@@ -2,7 +2,7 @@ import type { Midi } from '@tonejs/midi';
 import type { KeyboardFallingState } from '../rendering/fallingNotes';
 import { assignHandForNote, type FlatNote } from '../core/midiScore';
 import { applyKeyVisuals } from '../rendering/pianoKeyboard';
-import type { PlaybackController } from './playback';
+import type { PlaybackController, MidiEventRecord } from './playback';
 import { playPianoMidi, releaseAllPiano, startPianoNote, releasePianoNote } from '../audio/salamanderPiano';
 import { ScoringEngine, type ScoreState } from '../core/scoring';
 import { MidiMatchEngine, type MidiMatchCallbacks } from '../core/midiMatchEngine';
@@ -93,6 +93,9 @@ export function startKeyboardPractice(
   const startWallTimeMs = performance.now();
   const hitWindowMs = scoring ? scoring.windows.ok : 180;
 
+  /** 录制的 MIDI 事件（用于回放） */
+  const recordedEvents: MidiEventRecord[] = [];
+
   let animFrameId = 0;
   let lastFrameTimeMs = performance.now();
 
@@ -175,6 +178,7 @@ export function startKeyboardPractice(
     if (!data || data.length < 3) return;
 
     const wallTimeSec = (performance.now() - startWallTimeMs) / 1000;
+    recordedEvents.push({ data: new Uint8Array(data), wallTimeSec });
     engine.processMidiEvent(data, wallTimeSec);
 
     // processMidiEvent 可能通过 setTimeout 设 stop
@@ -204,5 +208,6 @@ export function startKeyboardPractice(
       catch { return ''; }
     },
     downloadLogs: () => downloadMidiLogs(),
+    getRecordedEvents: () => recordedEvents,
   };
 }

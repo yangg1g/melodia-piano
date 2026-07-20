@@ -9,7 +9,6 @@ export interface ResultPageElements {
   overlay: HTMLElement;
   scoreEl: HTMLSpanElement;
   maxScoreEl: HTMLDivElement;
-  ratioEl: HTMLDivElement;
   accuracyEl: HTMLSpanElement;
   maxComboEl: HTMLSpanElement;
   judgePerfect: HTMLSpanElement;
@@ -21,24 +20,22 @@ export interface ResultPageElements {
   timingActual: HTMLSpanElement;
   timingSlower: HTMLSpanElement;
   chartCanvas: HTMLCanvasElement;
+  replayBtn: HTMLButtonElement;
 }
 
 export function showResultScreen(
   entry: PlayHistoryEntry,
   maxTheoreticalScore: number,
   elements: ResultPageElements,
+  hasReplay = false,
 ): void {
   const e = entry;
 
   elements.scoreEl.textContent = e.score.toLocaleString();
-  elements.maxScoreEl.textContent = maxTheoreticalScore.toLocaleString();
-
-  const ratio = maxTheoreticalScore > 0 ? (e.score / maxTheoreticalScore) * 100 : 0;
-  elements.ratioEl.textContent = `${ratio.toFixed(1)}%`;
-  elements.ratioEl.style.color = ratio >= 95 ? '#22c55e' : ratio >= 80 ? '#fbbf24' : '#ef4444';
+  elements.maxScoreEl.textContent = `理论最高 ${maxTheoreticalScore.toLocaleString()}`;
 
   elements.accuracyEl.textContent = `${(e.accuracy * 100).toFixed(2)}%`;
-  elements.maxComboEl.textContent = `Max Combo: ${e.maxCombo}`;
+  elements.maxComboEl.textContent = String(e.maxCombo);
   elements.judgePerfect.textContent = String(e.noteResults?.filter(n => n.judgement === 'PERFECT').length ?? 0);
   elements.judgeOk.textContent = String(e.noteResults?.filter(n => n.judgement === 'OK').length ?? 0);
   elements.judgeMiss.textContent = String(e.noteResults?.filter(n => n.judgement === 'MISS').length ?? 0);
@@ -63,6 +60,7 @@ export function showResultScreen(
 
   elements.overlay.hidden = false;
   elements.page.hidden = false;
+  elements.replayBtn.hidden = !hasReplay;
 }
 
 export function hideResultScreen(elements: ResultPageElements): void {

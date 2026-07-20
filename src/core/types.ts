@@ -31,6 +31,8 @@ export interface PlayHistoryEntry {
   wrongKeyRecords?: WrongKeyRecord[];
   wallTimeSec?: number;
   originalDurationSec?: number;
+  /** 回放用的 MIDI 事件（序列化格式：[dataBytes, wallTimeSec]） */
+  recordedEvents?: Array<{ data: number[]; wallTimeSec: number }>;
 }
 
 export interface PracticeLoopRecord {

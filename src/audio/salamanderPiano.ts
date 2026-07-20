@@ -49,7 +49,7 @@ const playingNotes = new Set<number>();
 const noteOffTimers = new Map<number, number>();
 
 function toMidiVelocity(velocity01: number): number {
-  const boosted = Math.pow(Math.max(0, Math.min(1, velocity01)), 0.4);
+  const boosted = Math.pow(Math.max(0, Math.min(1, velocity01)), 0.3);
   return Math.round(boosted * 127);
 }
 
@@ -173,4 +173,6 @@ export function releaseAllPiano(): void {
     window.MIDI.noteOff(0, midi, 0);
   }
   playingNotes.clear();
+  // 强制切断所有残留延音
+  try { window.MIDI.noteOffAll(); } catch { /* ignore */ }
 }

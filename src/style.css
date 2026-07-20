@@ -1206,9 +1206,9 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 44px 52px;
+  padding: 32px 40px;
   width: 100%;
-  max-width: 720px;
+  max-width: 620px;
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
@@ -1222,81 +1222,80 @@ body {
 }
 
 .result-title {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--muted);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.result-score-section {
-  margin-bottom: 18px;
-}
-
-.result-score-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 6px;
+/* 得分 + 理论最高 */
+.result-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
 .result-score {
-  font-size: 3.2rem;
+  font-size: 2.8rem;
   font-weight: 900;
   color: var(--accent);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-.result-max-section {
-  margin-bottom: 10px;
-}
-
 .result-max-score {
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--text);
-  opacity: 0.55;
+  opacity: 0.45;
+  margin-top: 4px;
   font-variant-numeric: tabular-nums;
 }
 
-.result-ratio-section {
-  margin-bottom: 18px;
-}
-
-.result-ratio {
-  font-size: 1.2rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--gold);
-}
-
-.result-accuracy-section {
-  margin-bottom: 28px;
+/* 准确率 / Max Combo */
+.result-sub-row {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .result-accuracy {
-  font-size: 2.2rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.result-maxcombo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-accuracy {
+  font-size: 1.8rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1.2;
 }
 
-.result-maxcombo {
-  font-size: 0.9rem;
-  color: var(--muted);
-  margin-top: 6px;
-}
-
 /* ── 用时统计（跟弹模式） ── */
 
 .result-timing-section {
-  margin-bottom: 22px;
-  padding: 16px 20px;
-  background: var(--accent-dim);
+  margin-bottom: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
   border-radius: var(--radius-md);
-  text-align: left;
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .result-timing-section[hidden] {
@@ -1304,17 +1303,25 @@ body {
 }
 
 .result-timing-title {
-  font-size: 0.85rem;
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--accent);
-  margin-bottom: 10px;
+  padding: 6px 10px 4px;
+  background: var(--accent-dim);
 }
 
 .result-timing-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  background: var(--accent-dim);
+}
+.result-timing-row--highlight {
+  grid-column: 1 / -1;
 }
 
 .result-timing-label {
@@ -1335,21 +1342,24 @@ body {
 }
 
 .result-judgements {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 28px;
-  padding: 16px;
-  background: var(--bg-secondary);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-bottom: 14px;
+  background: var(--border);
   border-radius: var(--radius-md);
+  overflow: hidden;
   border: 1px solid var(--border);
 }
 
 .result-judge-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 0.9rem;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
 }
 
 .judge-label {
@@ -1366,17 +1376,18 @@ body {
 
 .result-chart-legend {
   display: flex;
-  gap: 14px;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 6px;
   align-items: center;
   flex-wrap: wrap;
+  font-size: 0.8rem;
 }
 
 .result-chart-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   background: var(--surface);
 }
 
@@ -1387,8 +1398,19 @@ body {
 
 .result-back-btn {
   width: 100%;
-  padding: 14px 28px;
-  font-size: 1.05rem;
+  padding: 12px 28px;
+  font-size: 1rem;
+  border-radius: var(--radius-md);
+}
+
+.result-buttons {
+  display: flex;
+  gap: 10px;
+}
+.result-replay-btn {
+  flex-shrink: 0;
+  padding: 12px 24px;
+  font-size: 1rem;
   border-radius: var(--radius-md);
 }
 

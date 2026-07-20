@@ -14,11 +14,13 @@ import { Midi } from '@tonejs/midi';
 import type { AppSettings } from './core/types';
 import { DIFFICULTY_WINDOWS } from './core/types';
 import { createFallingNotesLane } from './rendering/fallingNotes';
+import { flattenNotes } from './core/midiScore';
 import { loadSettings, saveSettings, applySettings, applySettingsToUI, collectSettingsFromUI } from './ui/settings';
 import { MidiSetup } from './ui/midiSetup';
 import { fetchSongList, updateHistoryPanel, refreshSongBest, startPreview, stopPreview } from './ui/songList';
 import { PianoPage } from './ui/pianoPage';
 import { hideResultScreen, showResultScreen } from './ui/resultScreen';
+import { startMidiReplay } from './features/playback';
 import { showConfirm } from './ui/confirmDialog';
 import { downloadMidiLogs } from './features/keyboardPractice';
 import { getBestForSong } from './ui/history';
@@ -135,18 +137,16 @@ app.innerHTML = `
   <div id="result-page" class="page" hidden>
     <div class="result-card">
       <div class="result-title">结算</div>
-      <div class="result-score-section">
-        <div class="result-score-label">最终得分</div>
+      <div class="result-header">
         <div class="result-score" id="result-score">0</div>
+        <div class="result-max-score" id="result-max-score">理论最高 0</div>
       </div>
-      <div class="result-max-section">
-        <div class="result-score-label">理论最高</div>
-        <div class="result-max-score" id="result-max-score">0</div>
+      <div class="result-sub-row">
+        <span class="result-accuracy" id="result-accuracy">100.00%</span>
       </div>
-      <div class="result-ratio-section"><div class="result-ratio" id="result-ratio">-</div></div>
-      <div class="result-accuracy-section">
-        <div class="result-accuracy" id="result-accuracy">100.00%</div>
-        <div class="result-maxcombo" id="result-maxcombo">最高 Combo: 0</div>
+      <div class="result-sub-row">
+        <span class="result-score-label">Max Combo</span>
+        <span class="result-maxcombo" id="result-maxcombo">0</span>
       </div>
       <div class="result-timing-section" id="result-timing-section" hidden>
         <div class="result-timing-title">用时统计（跟弹模式）</div>
@@ -167,7 +167,10 @@ app.innerHTML = `
         <span class="detail-legend-item"><span class="detail-dot detail-dot--wrong"></span> WRONG</span>
       </div>
       <div class="result-chart-wrap"><canvas id="result-chart-canvas" class="result-chart-canvas"></canvas></div>
-      <button type="button" id="result-back-btn" class="btn primary result-back-btn">返回选歌</button>
+      <div class="result-buttons">
+        <button type="button" id="result-replay-btn" class="btn secondary result-replay-btn" hidden>回放</button>
+        <button type="button" id="result-back-btn" class="btn primary result-back-btn">返回选歌</button>
+      </div>
     </div>
   </div>
 
@@ -296,6 +299,9 @@ const btnMidiRefresh = document.querySelector<HTMLButtonElement>('#btn-midi-refr
 
 const resultOverlay = document.querySelector<HTMLDivElement>('#result-overlay')!;
 
+const resultBackBtn = document.querySelector<HTMLButtonElement>('#result-back-btn')!;
+const resultReplayBtn = document.querySelector<HTMLButtonElement>('#result-replay-btn')!;
+
 const btnBack = document.querySelector<HTMLButtonElement>('#btn-back')!;
 const btnDownloadLog = document.querySelector<HTMLButtonElement>('#btn-download-log')!;
 
@@ -321,7 +327,6 @@ const resultElements = {
   overlay: resultOverlay,
   scoreEl: document.querySelector<HTMLSpanElement>('#result-score')!,
   maxScoreEl: document.querySelector<HTMLDivElement>('#result-max-score')!,
-  ratioEl: document.querySelector<HTMLDivElement>('#result-ratio')!,
   accuracyEl: document.querySelector<HTMLSpanElement>('#result-accuracy')!,
   maxComboEl: document.querySelector<HTMLSpanElement>('#result-maxcombo')!,
   judgePerfect: document.querySelector<HTMLSpanElement>('#judge-perfect')!,
@@ -333,6 +338,7 @@ const resultElements = {
   timingActual: document.querySelector<HTMLSpanElement>('#result-timing-actual')!,
   timingSlower: document.querySelector<HTMLSpanElement>('#result-timing-slower')!,
   chartCanvas: document.querySelector<HTMLCanvasElement>('#result-chart-canvas')!,
+  replayBtn: resultReplayBtn,
 };
 
 const pianoPage = new PianoPage({
@@ -349,6 +355,8 @@ pianoPage.onGoBack = () => showSongList();
 
 let songFiles: string[] = [];
 let selectedIndex = 0;
+/** 结算页面是从历史记录打开的（而非弹奏结束），返回时不要刷新列表 */
+let resultFromHistory = false;
 
 async function loadSongFile(filename: string): Promise<Midi> {
   const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
@@ -381,6 +389,7 @@ function renderStars(rating: number): string {
 
 async function goPlaySong(filename: string): Promise<void> {
   stopPreview();
+  await new Promise(r => setTimeout(r, 80));
   pianoPage.currentSongFile = filename;
   pianoPage.currentSongName = filename.replace(/\.(mid|midi)$/i, '');
   pianoPage.pianoPageEl.hidden = false;
@@ -395,6 +404,7 @@ async function goPlaySong(filename: string): Promise<void> {
 
 async function goPractice(filename: string): Promise<void> {
   stopPreview();
+  await new Promise(r => setTimeout(r, 80));
   pianoPage.currentSongFile = filename;
   pianoPage.currentSongName = filename.replace(/\.(mid|midi)$/i, '');
   pianoPage.pianoPageEl.hidden = false;
@@ -484,7 +494,30 @@ function selectSong(index: number, scroll = true): void {
     startPreview(file);
     updateHistoryPanel(file, songFiles, historyList, {
       onShowResult: (entry) => {
-        showResultScreen(entry, pianoPage.scoringEngine.getMaxTheoreticalScore(), resultElements);
+        resultFromHistory = true;
+        // 从历史记录加载回放数据
+        if (entry.recordedEvents && entry.recordedEvents.length > 0) {
+          pianoPage.lastRecordedEvents = entry.recordedEvents.map(e => ({
+            data: new Uint8Array(e.data),
+            wallTimeSec: e.wallTimeSec,
+          }));
+          pianoPage.lastRecordedMode = entry.mode;
+          // 确保 MIDI 已加载（回放需要 currentMidi 和 flatNotes）
+          if (!pianoPage.currentMidi || pianoPage.currentSongFile !== entry.songFile) {
+            loadSongFile(entry.songFile).then(midi => {
+              pianoPage.currentSongFile = entry.songFile;
+              pianoPage.currentSongName = entry.songName;
+              pianoPage.currentMidi = midi;
+              pianoPage.flatNotes = flattenNotes(midi);
+              pianoPage.totalDurationSec = midi.duration;
+            }).catch(() => {});
+          }
+        } else {
+          pianoPage.lastRecordedEvents = [];
+          pianoPage.lastRecordedMode = '';
+        }
+        showResultScreen(entry, pianoPage.scoringEngine.getMaxTheoreticalScore(), resultElements,
+          entry.recordedEvents && entry.recordedEvents.length > 0);
         songListPage.hidden = true;
       },
       onShowConfirm: (msg) => showConfirm(msg, {
@@ -535,8 +568,10 @@ function showSongList(): void {
 
 btnBack.addEventListener('click', showSongList);
 
-const resultBackBtn = document.querySelector<HTMLButtonElement>('#result-back-btn')!;
 resultBackBtn.addEventListener('click', () => {
+  const wasHistory = resultFromHistory;
+  resultFromHistory = false;
+  resultReplayBtn.hidden = true;
   hideResultScreen(resultElements);
   pianoPage.scoringEngine.reset();
   pianoPage.pianoPageEl.hidden = true;
@@ -550,7 +585,62 @@ resultBackBtn.addEventListener('click', () => {
   if (pianoPage.currentSongFile) {
     refreshSongBest(pianoPage.currentSongFile, songList);
   }
+  // 历史记录返回：列表还在，只刷新最佳成绩；弹奏返回：重建列表并恢复预览
+  if (!wasHistory) {
+    refreshSongList();
+  }
 });
+
+resultReplayBtn.addEventListener('click', () => {
+  const events = pianoPage.lastRecordedEvents;
+  if (!events || events.length === 0 || !pianoPage.currentMidi) return;
+  stopPreview();
+  hideResultScreen(resultElements);
+  pianoPage.pianoPageEl.hidden = false;
+  pianoPage.scoringEngine.reset({ totalNotes: pianoPage.flatNotes.length });
+  pianoPage.fallingNotes.clear();
+  pianoPage.progressBar.value = '0';
+  pianoPage.progressTime.textContent = '0:00 / 0:00';
+  pianoPage.btnPlay.disabled = true;
+  pianoPage.btnStop.disabled = false;
+  pianoPage.scoreDisplay.hidden = false;
+  pianoPage.updateKeyboardHint();
+  pianoPage.renderAll();
+  const isKeyboardMode = pianoPage.lastRecordedMode !== 'auto';
+  pianoPage.playback = startMidiReplay(
+    events,
+    pianoPage.flatNotes,
+    pianoPage.currentMidi,
+    pianoPage.keyEls,
+    pianoPage.scoringEngine,
+    !isKeyboardMode,
+    (_notes, t) => {
+      pianoPage.fallingNotes.update(t);
+      pianoPage.updateScorePlayhead(t);
+      const pct = pianoPage.totalDurationSec > 0 ? (t / pianoPage.totalDurationSec) * 100 : 0;
+      pianoPage.progressBar.value = String(pct);
+      pianoPage.progressTime.textContent = `${formatTimeSec(t)} / ${formatTimeSec(pianoPage.totalDurationSec)}`;
+    },
+    undefined,
+    () => {
+      pianoPage.btnPlay.disabled = false;
+      pianoPage.btnStop.disabled = true;
+      pianoPage.hideScorePlayhead();
+      pianoPage.fallingNotes.clear();
+      pianoPage.progressBar.value = '0';
+      pianoPage.progressTime.textContent = '0:00 / 0:00';
+      pianoPage.pianoPageEl.hidden = true;
+      songListPage.hidden = false;
+      refreshSongList();
+    },
+  );
+});
+
+function formatTimeSec(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 /* ═══════════════════ 设置 ═══════════════════ */
 

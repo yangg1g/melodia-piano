@@ -98,6 +98,8 @@ export class MidiMatchEngine {
   private finishScheduled = false;
   private _stopped = false;
   private hasFirstPress = false;
+  /** 跟弹模式：所有音符已命中，进入收尾阶段，时间可以自由推进 */
+  private allNotesHit = false;
   private firstPressWallSec = 0;
 
   constructor(flatNotes: FlatNote[], callbacks: MidiMatchCallbacks, options: EngineOptions) {
@@ -351,11 +353,14 @@ export class MidiMatchEngine {
       const allDone = this.noteStates.every(ns =>
         ns.note.time + Math.max(0, ns.note.duration) < effectiveTimeSec
       );
-      // 跟弹模式：所有音符已命中 → 立即触发结束（不等时间走过）
-      const allHit = !this.freePlay && this.noteStates.every(ns => ns.isHit);
-      if (allDone || allHit) {
+      // 跟弹模式：所有音符已命中后，进入收尾阶段让音符自然播完
+      if (!this.freePlay && !this.allNotesHit && this.noteStates.every(ns => ns.isHit)) {
+        this.allNotesHit = true;
+        this.callbacks.log(`[MIDI] 所有音符已命中，等待收尾。游戏时间=${effectiveTimeSec.toFixed(3)}s`);
+      }
+      if (allDone) {
         this.finishScheduled = true;
-        const reason = allHit ? '所有音符已命中' : '所有音符时间已过';
+        const reason = !this.freePlay && this.allNotesHit ? '所有音符播放完毕' : '所有音符时间已过';
         this.callbacks.log(`[MIDI] ${reason}，自动结束。游戏时间=${effectiveTimeSec.toFixed(3)}s`);
         setTimeout(() => this.stop(), 500);
         return;
@@ -445,6 +450,7 @@ export class MidiMatchEngine {
     this._stopped = true;
     this.hasFirstPress = false;
     this.firstPressWallSec = 0;
+    this.allNotesHit = false;
     this.pressedMidis.clear();
     this.sustainedNotes.clear();
     this.soundedNotes.clear();
@@ -472,22 +478,41 @@ export class MidiMatchEngine {
       return false;
     }
 
+    // 跟弹模式：所有音符已命中 → 时间自由推进，让音符自然播完
+    if (this.allNotesHit) {
+      this.accumulatedTimeSec += deltaSec * this.speedMultiplier;
+      return false;
+    }
+
     // 跟弹模式：按下第一个音之前，时间暂停
     if (!this.hasFirstPress) return true;
 
+    // 找到第一个未命中的音符，游戏时间锁定在它身上，不许跳过
     for (let idx = 0; idx < this.noteStates.length; idx++) {
       const ns = this.noteStates[idx];
-      const noteEnd = ns.note.time + Math.max(0, ns.note.duration);
-      if (this.accumulatedTimeSec >= ns.note.time && this.accumulatedTimeSec < noteEnd - RELEASE_GRACE_SEC) {
-        if (ns.isHit || this.missedNotes.has(idx)) continue;
-        if (!this.pressedMidis.has(ns.note.midi)) return true;
-        if (this.consumedPresses.has(ns.note.midi)) {
-          this.callbacks.log(
-            `[MIDI] 跟弹暂停  note=${ns.note.midi} (已消费，等松开再按)  期望=${ns.note.time.toFixed(3)}s  游戏时间=${this.accumulatedTimeSec.toFixed(3)}s`
-          );
-          return true;
+      if (ns.isHit || this.missedNotes.has(idx)) continue;
+
+      if (this.accumulatedTimeSec >= ns.note.time) {
+        // 时间已到达该音符 → 锁住，等待匹配
+        this.accumulatedTimeSec = ns.note.time;
+
+        // 仍在判定窗口内时，检查按键是否就绪
+        const noteEnd = ns.note.time + Math.max(0, ns.note.duration);
+        if (this.accumulatedTimeSec < noteEnd - RELEASE_GRACE_SEC) {
+          if (!this.pressedMidis.has(ns.note.midi)) return true;
+          if (this.consumedPresses.has(ns.note.midi)) {
+            this.callbacks.log(
+              `[MIDI] 跟弹暂停  note=${ns.note.midi} (已消费，等松开再按)  期望=${ns.note.time.toFixed(3)}s  游戏时间=${this.accumulatedTimeSec.toFixed(3)}s`
+            );
+            return true;
+          }
         }
+        // 按键已就绪（或窗口已过），仍暂停等待 processFrame 匹配
+        return true;
       }
+
+      // 时间还未到该音符 → 正常前进
+      break;
     }
 
     this.accumulatedTimeSec += deltaSec * this.speedMultiplier;
