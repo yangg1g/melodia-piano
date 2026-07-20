@@ -1,10 +1,10 @@
 /**
  * MIDI 钢琴计分与判定系统
- * - PERFECT / OK / MISS 三级判定
+ * - PERFECT / OK / BAD / MISS 四级判定
  * - accuracy: 纯 320-graded 权重 (0~1)，与分数分离
  * - score 运行中 = 连击加成的累加分数，最终结算额外叠加长度奖励和模组倍率
  */
-export type Judgement = 'PERFECT' | 'OK' | 'MISS';
+export type Judgement = 'PERFECT' | 'OK' | 'BAD' | 'MISS';
 
 export const MAX_SCORE = 1_000_000;
 
@@ -39,6 +39,7 @@ export interface WrongKeyRecord {
 const ACCU_WEIGHT: Record<Judgement, number> = {
   PERFECT: 320,
   OK: 150,
+  BAD: 50,
   MISS: 0,
 };
 
@@ -48,11 +49,13 @@ export const ACCU_WEIGHT_PERFECT = 320;
 export interface TimingWindows {
   perfect: number;
   ok: number;
+  bad: number;
 }
 
 const DEFAULT_WINDOWS: TimingWindows = {
-  perfect: 25,
-  ok: 180,
+  perfect: 80,
+  ok: 140,
+  bad: 200,
 };
 
 export class ScoringEngine {
@@ -69,7 +72,7 @@ export class ScoringEngine {
   /** 含 hold 的音符数（duration > 0），用于计算理论最高分 */
   holdNoteCount = 0;
   lastJudgement: Judgement | null = null;
-  counts: Record<Judgement, number> = { PERFECT: 0, OK: 0, MISS: 0 };
+  counts: Record<Judgement, number> = { PERFECT: 0, OK: 0, BAD: 0, MISS: 0 };
   /** 按错键次数（不计入命中/准确度） */
   wrongKeys = 0;
   /** 逐音符判定结果（用于回放可视化） */
@@ -81,6 +84,8 @@ export class ScoringEngine {
   totalNotes = 0;
   /** 模组倍率（默认 1.0） */
   modMultiplier = 1;
+  /** 全局判定偏移（ms），正=按下偏晚时仍能判准 */
+  offsetAdjustMs = 0;
   onUpdate: ((state: ScoreState) => void) | null = null;
 
   constructor(windows?: Partial<TimingWindows>) {
@@ -93,9 +98,10 @@ export class ScoringEngine {
   }
 
   judge(offsetMs: number): Judgement {
-    const abs = Math.abs(offsetMs);
+    const abs = Math.abs(offsetMs - this.offsetAdjustMs);
     if (abs <= this.windows.perfect) return 'PERFECT';
     if (abs <= this.windows.ok) return 'OK';
+    if (abs <= this.windows.bad) return 'BAD';
     return 'MISS';
   }
 
@@ -219,7 +225,7 @@ export class ScoringEngine {
       accuracy: this.getAccuracy(),
       lastJudgement: this.lastJudgement,
       counts: { ...this.counts },
-      totalHits: this.counts.PERFECT + this.counts.OK + this.counts.MISS,
+      totalHits: this.counts.PERFECT + this.counts.OK + this.counts.BAD + this.counts.MISS,
       wrongKeys: this.wrongKeys,
     };
   }
@@ -262,7 +268,7 @@ export class ScoringEngine {
     this.holdScoreAccumulated = 0;
     this.holdScoreFloat = 0;
     this.lastJudgement = null;
-    this.counts = { PERFECT: 0, OK: 0, MISS: 0 };
+    this.counts = { PERFECT: 0, OK: 0, BAD: 0, MISS: 0 };
     this.wrongKeys = 0;
     this.noteResults = [];
     this.wrongKeyRecords = [];

@@ -33,6 +33,7 @@ export function updateScoreUI(
     const judgeMap: Record<string, string> = {
       PERFECT: 'PERFECT',
       OK: 'OK',
+      BAD: 'BAD',
       MISS: 'MISS',
     };
     elements.judgeEl.textContent = judgeMap[state.lastJudgement] ?? '';

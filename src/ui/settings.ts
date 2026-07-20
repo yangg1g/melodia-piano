@@ -15,6 +15,7 @@ const DEFAULTS: AppSettings = {
   difficulty: 'normal',
   renderMode: 'image',
   measureWidth: 180,
+  offsetAdjustMs: 0,
 };
 
 export function loadSettings(): AppSettings {
@@ -40,6 +41,8 @@ export function applySettingsToUI(
     playbackSpeedVal: HTMLSpanElement;
     measureWidth: HTMLInputElement;
     measureWidthVal: HTMLSpanElement;
+    offsetAdjustMs: HTMLInputElement;
+    offsetAdjustMsVal: HTMLSpanElement;
     diffRadios: NodeListOf<HTMLInputElement>;
     difficultyInfo: HTMLSpanElement;
     renderRadios: NodeListOf<HTMLInputElement>;
@@ -53,6 +56,8 @@ export function applySettingsToUI(
   elements.playbackSpeedVal.textContent = `${s.playbackSpeed.toFixed(1)}×`;
   elements.measureWidth.value = String(s.measureWidth);
   elements.measureWidthVal.textContent = `${s.measureWidth}px`;
+  elements.offsetAdjustMs.value = String(s.offsetAdjustMs);
+  elements.offsetAdjustMsVal.textContent = s.offsetAdjustMs === 0 ? '0ms' : s.offsetAdjustMs > 0 ? `+${s.offsetAdjustMs}ms` : `${s.offsetAdjustMs}ms`;
   const diffRadio = document.querySelector<HTMLInputElement>(`input[name="settings-difficulty"][value="${s.difficulty}"]`);
   if (diffRadio) diffRadio.checked = true;
   elements.difficultyInfo.textContent = DIFFICULTY_WINDOWS[s.difficulty].label;
@@ -69,13 +74,18 @@ export function applySettings(
 ): void {
   fallingNotes.setSpeed(s.fallingSpeed);
   scoringEngine.setWindows(DIFFICULTY_WINDOWS[s.difficulty].windows);
+  scoringEngine.offsetAdjustMs = s.offsetAdjustMs;
+  fallingNotes.setTimingWindows({
+    ...DIFFICULTY_WINDOWS[s.difficulty].windows,
+  });
   updateSettingsSummary(s, summaryEl);
 }
 
 export function updateSettingsSummary(s: AppSettings, el: HTMLElement): void {
   const modeLabel = s.mode === 'normal' ? '普通模式' : s.mode === 'auto' ? '自动播放' : 'MIDI跟弹';
   const diffLabel = s.difficulty === 'easy' ? '宽松' : s.difficulty === 'normal' ? '普通' : '严格';
-  el.textContent = `${modeLabel} · 下落 ${s.fallingSpeed.toFixed(1)}s · 速度 ${s.playbackSpeed.toFixed(1)}× · ${diffLabel}判定`;
+  const offsetLabel = s.offsetAdjustMs === 0 ? '' : s.offsetAdjustMs > 0 ? ` · 偏移+${s.offsetAdjustMs}ms` : ` · 偏移${s.offsetAdjustMs}ms`;
+  el.textContent = `${modeLabel} · 下落 ${s.fallingSpeed.toFixed(1)}s · 速度 ${s.playbackSpeed.toFixed(1)}× · ${diffLabel}判定${offsetLabel}`;
 }
 
 /** 从设置页 DOM 收集当前设置值 */
@@ -86,5 +96,6 @@ export function collectSettingsFromUI(): AppSettings {
   const measureWidth = Number((document.querySelector<HTMLInputElement>('#settings-measure-width'))!.value);
   const difficulty = (document.querySelector<HTMLInputElement>('input[name="settings-difficulty"]:checked')?.value as AppSettings['difficulty']) ?? 'normal';
   const renderMode = (document.querySelector<HTMLInputElement>('input[name="settings-render"]:checked')?.value as 'image' | 'original') ?? 'image';
-  return { mode, fallingSpeed, playbackSpeed, difficulty, renderMode, measureWidth };
+  const offsetAdjustMs = Number((document.querySelector<HTMLInputElement>('#settings-offset-adjust'))!.value);
+  return { mode, fallingSpeed, playbackSpeed, difficulty, renderMode, measureWidth, offsetAdjustMs };
 }

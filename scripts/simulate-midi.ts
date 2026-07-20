@@ -261,7 +261,7 @@ function simulate(config: Config): void {
   midiLog('[MIDI] ========================================');
   midiLog(`[MIDI] 模拟结束: ${fileName}`);
   midiLog(`[MIDI] 命中: ${totalHit}/${flatNotes.length}`);
-  midiLog(`[MIDI] PERFECT: ${state.counts.PERFECT}  OK: ${state.counts.OK}  MISS: ${state.counts.MISS}  错音: ${state.wrongKeys}`);
+  midiLog(`[MIDI] PERFECT: ${state.counts.PERFECT}  OK: ${state.counts.OK}  BAD: ${state.counts.BAD}  MISS: ${state.counts.MISS}  错音: ${state.wrongKeys}`);
 
   const unhit = engine.noteStates
     .map((ns, i) => ({ ns, i }))

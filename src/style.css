@@ -974,6 +974,14 @@ body {
   overflow: hidden;
 }
 
+.falling-preview-canvas {
+  flex-shrink: 0;
+  width: 100%;
+  height: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .falling-note {
   position: absolute;
   border-radius: 4px;
@@ -1066,6 +1074,7 @@ body {
 
 .judge--perfect { color: #fbbf24; }
 .judge--ok      { color: #a78bfa; }
+.judge--bad     { color: #fb923c; }
 .judge--miss    { color: var(--danger); }
 .judge--wrong   { color: #f87171; }
 
@@ -1396,6 +1405,34 @@ body {
   width: 100%;
 }
 
+.result-error-section {
+  margin-bottom: 14px;
+}
+
+.result-error-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+}
+
+.result-error-title {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.result-error-avg {
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+.settings-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
 .result-back-btn {
   width: 100%;
   padding: 12px 28px;
@@ -1433,6 +1470,7 @@ body {
 
 .detail-dot--perfect { background: #fbbf24; }
 .detail-dot--ok      { background: #a78bfa; }
+.detail-dot--bad     { background: #fb923c; }
 .detail-dot--miss    { background: #ef4444; }
 .detail-dot--wrong   { background: #f87171; border-radius: 50%; width: 8px; height: 8px; }
 

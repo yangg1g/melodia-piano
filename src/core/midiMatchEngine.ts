@@ -101,6 +101,8 @@ export class MidiMatchEngine {
   /** 跟弹模式：所有音符已命中，进入收尾阶段，时间可以自由推进 */
   private allNotesHit = false;
   private firstPressWallSec = 0;
+  /** 跟弹模式：每个音符变得可弹时的墙上时间 */
+  private noteReadyWallSec = new Map<number, number>();
 
   constructor(flatNotes: FlatNote[], callbacks: MidiMatchCallbacks, options: EngineOptions) {
     this.flatNotes = flatNotes;
@@ -168,6 +170,18 @@ export class MidiMatchEngine {
     this._updateAccumulatedTime(deltaSec);
     const effectiveTimeSec = this.getEffectiveTimeSec();
     const modeLabel = this.freePlay ? '普通' : '跟弹';
+
+    // 1.5. 跟弹模式：记录音符首次变得可弹时的墙上时间
+    if (!this.freePlay && this.hasFirstPress) {
+      for (let idx = 0; idx < this.noteStates.length; idx++) {
+        const ns = this.noteStates[idx];
+        if (ns.isHit || this.missedNotes.has(idx)) continue;
+        if (this.noteReadyWallSec.has(idx)) continue;
+        if (effectiveTimeSec >= ns.note.time - this.hitWindowSec) {
+          this.noteReadyWallSec.set(idx, wallTimeSec);
+        }
+      }
+    }
 
     // 2. 按键即发声（不等和弦齐）
     for (let idx = 0; idx < this.noteStates.length; idx++) {
@@ -245,7 +259,7 @@ export class MidiMatchEngine {
         const ns = this.noteStates[i];
         const offsetMs = this.freePlay
           ? (effectiveTimeSec - ns.note.time) * 1000
-          : 0;
+          : (wallTimeSec - (this.noteReadyWallSec.get(i) ?? wallTimeSec)) * 1000;
         ns.isHit = true;
         ns.hitTimeSec = nowSec;
         ns.hitOffsetMs = offsetMs;
@@ -253,7 +267,7 @@ export class MidiMatchEngine {
 
         if (this.scoring) {
           const j = this.scoring.hit(offsetMs, ns.note.midi, ns.note.time);
-          ns.tapWeight = j === 'PERFECT' ? 320 : j === 'OK' ? 150 : 0;
+          ns.tapWeight = j === 'PERFECT' ? 320 : j === 'OK' ? 150 : j === 'BAD' ? 50 : 0;
           this.callbacks.onScoreUpdate?.();
         }
 

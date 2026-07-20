@@ -20,11 +20,20 @@ export type FallingNotesHandle = {
   setRange: (startMidi: number, endMidi: number) => void;
   setSource: (notes: FlatNote[], midi: Midi) => void;
   setSpeed: (speed: number) => void;
+  setTimingWindows: (w: { perfect: number; ok: number; bad: number }) => void;
   update: (nowSec: number) => void;
   updateKeyboardPractice: (state: KeyboardFallingState | null) => void;
+  pushTimingMarker: (offsetMs: number, judgement: 'PERFECT' | 'OK' | 'BAD') => void;
+  tickMarkerTime: (wallSec: number) => void;
   clear: () => void;
   dispose: () => void;
 };
+
+/** 最近按键的偏差信息，用于在 falling 区域上方绘制时序散点 */
+export interface TimingDot {
+  offsetMs: number;
+  judgement: 'PERFECT' | 'OK' | 'BAD' | 'MISS';
+}
 
 type FallGeom =
   | { kind: 'hidden' }
@@ -159,6 +168,102 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
   inner.className = 'falling-lane-inner';
   lane.appendChild(inner);
 
+  // 预览线：显示前 10 秒音符，三种判定区域色带
+  const previewCanvas = document.createElement('canvas');
+  previewCanvas.className = 'falling-preview-canvas';
+  lane.insertBefore(previewCanvas, inner);
+  const PREVIEW_WINDOW_SEC = 10;
+
+  // 命中记录：用于预览线上显示最近按键的偏差
+  interface HitMarker {
+    offsetMs: number;
+    judgement: 'PERFECT' | 'OK' | 'BAD';
+    wallSec: number;
+  }
+  let hitMarkers: HitMarker[] = [];
+  let hitMarkerWallBase = 0;
+  let hitMarkerWallSec = 0;
+  let timingWindows = { perfect: 80, ok: 140, bad: 200 };
+
+  const renderPreviewLine = () => {
+    if (hitMarkers.length === 0) {
+      previewCanvas.style.display = 'none';
+      return;
+    }
+    previewCanvas.style.display = '';
+    const dpr = window.devicePixelRatio || 1;
+    const w = previewCanvas.clientWidth;
+    const h = previewCanvas.clientHeight;
+    if (w <= 0 || h <= 0) return;
+    previewCanvas.width = w * dpr;
+    previewCanvas.height = h * dpr;
+    const ctx = previewCanvas.getContext('2d')!;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const midY = h / 2;
+    const lw = 3;
+
+    // 一条线，渐变：BAD(橙) → OK(紫) → PERFECT(黄) → OK(紫) → BAD(橙)
+    const { perfect, ok, bad } = timingWindows;
+    const offsetToX = (ms: number) => {
+      const ratio = (ms + bad) / (2 * bad);
+      return Math.max(0, Math.min(w, ratio * w));
+    };
+
+    const grad = ctx.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, '#fb923c');                                            // -bad: BAD 橙
+    grad.addColorStop((bad - ok) / (2 * bad), '#a78bfa');                       // -ok: OK 紫
+    grad.addColorStop((bad - perfect) / (2 * bad), '#fbbf24');                  // -perfect: PERFECT 黄
+    grad.addColorStop(0.5, '#fbbf24');                                          // 0: PERFECT 黄
+    grad.addColorStop((bad + perfect) / (2 * bad), '#fbbf24');                  // +perfect: PERFECT 黄
+    grad.addColorStop((bad + ok) / (2 * bad), '#a78bfa');                       // +ok: OK 紫
+    grad.addColorStop(1, '#fb923c');                                            // +bad: BAD 橙
+
+    ctx.strokeStyle = grad;
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(w, midY);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // 绘制命中标记，按时间淡出
+    for (const m of hitMarkers) {
+      const age = hitMarkerWallSec - m.wallSec;
+      if (age > PREVIEW_WINDOW_SEC) continue;
+      const opacity = 1 - age / PREVIEW_WINDOW_SEC;
+      const x = offsetToX(m.offsetMs);
+      const r = 2 + (1 - age / PREVIEW_WINDOW_SEC) * 3;
+
+      let color: string;
+      if (m.judgement === 'PERFECT') color = '#fbbf24';
+      else if (m.judgement === 'OK') color = '#a78bfa';
+      else color = '#fb923c';
+
+      ctx.fillStyle = color;
+      ctx.globalAlpha = opacity;
+      ctx.beginPath();
+      ctx.arc(x, midY, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  const pushHitMarker = (offsetMs: number, judgement: 'PERFECT' | 'OK' | 'BAD', wallSec: number) => {
+    if (!hitMarkerWallBase) hitMarkerWallBase = wallSec;
+    hitMarkers.push({ offsetMs, judgement, wallSec });
+    // 清理超过 10 秒的记录
+    hitMarkers = hitMarkers.filter(m => wallSec - m.wallSec <= PREVIEW_WINDOW_SEC + 1);
+    // 最多保留 50 个
+    if (hitMarkers.length > 50) hitMarkers = hitMarkers.slice(-50);
+    renderPreviewLine();
+  };
+
+  const previewObserver = new ResizeObserver(() => renderPreviewLine());
+  previewObserver.observe(lane);
+
   const resolveHitY = (): number => {
     const ih = inner.clientHeight;
     if (ih > 8) return ih;
@@ -232,6 +337,10 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
     setSpeed(speed: number) {
       VISIBLE_WINDOW_SEC = speed;
     },
+    setTimingWindows(w: { perfect: number; ok: number; bad: number }) {
+      timingWindows = w;
+      renderPreviewLine();
+    },
     update(nowSec: number) {
       cancelKbAnim();
       kbState = null;
@@ -260,9 +369,19 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       cancelKbAnim();
       kbState = null;
       inner.replaceChildren();
+      hitMarkers = [];
+      hitMarkerWallBase = 0;
+      previewCanvas.style.display = 'none';
+    },
+    pushTimingMarker(offsetMs: number, judgement: 'PERFECT' | 'OK' | 'BAD') {
+      pushHitMarker(offsetMs, judgement, hitMarkerWallSec);
+    },
+    tickMarkerTime(wallSec: number) {
+      hitMarkerWallSec = wallSec;
     },
     dispose() {
       cancelKbAnim();
+      previewObserver.disconnect();
       lane.remove();
     },
   };

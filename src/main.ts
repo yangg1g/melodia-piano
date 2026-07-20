@@ -157,16 +157,22 @@ app.innerHTML = `
       <div class="result-judgements">
         <div class="result-judge-row"><span class="judge-label judge--perfect">PERFECT</span><span class="judge-count" id="judge-perfect">0</span></div>
         <div class="result-judge-row"><span class="judge-label judge--ok">OK</span><span class="judge-count" id="judge-ok">0</span></div>
+        <div class="result-judge-row"><span class="judge-label judge--bad">BAD</span><span class="judge-count" id="judge-bad">0</span></div>
         <div class="result-judge-row"><span class="judge-label judge--miss">MISS</span><span class="judge-count" id="judge-miss">0</span></div>
         <div class="result-judge-row"><span class="judge-label judge--wrong">WRONG</span><span class="judge-count" id="judge-wrong">0</span></div>
       </div>
       <div class="result-chart-legend">
         <span class="detail-legend-item"><span class="detail-dot detail-dot--perfect"></span> PERFECT</span>
         <span class="detail-legend-item"><span class="detail-dot detail-dot--ok"></span> OK</span>
+        <span class="detail-legend-item"><span class="detail-dot detail-dot--bad"></span> BAD</span>
         <span class="detail-legend-item"><span class="detail-dot detail-dot--miss"></span> MISS</span>
         <span class="detail-legend-item"><span class="detail-dot detail-dot--wrong"></span> WRONG</span>
       </div>
       <div class="result-chart-wrap"><canvas id="result-chart-canvas" class="result-chart-canvas"></canvas></div>
+      <div class="result-error-section">
+        <div class="result-error-header"><span class="result-error-title">按键偏差曲线</span><span class="result-error-avg" id="result-avg-error">平均偏差 0.0ms</span></div>
+        <div class="result-chart-wrap"><canvas id="result-error-curve-canvas" class="result-chart-canvas"></canvas></div>
+      </div>
       <div class="result-buttons">
         <button type="button" id="result-replay-btn" class="btn secondary result-replay-btn" hidden>回放</button>
         <button type="button" id="result-back-btn" class="btn primary result-back-btn">返回选歌</button>
@@ -224,7 +230,15 @@ app.innerHTML = `
             <label><input type="radio" name="settings-difficulty" value="normal" checked /> 普通</label>
             <label><input type="radio" name="settings-difficulty" value="hard" /> 严格</label>
           </div>
-          <div class="settings-difficulty-info" id="settings-difficulty-info">PERFECT ≤ 25ms · OK ≤ 180ms</div>
+          <div class="settings-difficulty-info" id="settings-difficulty-info">PERFECT ≤ 25ms · OK ≤ 180ms · BAD ≤ 260ms</div>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label" for="settings-offset-adjust">判定偏移补偿</label>
+          <div class="settings-slider-row">
+            <span>-200ms</span><input type="range" id="settings-offset-adjust" min="-200" max="200" step="5" value="0" /><span>+200ms</span>
+            <span class="settings-value" id="settings-offset-adjust-val">0ms</span>
+          </div>
+          <div class="settings-hint">正向 = 补偿按晚，负向 = 补偿按早</div>
         </div>
       </div>
     </div>
@@ -288,6 +302,8 @@ const settingsPlaybackSpeedVal = document.querySelector<HTMLSpanElement>('#setti
 const settingsMeasureWidth = document.querySelector<HTMLInputElement>('#settings-measure-width')!;
 const settingsMeasureWidthVal = document.querySelector<HTMLSpanElement>('#settings-measure-width-val')!;
 const settingsDifficultyInfo = document.querySelector<HTMLSpanElement>('#settings-difficulty-info')!;
+const settingsOffsetAdjust = document.querySelector<HTMLInputElement>('#settings-offset-adjust')!;
+const settingsOffsetAdjustVal = document.querySelector<HTMLSpanElement>('#settings-offset-adjust-val')!;
 const settingsSummaryEl = document.querySelector<HTMLDivElement>('#settings-summary')!;
 
 const songListMidiSelect = document.querySelector<HTMLSelectElement>('#song-list-midi-input')!;
@@ -331,6 +347,7 @@ const resultElements = {
   maxComboEl: document.querySelector<HTMLSpanElement>('#result-maxcombo')!,
   judgePerfect: document.querySelector<HTMLSpanElement>('#judge-perfect')!,
   judgeOk: document.querySelector<HTMLSpanElement>('#judge-ok')!,
+  judgeBad: document.querySelector<HTMLSpanElement>('#judge-bad')!,
   judgeMiss: document.querySelector<HTMLSpanElement>('#judge-miss')!,
   judgeWrong: document.querySelector<HTMLSpanElement>('#judge-wrong')!,
   timingSection: document.querySelector<HTMLDivElement>('#result-timing-section')!,
@@ -338,6 +355,8 @@ const resultElements = {
   timingActual: document.querySelector<HTMLSpanElement>('#result-timing-actual')!,
   timingSlower: document.querySelector<HTMLSpanElement>('#result-timing-slower')!,
   chartCanvas: document.querySelector<HTMLCanvasElement>('#result-chart-canvas')!,
+  errorCurveCanvas: document.querySelector<HTMLCanvasElement>('#result-error-curve-canvas')!,
+  avgErrorEl: document.querySelector<HTMLSpanElement>('#result-avg-error')!,
   replayBtn: resultReplayBtn,
 };
 
@@ -657,6 +676,8 @@ settingsBtn.addEventListener('click', () => {
     diffRadios: document.querySelectorAll<HTMLInputElement>('input[name="settings-difficulty"]'),
     difficultyInfo: settingsDifficultyInfo,
     renderRadios: document.querySelectorAll<HTMLInputElement>('input[name="settings-render"]'),
+    offsetAdjustMs: settingsOffsetAdjust,
+    offsetAdjustMsVal: settingsOffsetAdjustVal,
   });
   songListPage.hidden = true;
   settingsPage.hidden = false;
@@ -678,6 +699,10 @@ settingsPlaybackSpeed.addEventListener('input', () => {
 });
 settingsMeasureWidth.addEventListener('input', () => {
   settingsMeasureWidthVal.textContent = `${Number(settingsMeasureWidth.value)}px`;
+});
+settingsOffsetAdjust.addEventListener('input', () => {
+  const v = Number(settingsOffsetAdjust.value);
+  settingsOffsetAdjustVal.textContent = v === 0 ? '0ms' : v > 0 ? `+${v}ms` : `${v}ms`;
 });
 
 document.querySelectorAll<HTMLInputElement>('input[name="settings-difficulty"]').forEach((r) => {

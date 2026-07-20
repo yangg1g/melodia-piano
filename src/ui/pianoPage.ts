@@ -404,7 +404,7 @@ export class PianoPage {
           maxCombo: maxComboRun,
           mode: 'practice',
           date: new Date().toISOString(),
-          settings: { fallingSpeed: curSettings.fallingSpeed, playbackSpeed: curSettings.playbackSpeed, difficulty: curSettings.difficulty },
+          settings: { fallingSpeed: curSettings.fallingSpeed, playbackSpeed: curSettings.playbackSpeed, difficulty: curSettings.difficulty, offsetAdjustMs: curSettings.offsetAdjustMs },
           noteResults: best.noteResults,
           wrongKeyRecords: best.wrongKeyRecords,
           wallTimeSec: this.finalWallTimeSec || undefined,
@@ -478,7 +478,7 @@ export class PianoPage {
           maxCombo: state.maxCombo,
           mode: curSettings.mode,
           date: new Date().toISOString(),
-          settings: { fallingSpeed: curSettings.fallingSpeed, playbackSpeed: curSettings.playbackSpeed, difficulty: curSettings.difficulty },
+          settings: { fallingSpeed: curSettings.fallingSpeed, playbackSpeed: curSettings.playbackSpeed, difficulty: curSettings.difficulty, offsetAdjustMs: curSettings.offsetAdjustMs },
           noteResults: this.scoringEngine.noteResults,
           wrongKeyRecords: this.scoringEngine.wrongKeyRecords,
           wallTimeSec: this.finalWallTimeSec || undefined,
@@ -596,6 +596,7 @@ export class PianoPage {
 
         const holdCount = this.practiceLoopNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
         this.scoringEngine.reset({ totalNotes: this.practiceLoopNotes.length, holdNoteCount: holdCount });
+        this.lastPushedResultIdx = 0;
         updateScoreUI(this.scoringEngine.getState(), this.scoreElements());
         this.practiceCurrentWallSec = 0;
 
@@ -648,7 +649,7 @@ export class PianoPage {
           },
           (s) => this.fallingNotes.updateKeyboardPractice(s),
           this.scoringEngine,
-          (state) => updateScoreUI(state, this.scoreElements()),
+          (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); },
           false,
           settings.playbackSpeed,
           (wallSec) => { this.practiceCurrentWallSec = wallSec; },
@@ -665,6 +666,7 @@ export class PianoPage {
       this.scoreDisplay.hidden = false;
       const holdCount = this.flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
       this.scoringEngine.reset({ totalNotes: this.flatNotes.length, holdNoteCount: holdCount });
+      this.lastPushedResultIdx = 0;
       updateScoreUI(this.scoringEngine.getState(), this.scoreElements());
 
       this.playback = startKeyboardPractice(
@@ -679,7 +681,7 @@ export class PianoPage {
         },
         (s) => this.fallingNotes.updateKeyboardPractice(s),
         this.scoringEngine,
-        (state) => updateScoreUI(state, this.scoreElements()),
+        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); },
         true,
         settings.playbackSpeed,
       );
@@ -691,6 +693,7 @@ export class PianoPage {
       this.scoreDisplay.hidden = false;
       const holdCount = this.flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
       this.scoringEngine.reset({ totalNotes: this.flatNotes.length, holdNoteCount: holdCount });
+      this.lastPushedResultIdx = 0;
       updateScoreUI(this.scoringEngine.getState(), this.scoreElements());
 
       this.practiceTime.hidden = false;
@@ -710,7 +713,7 @@ export class PianoPage {
         },
         (s) => this.fallingNotes.updateKeyboardPractice(s),
         this.scoringEngine,
-        (state) => updateScoreUI(state, this.scoreElements()),
+        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); },
         false,
         settings.playbackSpeed,
         (wallSec) => {
@@ -953,6 +956,25 @@ export class PianoPage {
 
   private scoreElements() {
     return { valueEl: this.scoreValueEl, accuEl: this.scoreAccuEl, comboEl: this.scoreComboEl, judgeEl: this.scoreJudgeEl, wrongEl: this.scoreWrongEl };
+  }
+
+  /** 已推入预览线的最新结果索引 */
+  private lastPushedResultIdx = 0;
+
+  /** 更新预览线命中标记 */
+  private updateTimingDots(): void {
+    const results = this.scoringEngine.noteResults;
+
+    // 推送新命中到预览线（应用偏移补偿，使位置反映实际判定）
+    const wallSec = performance.now() / 1000;
+    for (let i = this.lastPushedResultIdx; i < results.length; i++) {
+      const nr = results[i];
+      if (nr.judgement === 'MISS') continue;
+      const adjustedMs = nr.offsetMs - this.scoringEngine.offsetAdjustMs;
+      this.fallingNotes.pushTimingMarker(adjustedMs, nr.judgement as 'PERFECT' | 'OK' | 'BAD');
+    }
+    this.lastPushedResultIdx = results.length;
+    this.fallingNotes.tickMarkerTime(wallSec);
   }
 
   private renderStaffImage(stripEl: HTMLElement, midi: Midi, measureWidth: number): void {

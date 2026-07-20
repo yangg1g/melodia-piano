@@ -12,6 +12,8 @@ export interface AppSettings {
   difficulty: 'easy' | 'normal' | 'hard';
   renderMode: 'image' | 'original';
   measureWidth: number;
+  /** 全局判定偏移（ms），正=提前补偿（判定偏晚），负=延迟补偿（判定偏早） */
+  offsetAdjustMs: number;
 }
 
 export interface PlayHistoryEntry {
@@ -26,6 +28,7 @@ export interface PlayHistoryEntry {
     fallingSpeed: number;
     playbackSpeed: number;
     difficulty: string;
+    offsetAdjustMs?: number;
   };
   noteResults?: NoteResult[];
   wrongKeyRecords?: WrongKeyRecord[];
@@ -47,17 +50,17 @@ export interface PracticeLoopRecord {
   wrongKeyRecords: WrongKeyRecord[];
 }
 
-export const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: string; windows: { perfect: number; ok: number } }> = {
+export const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: string; windows: { perfect: number; ok: number; bad: number } }> = {
   easy: {
-    label: 'PERFECT ≤ 40ms · OK ≤ 260ms',
-    windows: { perfect: 40, ok: 260 },
+    label: 'PERFECT ≤ 40ms · OK ≤ 260ms · BAD ≤ 340ms',
+    windows: { perfect: 40, ok: 260, bad: 340 },
   },
   normal: {
-    label: 'PERFECT ≤ 25ms · OK ≤ 180ms',
-    windows: { perfect: 25, ok: 180 },
+    label: 'PERFECT ≤ 25ms · OK ≤ 180ms · BAD ≤ 260ms',
+    windows: { perfect: 25, ok: 180, bad: 260 },
   },
   hard: {
-    label: 'PERFECT ≤ 15ms · OK ≤ 120ms',
-    windows: { perfect: 15, ok: 120 },
+    label: 'PERFECT ≤ 15ms · OK ≤ 120ms · BAD ≤ 180ms',
+    windows: { perfect: 15, ok: 120, bad: 180 },
   },
 };
