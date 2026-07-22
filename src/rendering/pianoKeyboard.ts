@@ -10,7 +10,7 @@ export const PIANO_LAYOUT = {
   blackH: 72,
 } as const;
 
-const VISUAL_CLASSES = ['expect-lh', 'expect-rh', 'active-lh', 'active-rh', 'pressed', 'expected', 'active'] as const;
+const VISUAL_CLASSES = ['hint-lh', 'hint-rh', 'active-lh', 'active-rh', 'expected', 'active', 'wrong'] as const;
 
 export function isWhiteKey(midi: number): boolean {
   return WHITE_PC.has(midi % 12);
@@ -40,8 +40,7 @@ export function keyCenterXInKeyboard(midi: number, startMidi: number, endMidi: n
   for (let m = startMidi; m <= endMidi; m++) {
     if (isWhiteKey(m)) {
       if (m === prev) {
-        const left = (wi + 0.58) * whiteW - blackW / 2;
-        return left + blackW / 2;
+        return (wi + 1) * whiteW;
       }
       wi++;
     }
@@ -119,7 +118,7 @@ export function createPianoKeyboard(
     k.dataset.midi = String(m);
     k.style.width = `${blackW}px`;
     k.style.height = `${blackH}px`;
-    const left = (idx + 0.58) * whiteW - blackW / 2;
+    const left = (idx + 1) * whiteW - blackW / 2;
     k.style.left = `${left}px`;
     keyEls.set(m, k);
     blackLayer.appendChild(k);
@@ -130,8 +129,8 @@ export function createPianoKeyboard(
   return keyEls;
 }
 
-function handToExpectClass(h: Hand): string {
-  return h === 'bass' ? 'expect-lh' : 'expect-rh';
+function handToHintClass(h: Hand): string {
+  return h === 'bass' ? 'hint-lh' : 'hint-rh';
 }
 
 function handToActiveClass(h: Hand): string {
@@ -139,7 +138,9 @@ function handToActiveClass(h: Hand): string {
 }
 
 /**
- * 左手（低音谱 / bass）与右手（高音谱 / treble）用不同描边与填色；`pressed` 为 MIDI 当前按下的键（外圈高亮）。
+ * - 期望但未按下的键：`hint-lh` / `hint-rh`（彩色圆点提示）
+ * - 正确按下的键：`active-lh` / `active-rh`（下落音符填色）
+ * - 按错的键：`wrong`（灰色填充）
  */
 export function applyKeyVisuals(
   keyEls: Map<number, HTMLElement>,
@@ -151,10 +152,23 @@ export function applyKeyVisuals(
 ) {
   for (const [midi, el] of keyEls) {
     el.classList.remove(...VISUAL_CLASSES);
+
+    const isPressed = v.pressed?.has(midi);
     const exp = v.expected?.get(midi);
-    if (exp !== undefined) el.classList.add(handToExpectClass(exp));
     const act = v.active?.get(midi);
-    if (act !== undefined) el.classList.add(handToActiveClass(act));
-    if (v.pressed?.has(midi)) el.classList.add('pressed');
+
+    if (isPressed && exp !== undefined) {
+      // 正确按下的键：填色
+      el.classList.add(handToActiveClass(exp));
+    } else if (isPressed) {
+      // 按错的键：灰色填充
+      el.classList.add('wrong');
+    } else if (exp !== undefined) {
+      // 期望但未按下的键：彩色圆点提示
+      el.classList.add(handToHintClass(exp));
+    } else if (act !== undefined) {
+      // 自动播放模式：填色
+      el.classList.add(handToActiveClass(act));
+    }
   }
 }
