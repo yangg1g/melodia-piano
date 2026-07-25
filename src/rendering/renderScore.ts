@@ -1,5 +1,6 @@
 import { Dot, Factory, VoiceMode } from 'vexflow';
 import { vexVoiceTimeStr, type Hand, type MeasureContext, type VoiceAtom } from '../core/midiScore';
+import { colorForVexKey } from '../core/pitchUtil';
 import type { NoteKey, StaffEditState } from '../features/staffEditor';
 
 const BASE_SCORE_HEIGHT = 220;
@@ -190,6 +191,10 @@ export function renderGrandStaffRow(
     for (let ai = 0; ai < col.trebleAtoms.length; ai++) {
       const sn = atomToNote(factory, col.trebleAtoms[ai], 'treble');
       trebleVoice.addTickables([sn]);
+      if (!col.trebleAtoms[ai].rest && sn.getKeys().length > 0) {
+        const color = colorForVexKey(sn.getKeys()[0]);
+        sn.setStyle({ fillStyle: color, strokeStyle: color });
+      }
       if (editState && !col.trebleAtoms[ai].rest) {
         for (let ki = 0; ki < sn.getKeys().length; ki++) {
           noteMap.set(`${col.measureIndex}:treble:${ai}:${ki}` as NoteKey, { note: sn, keyIdx: ki });
@@ -203,6 +208,10 @@ export function renderGrandStaffRow(
     for (let ai = 0; ai < col.bassAtoms.length; ai++) {
       const sn = atomToNote(factory, col.bassAtoms[ai], 'bass');
       bassVoice.addTickables([sn]);
+      if (!col.bassAtoms[ai].rest && sn.getKeys().length > 0) {
+        const color = colorForVexKey(sn.getKeys()[0]);
+        sn.setStyle({ fillStyle: color, strokeStyle: color });
+      }
       if (editState && !col.bassAtoms[ai].rest) {
         for (let ki = 0; ki < sn.getKeys().length; ki++) {
           noteMap.set(`${col.measureIndex}:bass:${ai}:${ki}` as NoteKey, { note: sn, keyIdx: ki });
@@ -227,6 +236,7 @@ export function renderGrandStaffRow(
     system.addConnector('singleLeft');
   }
 
+  // ── 编辑注解：手指编号 ──
   // ── 编辑注解：符尾方向 / 连音线 / 连尾 / 指法 ──
   if (editState) {
     for (const [nk, dir] of editState.stemDirections) {
@@ -264,7 +274,10 @@ export function renderGrandStaffRow(
     for (const [nk, finger] of editState.fingerNumbers) {
       const entry = noteMap.get(nk);
       if (entry) {
-        const fing = factory.Fingering({ number: String(finger), position: 'above' });
+        // 有符尾的音符用 left 避免 flag 遮挡指法数字
+        const dur = entry.note.getDuration();
+        const hasFlag = ['8', '16', '32', '64'].includes(dur);
+        const fing = factory.Fingering({ number: String(finger), position: hasFlag ? 'left' : 'above' });
         entry.note.addModifier(fing, entry.keyIdx);
       }
     }
@@ -381,6 +394,10 @@ export function renderGrandStaffRowSVG(
       const sn = atomToNote(factory, tAtoms[ai], 'treble');
       tNotes.push(sn);
       trebleVoice.addTickables([sn]);
+      if (!tAtoms[ai].rest && sn.getKeys().length > 0) {
+        const color = colorForVexKey(sn.getKeys()[0]);
+        sn.setStyle({ fillStyle: color, strokeStyle: color });
+      }
       if (editState && !tAtoms[ai].rest) {
         for (let ki = 0; ki < sn.getKeys().length; ki++) {
           const nk = `${col.measureIndex}:treble:${ai}:${ki}` as NoteKey;
@@ -398,6 +415,10 @@ export function renderGrandStaffRowSVG(
       const sn = atomToNote(factory, bAtoms[ai], 'bass');
       bNotes.push(sn);
       bassVoice.addTickables([sn]);
+      if (!bAtoms[ai].rest && sn.getKeys().length > 0) {
+        const color = colorForVexKey(sn.getKeys()[0]);
+        sn.setStyle({ fillStyle: color, strokeStyle: color });
+      }
       if (editState && !bAtoms[ai].rest) {
         for (let ki = 0; ki < sn.getKeys().length; ki++) {
           const nk = `${col.measureIndex}:bass:${ai}:${ki}` as NoteKey;

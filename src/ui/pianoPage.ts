@@ -330,6 +330,11 @@ export class PianoPage {
     // 编辑模式键盘事件
     document.addEventListener('keydown', (e) => this.handleEditKeydown(e));
 
+    // 关闭页面前保存指法编辑
+    window.addEventListener('beforeunload', () => {
+      void this.saveToJson();
+    });
+
     // 音符选择 + 框选
     this.scoreEl.addEventListener('mousedown', (e) => this.handleScoreMouseDown(e));
     this.scoreScrollEl.addEventListener('mousemove', (e) => this.handleScoreMouseMove(e));
@@ -574,6 +579,7 @@ export class PianoPage {
         changed = true;
       }
     }
+    console.log('[loadJsonFingers] loaded:', this.staffEditState.fingerNumbers.size, 'finger entries, changed:', changed);
     if (changed) {
       this.syncFingerMapToFallingNotes();
       this.renderAll();
@@ -1045,16 +1051,24 @@ export class PianoPage {
 
   /** 保存指法到 JSON 文件（静默） */
   private async saveFingerEdits(): Promise<void> {
+    console.log('[saveFingerEdits] fingerNumbers size:', this.staffEditState.fingerNumbers.size);
+    console.log('[saveFingerEdits] currentSongFile:', this.currentSongFile);
+    console.log('[saveFingerEdits] currentSongName:', this.currentSongName);
     await this.saveToJson();
   }
 
   private async saveToJson(): Promise<void> {
-    if (!this.currentSongFile || !this.currentMidi) return;
+    if (!this.currentSongFile || !this.currentMidi) {
+      console.warn('[saveToJson] 跳过：currentSongFile=', this.currentSongFile, 'currentMidi=', !!this.currentMidi);
+      return;
+    }
     try {
       // 构建完整的 JSON（包含指法）
       const flatNotes = this.flatNotes;
+      let fingerCount = 0;
       const notes = flatNotes.map(n => {
         const finger = n.noteKey ? this.staffEditState.fingerNumbers.get(n.noteKey) : undefined;
+        if (finger) fingerCount++;
         return {
           midi: n.midi, time: n.time, duration: n.duration,
           ticks: n.ticks, durationTicks: n.durationTicks,
@@ -1062,6 +1076,7 @@ export class PianoPage {
           ...(finger ? { finger } : {}),
         };
       });
+      console.log('[saveToJson] flatNotes count:', flatNotes.length, '带指法的音符:', fingerCount);
 
       const data = {
         version: 1,
@@ -1085,11 +1100,14 @@ export class PianoPage {
         maxMidi: notes.length > 0 ? Math.max(...notes.map(n => n.midi)) : 84,
       };
 
-      await fetch('/api/songs/save', {
+      console.log('[saveToJson] 发送 POST, filename:', this.currentSongFile, 'notes:', notes.length);
+      const resp = await fetch('/api/songs/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: this.currentSongFile, data }),
       });
+      const result = await resp.json();
+      console.log('[saveToJson] 响应:', result);
     } catch (e) {
       console.error('[saveToJson] error:', e);
     }
@@ -1121,7 +1139,7 @@ export class PianoPage {
       this.buildFingerMapFromEditState();
       this.syncFingerMapToFallingNotes();
       this.renderAll();
-      this.saveFingerEdits();
+      void this.saveFingerEdits();
     } else if (e.key === '0' || e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       for (const nk of this.selectedNoteKeys) {
@@ -1144,6 +1162,15 @@ export class PianoPage {
     const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
     if (hit?.dataset.noteKey) {
       const nk = hit.dataset.noteKey;
+
+      // 指法工具：左键弹出指法菜单
+      if (this.editTool === 'select') {
+        console.log('[handleScoreMouseDown] select tool, calling handleScoreNoteClick nk:', nk);
+        this.handleScoreNoteClick(nk, hit);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
 
       // slur / tie 工具：保持原有选择逻辑
       if (this.editTool === 'slur' || this.editTool === 'tie') {
@@ -1256,6 +1283,7 @@ export class PianoPage {
       e.stopPropagation();
       const finger = Number(btn.dataset.finger);
       const nk = this.fingerMenuNoteKey;
+      console.log('[finger-menu] click finger:', finger, 'noteKey:', nk);
 
       if (nk.startsWith('_falling:')) {
         // 下落音符无精确 NoteKey，忽略
@@ -1282,6 +1310,7 @@ export class PianoPage {
   }
 
   private handleScoreContextMenu(e: MouseEvent): void {
+    console.log('[handleScoreContextMenu] renderMode:', this.getRenderMode(), 'editModeActive:', this.editModeActive);
     if (this.getRenderMode() !== 'original') return;
     this.hideFingerMenu();
 
@@ -1307,6 +1336,7 @@ export class PianoPage {
 
   /** 五线谱音符左键点击 → 弹出指法菜单 */
   private handleScoreNoteClick(nk: string, hit: HTMLElement): void {
+    console.log('[handleScoreNoteClick] nk:', nk);
     this.hideFingerMenu();
     this.fingerMenuNoteKey = nk;
 

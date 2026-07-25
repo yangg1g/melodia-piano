@@ -150,8 +150,8 @@ function buildNoteElement(
   el.style.height = `${geom.height}px`;
   el.style.opacity = String(ctx.opacity);
 
-  // 在下落音符上显示指法编号（高度足够时）
-  if (finger !== undefined && geom.height >= 24) {
+  // 在下落音符上显示指法编号（高度足够时，留最小余量供徽标附着）
+  if (finger !== undefined && geom.height >= 10) {
     const lbl = document.createElement('span');
     lbl.className = 'falling-note-finger';
     lbl.textContent = String(finger);

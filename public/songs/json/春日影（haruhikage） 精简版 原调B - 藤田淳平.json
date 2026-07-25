@@ -64,7 +64,8 @@
       "durationTicks": 120,
       "trackIndex": 0,
       "vexKey": "d#/6",
-      "velocity": 0.7086614173228346
+      "velocity": 0.7086614173228346,
+      "finger": 3
     },
     {
       "midi": 85,
@@ -704,7 +705,8 @@
       "durationTicks": 60,
       "trackIndex": 0,
       "vexKey": "d#/5",
-      "velocity": 0.7086614173228346
+      "velocity": 0.7086614173228346,
+      "finger": 3
     },
     {
       "midi": 75,
@@ -984,7 +986,8 @@
       "durationTicks": 60,
       "trackIndex": 0,
       "vexKey": "d#/5",
-      "velocity": 0.7086614173228346
+      "velocity": 0.7086614173228346,
+      "finger": 1
     },
     {
       "midi": 78,
@@ -1944,7 +1947,8 @@
       "durationTicks": 60,
       "trackIndex": 0,
       "vexKey": "d#/5",
-      "velocity": 0.7086614173228346
+      "velocity": 0.7086614173228346,
+      "finger": 1
     },
     {
       "midi": 78,
@@ -3894,7 +3898,8 @@
       "durationTicks": 30,
       "trackIndex": 0,
       "vexKey": "g#/5",
-      "velocity": 0.7086614173228346
+      "velocity": 0.7086614173228346,
+      "finger": 2
     },
     {
       "midi": 82,
@@ -4374,7 +4379,8 @@
       "durationTicks": 30,
       "trackIndex": 0,
       "vexKey": "a#/5",
-      "velocity": 0.7086614173228346
+      "velocity": 0.7086614173228346,
+      "finger": 2
     },
     {
       "midi": 39,

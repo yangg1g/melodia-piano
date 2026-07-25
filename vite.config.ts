@@ -72,7 +72,39 @@ export default defineConfig({
       configureServer(server) {
         const songsDir = resolve(process.cwd(), 'public', 'songs', 'json');
 
-        server.middlewares.use('/api/songs', (_req, res) => {
+        // 保存歌曲 JSON（指法编辑等）—— 必须在 /api/songs 之前注册，
+        // 否则 /api/songs 前缀匹配会拦截此路由且不调用 next()
+        server.middlewares.use('/api/songs/save', (req, res) => {
+          console.log('[server] /api/songs/save 收到请求, method:', req.method);
+          if (req.method !== 'POST') {
+            res.statusCode = 405;
+            res.end('method not allowed');
+            return;
+          }
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { filename, data } = JSON.parse(body);
+              const fingerNotes = data.notes?.filter((n: any) => n.finger)?.length ?? 0;
+              console.log('[server] save filename:', filename, 'total notes:', data.notes?.length, 'with finger:', fingerNotes);
+              const jsonDir = songsDir;
+              if (!existsSync(jsonDir)) mkdirSync(jsonDir, { recursive: true });
+              const jsonPath = join(jsonDir, filename);
+              writeFileSync(jsonPath, JSON.stringify(data, null, 2), 'utf-8');
+              console.log('[server] 写入完成:', jsonPath);
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+              console.error('[song-save] error:', e);
+              res.statusCode = 500;
+              res.end(JSON.stringify({ ok: false, error: String(e) }));
+            }
+          });
+        });
+
+        server.middlewares.use('/api/songs', (req, res) => {
+          console.log('[server] /api/songs 收到请求, method:', req.method, 'url:', req.url);
           try {
             const files: string[] = [];
             if (existsSync(songsDir)) {
@@ -89,32 +121,6 @@ export default defineConfig({
             res.statusCode = 500;
             res.end('[]');
           }
-        });
-
-        // 保存歌曲 JSON（指法编辑等）
-        server.middlewares.use('/api/songs/save', (req, res) => {
-          if (req.method !== 'POST') {
-            res.statusCode = 405;
-            res.end('method not allowed');
-            return;
-          }
-          let body = '';
-          req.on('data', chunk => { body += chunk; });
-          req.on('end', () => {
-            try {
-              const { filename, data } = JSON.parse(body);
-              const jsonDir = join(songsDir, 'json');
-              if (!existsSync(jsonDir)) mkdirSync(jsonDir, { recursive: true });
-              const jsonPath = join(jsonDir, filename);
-              writeFileSync(jsonPath, JSON.stringify(data, null, 2), 'utf-8');
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ ok: true }));
-            } catch (e) {
-              console.error('[song-save] error:', e);
-              res.statusCode = 500;
-              res.end(JSON.stringify({ ok: false, error: String(e) }));
-            }
-          });
         });
       },
     },
