@@ -8,10 +8,12 @@ import {
   flattenNotes,
   getMeasureContext,
   measureCount,
+  assignNoteKeys,
   type FlatNote,
 } from '../core/midiScore';
 import { playheadXInMeasureOverlay, renderGrandStaffRow, renderGrandStaffRowSVG, type GrandStaffColumn } from '../rendering/renderScore';
 import { applyKeyVisuals, createPianoKeyboard } from '../rendering/pianoKeyboard';
+import { autoAssignFingers } from '../core/fingerAssigner';
 import { detectChord } from '../core/chordDetector';
 import type { FallingNotesHandle } from '../rendering/fallingNotes';
 import { playNotes, type PlaybackController } from '../features/playback';
@@ -80,6 +82,8 @@ export class PianoPage {
   keyEls: Map<number, HTMLElement>;
   fallingNotes: FallingNotesHandle;
   scoringEngine = new ScoringEngine();
+  /** 当前曲谱的指法映射表（MIDI → 手指编号 1-5） */
+  currentFingerMap: Map<number, number> = new Map();
 
   // 播放状态
   playback: PlaybackController | null = null;
@@ -98,7 +102,12 @@ export class PianoPage {
   selectedNoteKeys = new Set<string>();
   selDragStart: { x: number; y: number } | null = null;
   selRectEl: HTMLDivElement | null = null;
+  /** 右键指法弹出菜单 */
+  fingerMenuEl: HTMLDivElement;
+  /** 当前右键点击的音符 noteKey */
+  private fingerMenuNoteKey: string | null = null;
 
+  // 乐谱状态
   // 练习模式
   practice = new PracticeControls({
     controlsBar: document.querySelector<HTMLDivElement>('#practice-controls-bar')!,
@@ -210,6 +219,10 @@ export class PianoPage {
     this.midiSetup = elements.midiSetup;
     this.fallingNotes = elements.fallingNotes;
     this.keyEls = createPianoKeyboard(this.keyboardHost);
+    // 创建右键指法弹出菜单
+    this.fingerMenuEl = this.createFingerMenu();
+    // 下落音符点击回调
+    this.fallingNotes.setOnNoteClick((noteKey, midi) => this.handleFallingNoteClick(noteKey, midi));
     this.practice.onJumpToMeasure = (measureStart, measureEnd) => {
       this.practice.measureStart = measureStart;
       this.practice.measureEnd = measureEnd;
@@ -224,7 +237,7 @@ export class PianoPage {
     this.btnPlay.addEventListener('click', () => this.startPlayFrom(0));
     this.btnStop.addEventListener('click', () => this.stopPlayback());
     this.btnEdit.addEventListener('click', () => this.toggleEditMode());
-    this.btnFinger.addEventListener('click', () => this.setEditTool('select', '指法编辑：点击/框选音符后按 1-5 设指法，Shift+单击多选'));
+    this.btnFinger.addEventListener('click', () => this.setEditTool('select', '指法编辑：左键点击五线谱音符弹出指法面板（1-5 / ✕清除），自动保存'));
     this.btnSlur.addEventListener('click', () => { this.setEditTool('slur', '连音编辑：依次单击两个音符创建连线'); this.selectedNoteKeys.clear(); this.renderAll(); });
     this.btnTie.addEventListener('click', () => { this.setEditTool('tie', '连尾编辑：依次单击两个相邻音符将其符杆/符尾相连'); this.selectedNoteKeys.clear(); this.renderAll(); });
     this.btnStem.addEventListener('click', () => this.handleStemToggle());
@@ -321,6 +334,27 @@ export class PianoPage {
     this.scoreEl.addEventListener('mousedown', (e) => this.handleScoreMouseDown(e));
     this.scoreScrollEl.addEventListener('mousemove', (e) => this.handleScoreMouseMove(e));
     document.addEventListener('mouseup', () => this.handleScoreMouseUp());
+
+    // 右键指法菜单
+    this.scoreScrollEl.addEventListener('contextmenu', (e) => this.handleScoreContextMenu(e));
+
+    // 左键指法：document 委托，确保事件不被 DOM 结构拦截
+    // 左键指法：document 委托（五线谱音符）
+    document.addEventListener('click', (e) => {
+      if (e.button !== 0) return;
+      // 五线谱音符（original 模式）
+      const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
+      if (hit?.dataset.noteKey) {
+        this.handleScoreNoteClick(hit.dataset.noteKey, hit);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      // 点击其他位置关闭菜单
+      if (!this.fingerMenuEl.contains(e.target as Node)) {
+        this.hideFingerMenu();
+      }
+    });
   }
 
   /* ── 模式 ── */
@@ -335,11 +369,11 @@ export class PianoPage {
   updateKeyboardHint(): void {
     const mode = this.getPlayMode();
     if (mode === 'auto') {
-      this.keyboardHint.textContent = '根据 MIDI 生成的五线谱（高音 / 低音谱表）。琴键上方为下落式音符（绿左 / 蓝右；白键稍亮、黑键更深）。键盘高亮同上。';
+      this.keyboardHint.textContent = '根据 MIDI 生成的五线谱（高音 / 低音谱表）。琴键上方为下落式音符（绿左 / 蓝右；白键稍亮、黑键更深）。键盘高亮同上。左键点击音符可标注指法。';
     } else if (mode === 'keyboard') {
-      this.keyboardHint.textContent = 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；弹对后条缩短并发声前进；紫红色外圈为正在按下的键，错音不出声。';
+      this.keyboardHint.textContent = 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；弹对后条缩短并发声前进；紫红色外圈为正在按下的键，错音不出声。左键点击音符可标注指法。';
     } else {
-      this.keyboardHint.textContent = '普通模式：自动播放曲目，可同时使用 MIDI 键盘弹奏，实时判定计分。';
+      this.keyboardHint.textContent = '普通模式：自动播放曲目，可同时使用 MIDI 键盘弹奏，实时判定计分。左键点击音符可标注指法。';
     }
   }
 
@@ -392,6 +426,91 @@ export class PianoPage {
     this.progressBar.style.opacity = (isKeyboard && !this.practiceActive) ? '0.55' : '';
   }
 
+  /** 自动分配指法：基于音高范围计算 MIDI → 手指编号 */
+  autoAssignFingerNumbers(): void {
+    if (!this.currentMidi || this.flatNotes.length === 0) return;
+    const result = autoAssignFingers(this.flatNotes, this.currentMidi);
+    this.currentFingerMap = result.midiToFinger;
+    this.fallingNotes.setFingerData(this.staffEditState.fingerNumbers, this.flatNotes);
+
+    // 重新渲染以在五线谱上显示指法
+    this.renderAll();
+
+    // 同时将指法写入 NoteKey 格式的 staffEditState，使乐谱也可显示
+    const ctx = getMeasureContext(this.currentMidi);
+    const totalMeasures = measureCount(this.currentMidi, ctx);
+
+    for (let mi = 0; mi < totalMeasures; mi++) {
+      const trebleAtoms = buildAtomsForHand(this.flatNotes, this.currentMidi, 'treble', ctx, mi);
+      const bassAtoms = buildAtomsForHand(this.flatNotes, this.currentMidi, 'bass', ctx, mi);
+
+      for (const [hand, atoms] of [['treble', trebleAtoms], ['bass', bassAtoms]] as const) {
+        for (let ai = 0; ai < atoms.length; ai++) {
+          const atom = atoms[ai];
+          if (atom.rest) continue;
+          for (let ki = 0; ki < atom.keys.length; ki++) {
+            const vexKey = atom.keys[ki];
+            // 在 flatNotes 中找到对应 MIDI
+            const measureStartSec = mi * ctx.secPerMeasure;
+            const measureEndSec = (mi + 1) * ctx.secPerMeasure;
+            const fn = this.flatNotes.find(n => {
+              return n.vexKey === vexKey
+                && n.time >= measureStartSec && n.time < measureEndSec
+                && assignHandForNote(n, this.currentMidi!) === hand;
+            });
+            if (fn) {
+              const finger = result.timeFinger.get(`${fn.midi}:${fn.time.toFixed(3)}`);
+              if (finger !== undefined) {
+                const nk = `${mi}:${hand}:${ai}:${ki}`;
+                this.staffEditState.fingerNumbers.set(nk, finger);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    this.keyboardHint.textContent = '已自动分配指法。播放时琴键将显示手指编号（1-5）。';
+  }
+
+  /** 从 staffEditState.fingerNumbers（NoteKey 格式）构建 MIDI → 手指的映射 */
+  private buildFingerMapFromEditState(): void {
+    if (!this.currentMidi) return;
+    const ctx = getMeasureContext(this.currentMidi);
+    this.currentFingerMap = new Map();
+
+    for (const [nk, finger] of this.staffEditState.fingerNumbers) {
+      const [mStr, hand, aStr, kStr] = nk.split(':');
+      const mi = Number(mStr);
+      const ai = Number(aStr);
+      const ki = Number(kStr);
+
+      const atoms = buildAtomsForHand(this.flatNotes, this.currentMidi, hand as 'treble' | 'bass', ctx, mi);
+      if (ai < atoms.length) {
+        const atom = atoms[ai];
+        if (!atom.rest && ki < atom.keys.length) {
+          const vexKey = atom.keys[ki];
+          const measureStartSec = mi * ctx.secPerMeasure;
+          const measureEndSec = (mi + 1) * ctx.secPerMeasure;
+          const fn = this.flatNotes.find(n => {
+            return n.vexKey === vexKey
+              && n.time >= measureStartSec && n.time < measureEndSec
+              && assignHandForNote(n, this.currentMidi!) === hand;
+          });
+          if (fn) {
+              this.currentFingerMap.set(fn.midi, finger);
+            }
+          }
+        }
+      }
+      this.fallingNotes.setFingerData(this.staffEditState.fingerNumbers, this.flatNotes);
+    }
+
+  /** 同步指法到下落音符 */
+  private syncFingerMapToFallingNotes(): void {
+    this.fallingNotes.setFingerData(this.staffEditState.fingerNumbers, this.flatNotes);
+  }
+
   /* ── 乐谱渲染 ── */
 
   renderAll(midi?: Midi): void {
@@ -399,6 +518,7 @@ export class PianoPage {
     if (!m) return;
     this.currentMidi = m;
     this.flatNotes = flattenNotes(m);
+    assignNoteKeys(this.flatNotes, m, getMeasureContext(m));
     this.scoreEl.innerHTML = '';
 
     const settings = loadSettings();
@@ -438,22 +558,26 @@ export class PianoPage {
     this.selectedNoteKeys.clear();
     this.staffEditState = createStaffEditState();
 
-    if (this.currentSongFile) {
-      const saved = localStorage.getItem(`midi-edits-${this.currentSongFile}`);
-      if (saved) {
-        try {
-          const raw = JSON.parse(saved);
-          this.staffEditState.fingerNumbers = new Map(raw.fingerNumbers ?? []);
-          this.staffEditState.slurs = raw.slurs ?? [];
-          this.staffEditState.ties = raw.ties ?? [];
-          this.staffEditState.stemDirections = new Map((raw.stemDirections ?? []).map(
-            ([k, v]: [string, number]) => [k, v as 1 | -1],
-          ));
-        } catch { /* ignore */ }
-      }
-    }
     this.renderAll(midi);
     this.syncModeUi();
+
+    // 从 JSON 预置指法加载
+    this.loadJsonFingers();
+  }
+
+  /** 从 flatNotes 中的 finger 字段加载 JSON 预置指法 */
+  private loadJsonFingers(): void {
+    let changed = false;
+    for (const fn of this.flatNotes) {
+      if (fn.finger !== undefined && fn.noteKey) {
+        this.staffEditState.fingerNumbers.set(fn.noteKey, fn.finger);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.syncFingerMapToFallingNotes();
+      this.renderAll();
+    }
   }
 
   async enterAndPlay(midi: Midi): Promise<void> {
@@ -560,7 +684,7 @@ export class PianoPage {
     const mode = this.getPlayMode();
     const settings = loadSettings();
 
-    const onPlaybackEnded = () => {
+    const onPlaybackEnded = (completed?: boolean) => {
       // 保存录制事件和模式（用于回放）
       this.lastRecordedEvents = this.playback?.getRecordedEvents?.() ?? [];
       this.lastRecordedMode = mode;
@@ -571,7 +695,8 @@ export class PianoPage {
       this.playback = null;
       resetProgressBar(this.progressBar, this.progressTime, this.totalDurationSec);
 
-      if (this.getPlayMode() !== 'auto') {
+      // 只有完成整首才写入历史
+      if (completed && this.getPlayMode() !== 'auto') {
         // 构建入场并显示结算
         const curSettings = loadSettings();
         const state = this.scoringEngine.getState();
@@ -707,7 +832,7 @@ export class PianoPage {
         updateScoreUI(this.scoringEngine.getState(), this.scoreElements());
         this.practiceCurrentWallSec = 0;
 
-        const onLoopEnded = () => {
+        const onLoopEnded = (_completed?: boolean) => {
           this.hideScorePlayhead();
           this.fallingNotes.clear();
           this.fallingNotes.setLoopRange(this.practiceLoopStartTimeSec, this.practiceLoopStartTimeSec + this.practiceLoopDurationSec);
@@ -763,6 +888,8 @@ export class PianoPage {
           settings.playbackSpeed,
           (wallSec) => { this.practiceCurrentWallSec = wallSec; },
           (pressed) => this.updateChordDisplay(pressed),
+          undefined,
+          this.currentFingerMap,
         );
       };
 
@@ -796,6 +923,8 @@ export class PianoPage {
         settings.playbackSpeed,
         undefined,
         (pressed) => this.updateChordDisplay(pressed),
+        undefined,
+        this.currentFingerMap,
       );
       return;
     }
@@ -835,6 +964,8 @@ export class PianoPage {
           this.practiceTime.textContent = `用时 ${formatTime(wallSec)} · ${pct.toFixed(1)}%`;
         },
         (pressed) => this.updateChordDisplay(pressed),
+        undefined,
+        this.currentFingerMap,
       );
       return;
     }
@@ -906,18 +1037,62 @@ export class PianoPage {
     this.renderAll();
   }
 
-  private saveEdits(): void {
-    if (!this.currentSongFile) { alert('未加载歌曲'); return; }
-    const key = `midi-edits-${this.currentSongFile}`;
-    const json = JSON.stringify({
-      fingerNumbers: [...this.staffEditState.fingerNumbers.entries()],
-      slurs: this.staffEditState.slurs,
-      ties: this.staffEditState.ties,
-      stemDirections: [...this.staffEditState.stemDirections.entries()],
-    });
-    localStorage.setItem(key, json);
+  private async saveEdits(): Promise<void> {
+    await this.saveToJson();
     this.btnSaveEdits.textContent = '✓ 已保存';
     setTimeout(() => { this.btnSaveEdits.textContent = '保存'; }, 2000);
+  }
+
+  /** 保存指法到 JSON 文件（静默） */
+  private async saveFingerEdits(): Promise<void> {
+    await this.saveToJson();
+  }
+
+  private async saveToJson(): Promise<void> {
+    if (!this.currentSongFile || !this.currentMidi) return;
+    try {
+      // 构建完整的 JSON（包含指法）
+      const flatNotes = this.flatNotes;
+      const notes = flatNotes.map(n => {
+        const finger = n.noteKey ? this.staffEditState.fingerNumbers.get(n.noteKey) : undefined;
+        return {
+          midi: n.midi, time: n.time, duration: n.duration,
+          ticks: n.ticks, durationTicks: n.durationTicks,
+          trackIndex: n.trackIndex, vexKey: n.vexKey, velocity: n.velocity,
+          ...(finger ? { finger } : {}),
+        };
+      });
+
+      const data = {
+        version: 1,
+        name: this.currentSongName,
+        duration: this.currentMidi.duration,
+        durationTicks: this.currentMidi.durationTicks,
+        header: {
+          tempos: this.currentMidi.header.tempos.map(t => ({ bpm: t.bpm, ticks: t.ticks })),
+          timeSignatures: this.currentMidi.header.timeSignatures.map(ts => ({
+            ticks: ts.ticks, timeSignature: ts.timeSignature, measures: ts.measures,
+          })),
+          ppq: this.currentMidi.header.ppq,
+        },
+        trackCount: this.currentMidi.tracks.length,
+        tracksWithNotes: this.currentMidi.tracks
+          .map((t: any, i: number) => (t.notes?.length > 0 ? i : -1))
+          .filter((i: number) => i >= 0),
+        notes,
+        noteCount: notes.length,
+        minMidi: notes.length > 0 ? Math.min(...notes.map(n => n.midi)) : 60,
+        maxMidi: notes.length > 0 ? Math.max(...notes.map(n => n.midi)) : 84,
+      };
+
+      await fetch('/api/songs/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: this.currentSongFile, data }),
+      });
+    } catch (e) {
+      console.error('[saveToJson] error:', e);
+    }
   }
 
   private syncEditModeUI(): void {
@@ -943,7 +1118,10 @@ export class PianoPage {
     if (e.key >= '1' && e.key <= '5') {
       e.preventDefault();
       for (const nk of this.selectedNoteKeys) this.staffEditState.fingerNumbers.set(nk, Number(e.key));
+      this.buildFingerMapFromEditState();
+      this.syncFingerMapToFallingNotes();
       this.renderAll();
+      this.saveFingerEdits();
     } else if (e.key === '0' || e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       for (const nk of this.selectedNoteKeys) {
@@ -952,35 +1130,44 @@ export class PianoPage {
         this.staffEditState.ties = this.staffEditState.ties.filter(t => t.from !== nk && t.to !== nk);
         this.staffEditState.stemDirections.delete(nk);
       }
+      this.buildFingerMapFromEditState();
+      this.syncFingerMapToFallingNotes();
       this.selectedNoteKeys.clear();
       this.renderAll();
     }
   }
 
   private handleScoreMouseDown(e: MouseEvent): void {
-    if (!this.editModeActive || this.getRenderMode() !== 'original') return;
+    // 仅左键，仅编辑模式，仅 original 渲染
+    if (e.button !== 0 || !this.editModeActive || this.getRenderMode() !== 'original') return;
+
     const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
-    if (hit && hit.dataset.noteKey) {
+    if (hit?.dataset.noteKey) {
       const nk = hit.dataset.noteKey;
-      if (e.shiftKey) {
-        if (this.selectedNoteKeys.has(nk)) this.selectedNoteKeys.delete(nk);
-        else this.selectedNoteKeys.add(nk);
-      } else {
-        this.selectedNoteKeys.clear();
-        this.selectedNoteKeys.add(nk);
+
+      // slur / tie 工具：保持原有选择逻辑
+      if (this.editTool === 'slur' || this.editTool === 'tie') {
+        if (e.shiftKey) {
+          if (this.selectedNoteKeys.has(nk)) this.selectedNoteKeys.delete(nk);
+          else this.selectedNoteKeys.add(nk);
+        } else {
+          this.selectedNoteKeys.clear();
+          this.selectedNoteKeys.add(nk);
+        }
+        if (this.selectedNoteKeys.size === 2) {
+          const [a, b] = [...this.selectedNoteKeys];
+          if (this.editTool === 'slur') this.staffEditState.slurs.push({ from: a, to: b });
+          else if (this.editTool === 'tie') this.staffEditState.ties.push({ from: a, to: b });
+          this.selectedNoteKeys.clear();
+        }
+        this.renderAll();
       }
-      if (this.selectedNoteKeys.size === 2) {
-        const [a, b] = [...this.selectedNoteKeys];
-        if (this.editTool === 'slur') this.staffEditState.slurs.push({ from: a, to: b });
-        else if (this.editTool === 'tie') this.staffEditState.ties.push({ from: a, to: b });
-        this.selectedNoteKeys.clear();
-      }
-      this.renderAll();
       e.preventDefault();
       e.stopPropagation();
       return;
     }
 
+    // 框选
     this.selectedNoteKeys.clear();
     this.renderAll();
     const rect = this.scoreScrollEl.getBoundingClientRect();
@@ -1038,6 +1225,129 @@ export class PianoPage {
 
   private removeSelRect(): void {
     if (this.selRectEl) { this.selRectEl.style.display = 'none'; this.selRectEl.style.width = '0'; this.selRectEl.style.height = '0'; }
+  }
+
+  /* ── 右键指法菜单 ── */
+
+  private createFingerMenu(): HTMLDivElement {
+    const menu = document.createElement('div');
+    menu.className = 'finger-menu';
+    menu.hidden = true;
+    const btns = document.createElement('div');
+    btns.className = 'finger-menu-btns';
+    for (const f of [1,2,3,4,5]) {
+      const btn = document.createElement('button');
+      btn.className = 'finger-menu-btn';
+      btn.dataset.finger = String(f);
+      btn.textContent = String(f);
+      btns.appendChild(btn);
+    }
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'finger-menu-btn finger-menu-btn--clear';
+    clearBtn.dataset.finger = '0';
+    clearBtn.textContent = '✕';
+    btns.appendChild(clearBtn);
+    menu.appendChild(btns);
+
+    menu.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.finger-menu-btn');
+      if (!btn || !this.fingerMenuNoteKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const finger = Number(btn.dataset.finger);
+      const nk = this.fingerMenuNoteKey;
+
+      if (nk.startsWith('_falling:')) {
+        // 下落音符无精确 NoteKey，忽略
+        this.syncFingerMapToFallingNotes();
+      } else {
+        // 五线谱音符：更新 NoteKey → 手指映射
+        if (finger === 0) {
+          this.staffEditState.fingerNumbers.delete(nk);
+        } else {
+          this.staffEditState.fingerNumbers.set(nk, finger);
+        }
+        this.syncFingerMapToFallingNotes();
+      }
+
+      // 播放下不重绘乐谱
+      if (!this.playback?.isPlaying()) {
+        this.renderAll();
+      }
+      this.hideFingerMenu();
+      this.saveFingerEdits();
+    });
+    document.body.appendChild(menu);
+    return menu;
+  }
+
+  private handleScoreContextMenu(e: MouseEvent): void {
+    if (this.getRenderMode() !== 'original') return;
+    this.hideFingerMenu();
+
+    const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
+    if (!hit || !hit.dataset.noteKey) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    this.fingerMenuNoteKey = hit.dataset.noteKey;
+
+    const menu = this.fingerMenuEl;
+    menu.hidden = false;
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+
+    const currentFinger = this.staffEditState.fingerNumbers.get(this.fingerMenuNoteKey);
+    menu.querySelectorAll<HTMLButtonElement>('.finger-menu-btn').forEach(b => {
+      const f = Number(b.dataset.finger);
+      b.classList.toggle('finger-menu-btn--active', f === currentFinger);
+    });
+  }
+
+  /** 五线谱音符左键点击 → 弹出指法菜单 */
+  private handleScoreNoteClick(nk: string, hit: HTMLElement): void {
+    this.hideFingerMenu();
+    this.fingerMenuNoteKey = nk;
+
+    const rect = hit.getBoundingClientRect();
+    const menu = this.fingerMenuEl;
+    menu.hidden = false;
+    menu.style.left = `${rect.left + rect.width / 2}px`;
+    menu.style.top = `${rect.top}px`;
+
+    const currentFinger = this.staffEditState.fingerNumbers.get(nk);
+    menu.querySelectorAll<HTMLButtonElement>('.finger-menu-btn').forEach(b => {
+      const f = Number(b.dataset.finger);
+      b.classList.toggle('finger-menu-btn--active', f === currentFinger);
+    });
+  }
+
+  private hideFingerMenu(): void {
+    this.fingerMenuEl.hidden = true;
+    this.fingerMenuNoteKey = null;
+  }
+
+  /** 下落音符点击 */
+  private handleFallingNoteClick(noteKey: string | null, midi: number): void {
+    const nk = noteKey ?? `_falling:${midi}`;
+
+    this.hideFingerMenu();
+    this.fingerMenuNoteKey = nk;
+
+    const menu = this.fingerMenuEl;
+    menu.hidden = false;
+    menu.style.left = `${Math.min(window.innerWidth - 120, Math.max(60, window.innerWidth / 2))}px`;
+    menu.style.top = `${window.innerHeight / 2}px`;
+
+    let currentFinger: number | undefined;
+    if (noteKey) {
+      currentFinger = this.staffEditState.fingerNumbers.get(noteKey);
+    }
+    menu.querySelectorAll<HTMLButtonElement>('.finger-menu-btn').forEach(b => {
+      const f = Number(b.dataset.finger);
+      b.classList.toggle('finger-menu-btn--active', f === currentFinger);
+    });
   }
 
   private handlePracticeStartChange(newVal: number): void {

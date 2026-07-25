@@ -495,8 +495,8 @@ export function renderGrandStaffRowSVG(
 
   factory.draw();
 
-  // ── 编辑模式下，为每个音符的符头(<g class="notehead">) 创建精确 hit area ──
-  if (editState && selectedNoteKeys) {
+  // ── 为每个音符的符头创建精确 hit area（用于右键指法菜单和编辑选择）──
+  if (editState) {
     const hostRect = host.getBoundingClientRect();
     // 按 note 引用分组（一个 chord 共享一个 StaveNote，但有多把个符头）
     const byNote = new Map();
@@ -517,7 +517,8 @@ export function renderGrandStaffRowSVG(
         const hit = document.createElement('div');
         hit.className = 'note-hitarea';
         hit.dataset.noteKey = entry.nk;
-        hit.style.cssText = `position:absolute;left:${r.left - hostRect.left}px;top:${r.top - hostRect.top}px;width:${r.width}px;height:${r.height}px;cursor:pointer;z-index:10;background:transparent`;
+        const cursorStyle = selectedNoteKeys ? 'cursor:pointer;' : 'cursor:default;';
+        hit.style.cssText = `position:absolute;left:${r.left - hostRect.left}px;top:${r.top - hostRect.top}px;width:${r.width}px;height:${r.height}px;${cursorStyle}z-index:5;background:transparent`;
         host.appendChild(hit);
       }
     }

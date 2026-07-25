@@ -10,7 +10,7 @@ export const PIANO_LAYOUT = {
   blackH: 72,
 } as const;
 
-const VISUAL_CLASSES = ['hint-lh', 'hint-rh', 'active-lh', 'active-rh', 'expected', 'active', 'wrong'] as const;
+const VISUAL_CLASSES = ['hint-lh', 'hint-rh', 'active-lh', 'active-rh', 'expected', 'active', 'wrong', 'finger'] as const;
 
 export function isWhiteKey(midi: number): boolean {
   return WHITE_PC.has(midi % 12);
@@ -26,7 +26,7 @@ function prevWhiteMidi(m: number, startMidi: number): number | null {
 /** 键盘内层坐标系下该 MIDI 音的中心 x（像素）；超出范围返回 null */
 export function keyCenterXInKeyboard(midi: number, startMidi: number, endMidi: number): number | null {
   if (midi < startMidi || midi > endMidi) return null;
-  const { whiteW, blackW } = PIANO_LAYOUT;
+  const { whiteW } = PIANO_LAYOUT;
   let wi = 0;
   for (let m = startMidi; m <= endMidi; m++) {
     if (isWhiteKey(m)) {
@@ -141,6 +141,7 @@ function handToActiveClass(h: Hand): string {
  * - 期望但未按下的键：`hint-lh` / `hint-rh`（彩色圆点提示）
  * - 正确按下的键：`active-lh` / `active-rh`（下落音符填色）
  * - 按错的键：`wrong`（灰色填充）
+ * - 有指法标注时：额外显示 `finger` 类 + data-finger 属性
  */
 export function applyKeyVisuals(
   keyEls: Map<number, HTMLElement>,
@@ -148,27 +149,43 @@ export function applyKeyVisuals(
     expected?: Map<number, Hand>;
     active?: Map<number, Hand>;
     pressed?: Set<number>;
+    /** MIDI → 手指编号 (1-5)，用于在琴键上显示指法标注 */
+    expectedFingers?: Map<number, number>;
   },
 ) {
   for (const [midi, el] of keyEls) {
     el.classList.remove(...VISUAL_CLASSES);
+    el.removeAttribute('data-finger');
 
     const isPressed = v.pressed?.has(midi);
     const exp = v.expected?.get(midi);
     const act = v.active?.get(midi);
+    const finger = v.expectedFingers?.get(midi);
 
     if (isPressed && exp !== undefined) {
       // 正确按下的键：填色
       el.classList.add(handToActiveClass(exp));
+      if (finger !== undefined) {
+        el.classList.add('finger');
+        el.setAttribute('data-finger', String(finger));
+      }
     } else if (isPressed) {
       // 按错的键：灰色填充
       el.classList.add('wrong');
     } else if (exp !== undefined) {
       // 期望但未按下的键：彩色圆点提示
       el.classList.add(handToHintClass(exp));
+      if (finger !== undefined) {
+        el.classList.add('finger');
+        el.setAttribute('data-finger', String(finger));
+      }
     } else if (act !== undefined) {
       // 自动播放模式：填色
       el.classList.add(handToActiveClass(act));
+      if (finger !== undefined) {
+        el.classList.add('finger');
+        el.setAttribute('data-finger', String(finger));
+      }
     }
   }
 }

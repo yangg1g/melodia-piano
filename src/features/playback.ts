@@ -28,7 +28,7 @@ export function playNotes(
   midiFile: Midi,
   durationSec: number,
   onKeys: (active: Map<number, Hand>) => void,
-  onEnded?: () => void,
+  onEnded?: (completed?: boolean) => void,
   onTimeSec?: (sec: number) => void,
   /** 从指定秒偏移处开始播放（用于进度条跳转） */
   startOffset = 0,
@@ -121,7 +121,7 @@ export function playNotes(
         freePlay: boolean,
         onPaintState?: (notes: import('../core/midiMatchEngine').NoteState[], timeSec: number) => void,
         onTimeSec?: (sec: number) => void,
-        onEnded?: () => void,
+        onEnded?: (completed?: boolean) => void,
       ): PlaybackController {
         const base = performance.now();
         let stopped = false;
@@ -137,11 +137,11 @@ export function playNotes(
           onNoteStart: (midi, vel) => startPianoNote(midi, vel),
           onNoteRelease: (midi) => releasePianoNote(midi),
           onWrongKey: (midi, vel) => playPianoMidi(midi, 0.3, vel),
-          onVisualUpdate: (expected, pressed) => applyKeyVisuals(keyEls, { expected, active: undefined, pressed }),
+          onVisualUpdate: (expected, pressed, expectedFingers) => applyKeyVisuals(keyEls, { expected, active: undefined, pressed, expectedFingers }),
           onPaintState: (notes, t) => onPaintState?.(notes, t),
           onScoreUpdate: () => {},
           onTimeSec: (t) => onTimeSec?.(t),
-          onEnded: () => { releaseAllPiano(); onEnded?.(); },
+          onEnded: (completed) => { releaseAllPiano(); onEnded?.(completed); },
         }, {
           freePlay,
           speedMultiplier: 1,

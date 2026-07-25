@@ -9,6 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "generate-demo": "node scripts/generate-demo-midi.mjs",
+    "midi-to-json": "node scripts/midi-to-json.mjs --dir public/songs",
+    "download-samples": "node scripts/download-samples.mjs",
     "download-samples": "node scripts/download-samples.mjs",
     "calc-difficulty": "node scripts/calculate-difficulty.mjs",
     "simulate": "tsx scripts/simulate-midi.ts"

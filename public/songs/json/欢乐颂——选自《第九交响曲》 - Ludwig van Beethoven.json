@@ -1,0 +1,6043 @@
+{
+  "version": 1,
+  "name": "欢乐颂——选自《第九交响曲》 - Ludwig van Beethoven",
+  "duration": 78,
+  "durationTicks": 18720,
+  "header": {
+    "tempos": [
+      {
+        "bpm": 120,
+        "ticks": 0
+      }
+    ],
+    "timeSignatures": [
+      {
+        "ticks": 0,
+        "timeSignature": [
+          4,
+          4
+        ],
+        "measures": 0
+      },
+      {
+        "ticks": 0,
+        "timeSignature": [
+          4,
+          4
+        ],
+        "measures": 0
+      }
+    ],
+    "ppq": 120
+  },
+  "trackCount": 2,
+  "tracksWithNotes": [
+    0,
+    1
+  ],
+  "notes": [
+    {
+      "midi": 53,
+      "time": 0,
+      "duration": 0.5,
+      "ticks": 0,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 0,
+      "duration": 0.5,
+      "ticks": 0,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 0,
+      "duration": 0.5,
+      "ticks": 0,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 0,
+      "duration": 0.5,
+      "ticks": 0,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 0.5,
+      "duration": 0.5,
+      "ticks": 120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 0.5,
+      "duration": 0.5,
+      "ticks": 120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 0.5,
+      "duration": 0.5,
+      "ticks": 120,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 0.5,
+      "duration": 0.5,
+      "ticks": 120,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 1,
+      "duration": 0.5,
+      "ticks": 240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 1,
+      "duration": 0.5,
+      "ticks": 240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 1,
+      "duration": 0.5,
+      "ticks": 240,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 1,
+      "duration": 0.5,
+      "ticks": 240,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 1.5,
+      "duration": 0.5,
+      "ticks": 360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 1.5,
+      "duration": 0.5,
+      "ticks": 360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 1.5,
+      "duration": 0.5,
+      "ticks": 360,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 1.5,
+      "duration": 0.5,
+      "ticks": 360,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 2,
+      "duration": 0.5,
+      "ticks": 480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 2,
+      "duration": 0.5,
+      "ticks": 480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 2,
+      "duration": 0.5,
+      "ticks": 480,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 2,
+      "duration": 0.5,
+      "ticks": 480,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 2.5,
+      "duration": 0.5,
+      "ticks": 600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 2.5,
+      "duration": 0.5,
+      "ticks": 600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 2.5,
+      "duration": 0.5,
+      "ticks": 600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 2.5,
+      "duration": 0.5,
+      "ticks": 600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 3,
+      "duration": 0.5,
+      "ticks": 720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 3,
+      "duration": 0.5,
+      "ticks": 720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 3,
+      "duration": 0.5,
+      "ticks": 720,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 3,
+      "duration": 0.5,
+      "ticks": 720,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 3.5,
+      "duration": 0.5,
+      "ticks": 840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 3.5,
+      "duration": 0.5,
+      "ticks": 840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 64,
+      "time": 3.5,
+      "duration": 0.5,
+      "ticks": 840,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "e/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 3.5,
+      "duration": 0.5,
+      "ticks": 840,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 4,
+      "duration": 0.5,
+      "ticks": 960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 4,
+      "duration": 0.5,
+      "ticks": 960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 4,
+      "duration": 0.5,
+      "ticks": 960,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 4,
+      "duration": 0.5,
+      "ticks": 960,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 4.5,
+      "duration": 0.5,
+      "ticks": 1080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 4.5,
+      "duration": 0.5,
+      "ticks": 1080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 4.5,
+      "duration": 0.5,
+      "ticks": 1080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 4.5,
+      "duration": 0.5,
+      "ticks": 1080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 5,
+      "duration": 0.5,
+      "ticks": 1200,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 5,
+      "duration": 0.5,
+      "ticks": 1200,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 5,
+      "duration": 0.5,
+      "ticks": 1200,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 5,
+      "duration": 0.5,
+      "ticks": 1200,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 5.5,
+      "duration": 0.5,
+      "ticks": 1320,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 5.5,
+      "duration": 0.5,
+      "ticks": 1320,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 5.5,
+      "duration": 0.5,
+      "ticks": 1320,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 5.5,
+      "duration": 0.5,
+      "ticks": 1320,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 6,
+      "duration": 0.75,
+      "ticks": 1440,
+      "durationTicks": 180,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 6,
+      "duration": 0.75,
+      "ticks": 1440,
+      "durationTicks": 180,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 6,
+      "duration": 0.75,
+      "ticks": 1440,
+      "durationTicks": 180,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 6,
+      "duration": 0.75,
+      "ticks": 1440,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 6,
+      "duration": 0.75,
+      "ticks": 1440,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 6,
+      "duration": 0.75,
+      "ticks": 1440,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 6.75,
+      "duration": 0.25,
+      "ticks": 1620,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 6.75,
+      "duration": 0.25,
+      "ticks": 1620,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 6.75,
+      "duration": 0.25,
+      "ticks": 1620,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 6.75,
+      "duration": 0.25,
+      "ticks": 1620,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 64,
+      "time": 6.75,
+      "duration": 0.25,
+      "ticks": 1620,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 6.75,
+      "duration": 0.25,
+      "ticks": 1620,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 7,
+      "duration": 1,
+      "ticks": 1680,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 7,
+      "duration": 1,
+      "ticks": 1680,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 7,
+      "duration": 1,
+      "ticks": 1680,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 7,
+      "duration": 1,
+      "ticks": 1680,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 64,
+      "time": 7,
+      "duration": 1,
+      "ticks": 1680,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "e/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 7,
+      "duration": 1,
+      "ticks": 1680,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 8,
+      "duration": 0.5,
+      "ticks": 1920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 8,
+      "duration": 0.5,
+      "ticks": 1920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 8,
+      "duration": 0.5,
+      "ticks": 1920,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 8,
+      "duration": 0.5,
+      "ticks": 1920,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 8.5,
+      "duration": 0.5,
+      "ticks": 2040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 8.5,
+      "duration": 0.5,
+      "ticks": 2040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 8.5,
+      "duration": 0.5,
+      "ticks": 2040,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 8.5,
+      "duration": 0.5,
+      "ticks": 2040,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 9,
+      "duration": 0.5,
+      "ticks": 2160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 9,
+      "duration": 0.5,
+      "ticks": 2160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 9,
+      "duration": 0.5,
+      "ticks": 2160,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 9,
+      "duration": 0.5,
+      "ticks": 2160,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 9.5,
+      "duration": 0.5,
+      "ticks": 2280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 9.5,
+      "duration": 0.5,
+      "ticks": 2280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 9.5,
+      "duration": 0.5,
+      "ticks": 2280,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 9.5,
+      "duration": 0.5,
+      "ticks": 2280,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 10,
+      "duration": 0.5,
+      "ticks": 2400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 10,
+      "duration": 0.5,
+      "ticks": 2400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 10,
+      "duration": 0.5,
+      "ticks": 2400,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 10,
+      "duration": 0.5,
+      "ticks": 2400,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 10.5,
+      "duration": 0.5,
+      "ticks": 2520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 10.5,
+      "duration": 0.5,
+      "ticks": 2520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 10.5,
+      "duration": 0.5,
+      "ticks": 2520,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 10.5,
+      "duration": 0.5,
+      "ticks": 2520,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 11,
+      "duration": 0.5,
+      "ticks": 2640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 11,
+      "duration": 0.5,
+      "ticks": 2640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 11,
+      "duration": 0.5,
+      "ticks": 2640,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 11,
+      "duration": 0.5,
+      "ticks": 2640,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 11.5,
+      "duration": 0.5,
+      "ticks": 2760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 11.5,
+      "duration": 0.5,
+      "ticks": 2760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 64,
+      "time": 11.5,
+      "duration": 0.5,
+      "ticks": 2760,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "e/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 11.5,
+      "duration": 0.5,
+      "ticks": 2760,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 12,
+      "duration": 0.5,
+      "ticks": 2880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 12,
+      "duration": 0.5,
+      "ticks": 2880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 12,
+      "duration": 0.5,
+      "ticks": 2880,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 12,
+      "duration": 0.5,
+      "ticks": 2880,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 12.5,
+      "duration": 0.5,
+      "ticks": 3000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 12.5,
+      "duration": 0.5,
+      "ticks": 3000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 12.5,
+      "duration": 0.5,
+      "ticks": 3000,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 12.5,
+      "duration": 0.5,
+      "ticks": 3000,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 13,
+      "duration": 0.5,
+      "ticks": 3120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 13,
+      "duration": 0.5,
+      "ticks": 3120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 13,
+      "duration": 0.5,
+      "ticks": 3120,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 13,
+      "duration": 0.5,
+      "ticks": 3120,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 13.5,
+      "duration": 0.5,
+      "ticks": 3240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 13.5,
+      "duration": 0.5,
+      "ticks": 3240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 13.5,
+      "duration": 0.5,
+      "ticks": 3240,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 13.5,
+      "duration": 0.5,
+      "ticks": 3240,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 14,
+      "duration": 1,
+      "ticks": 3360,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 14,
+      "duration": 1,
+      "ticks": 3360,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 14,
+      "duration": 1,
+      "ticks": 3360,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 14,
+      "duration": 0.75,
+      "ticks": 3360,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 64,
+      "time": 14,
+      "duration": 0.75,
+      "ticks": 3360,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "e/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 14,
+      "duration": 0.75,
+      "ticks": 3360,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 14.75,
+      "duration": 0.25,
+      "ticks": 3540,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 15,
+      "duration": 1,
+      "ticks": 3600,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 15,
+      "duration": 1,
+      "ticks": 3600,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 15,
+      "duration": 1,
+      "ticks": 3600,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 15,
+      "duration": 1,
+      "ticks": 3600,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 16,
+      "duration": 0.25,
+      "ticks": 3840,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 16,
+      "duration": 0.5,
+      "ticks": 3840,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 16.25,
+      "duration": 0.25,
+      "ticks": 3900,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 16.5,
+      "duration": 0.25,
+      "ticks": 3960,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 16.5,
+      "duration": 0.5,
+      "ticks": 3960,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 16.75,
+      "duration": 0.25,
+      "ticks": 4020,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 17,
+      "duration": 1,
+      "ticks": 4080,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 17,
+      "duration": 1,
+      "ticks": 4080,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 17,
+      "duration": 0.5,
+      "ticks": 4080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 17.5,
+      "duration": 0.5,
+      "ticks": 4200,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 18,
+      "duration": 0.25,
+      "ticks": 4320,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 18,
+      "duration": 0.5,
+      "ticks": 4320,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 18.25,
+      "duration": 0.25,
+      "ticks": 4380,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 18.5,
+      "duration": 0.25,
+      "ticks": 4440,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 18.5,
+      "duration": 0.25,
+      "ticks": 4440,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 18.75,
+      "duration": 0.25,
+      "ticks": 4500,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 18.75,
+      "duration": 0.25,
+      "ticks": 4500,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 19,
+      "duration": 1,
+      "ticks": 4560,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 19,
+      "duration": 1,
+      "ticks": 4560,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 19,
+      "duration": 0.5,
+      "ticks": 4560,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 19.5,
+      "duration": 0.5,
+      "ticks": 4680,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 43,
+      "time": 20,
+      "duration": 0.25,
+      "ticks": 4800,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "g/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 20,
+      "duration": 0.5,
+      "ticks": 4800,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 46,
+      "time": 20.25,
+      "duration": 0.25,
+      "ticks": 4860,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "a#/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 20.5,
+      "duration": 0.25,
+      "ticks": 4920,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 20.5,
+      "duration": 0.25,
+      "ticks": 4920,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 20.75,
+      "duration": 0.25,
+      "ticks": 4980,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 20.75,
+      "duration": 0.25,
+      "ticks": 4980,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 21,
+      "duration": 1,
+      "ticks": 5040,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 21,
+      "duration": 1,
+      "ticks": 5040,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 21,
+      "duration": 0.5,
+      "ticks": 5040,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 21.5,
+      "duration": 0.5,
+      "ticks": 5160,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 43,
+      "time": 22,
+      "duration": 0.25,
+      "ticks": 5280,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "g/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 22,
+      "duration": 0.5,
+      "ticks": 5280,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 47,
+      "time": 22.25,
+      "duration": 0.25,
+      "ticks": 5340,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "b/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 22.5,
+      "duration": 0.25,
+      "ticks": 5400,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 22.5,
+      "duration": 0.5,
+      "ticks": 5400,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 22.75,
+      "duration": 0.25,
+      "ticks": 5460,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 23,
+      "duration": 1,
+      "ticks": 5520,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 23,
+      "duration": 1,
+      "ticks": 5520,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 23,
+      "duration": 0.5,
+      "ticks": 5520,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 23.5,
+      "duration": 0.5,
+      "ticks": 5640,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 24,
+      "duration": 0.5,
+      "ticks": 5760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 24,
+      "duration": 0.5,
+      "ticks": 5760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 24,
+      "duration": 0.5,
+      "ticks": 5760,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 24.5,
+      "duration": 0.5,
+      "ticks": 5880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 24.5,
+      "duration": 0.5,
+      "ticks": 5880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 24.5,
+      "duration": 0.5,
+      "ticks": 5880,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 24.5,
+      "duration": 0.5,
+      "ticks": 5880,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 25,
+      "duration": 0.5,
+      "ticks": 6000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 25,
+      "duration": 0.5,
+      "ticks": 6000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 25,
+      "duration": 0.5,
+      "ticks": 6000,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 25,
+      "duration": 0.5,
+      "ticks": 6000,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 25.5,
+      "duration": 0.5,
+      "ticks": 6120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 25.5,
+      "duration": 0.5,
+      "ticks": 6120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 25.5,
+      "duration": 0.5,
+      "ticks": 6120,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 25.5,
+      "duration": 0.5,
+      "ticks": 6120,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 26,
+      "duration": 0.5,
+      "ticks": 6240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 26,
+      "duration": 0.5,
+      "ticks": 6240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 26,
+      "duration": 0.5,
+      "ticks": 6240,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 26,
+      "duration": 0.5,
+      "ticks": 6240,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 26.5,
+      "duration": 0.5,
+      "ticks": 6360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 26.5,
+      "duration": 0.5,
+      "ticks": 6360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 26.5,
+      "duration": 0.5,
+      "ticks": 6360,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 26.5,
+      "duration": 0.5,
+      "ticks": 6360,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 27,
+      "duration": 0.5,
+      "ticks": 6480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 27,
+      "duration": 0.5,
+      "ticks": 6480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 27,
+      "duration": 0.5,
+      "ticks": 6480,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 27,
+      "duration": 0.5,
+      "ticks": 6480,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 27.5,
+      "duration": 0.5,
+      "ticks": 6600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 27.5,
+      "duration": 0.5,
+      "ticks": 6600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 64,
+      "time": 27.5,
+      "duration": 0.5,
+      "ticks": 6600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "e/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 27.5,
+      "duration": 0.5,
+      "ticks": 6600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 28,
+      "duration": 0.5,
+      "ticks": 6720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 28,
+      "duration": 0.5,
+      "ticks": 6720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 28,
+      "duration": 0.5,
+      "ticks": 6720,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 28,
+      "duration": 0.5,
+      "ticks": 6720,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 28.5,
+      "duration": 0.5,
+      "ticks": 6840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 28.5,
+      "duration": 0.5,
+      "ticks": 6840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 28.5,
+      "duration": 0.5,
+      "ticks": 6840,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 28.5,
+      "duration": 0.5,
+      "ticks": 6840,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 29,
+      "duration": 0.5,
+      "ticks": 6960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 29,
+      "duration": 0.5,
+      "ticks": 6960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 29,
+      "duration": 0.5,
+      "ticks": 6960,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 29,
+      "duration": 0.5,
+      "ticks": 6960,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 29.5,
+      "duration": 0.5,
+      "ticks": 7080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 29.5,
+      "duration": 0.5,
+      "ticks": 7080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 29.5,
+      "duration": 0.5,
+      "ticks": 7080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 29.5,
+      "duration": 0.5,
+      "ticks": 7080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 30,
+      "duration": 1,
+      "ticks": 7200,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 30,
+      "duration": 1,
+      "ticks": 7200,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 30,
+      "duration": 1,
+      "ticks": 7200,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 30,
+      "duration": 0.75,
+      "ticks": 7200,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 30,
+      "duration": 0.75,
+      "ticks": 7200,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 30.75,
+      "duration": 0.25,
+      "ticks": 7380,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 31,
+      "duration": 0.5,
+      "ticks": 7440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 31,
+      "duration": 0.5,
+      "ticks": 7440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 31,
+      "duration": 1,
+      "ticks": 7440,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 31,
+      "duration": 1,
+      "ticks": 7440,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 31.5,
+      "duration": 0.5,
+      "ticks": 7560,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 46,
+      "time": 32,
+      "duration": 0.5,
+      "ticks": 7680,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 32,
+      "duration": 0.5,
+      "ticks": 7680,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 32,
+      "duration": 0.5,
+      "ticks": 7680,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 32.5,
+      "duration": 0.5,
+      "ticks": 7800,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 32.5,
+      "duration": 0.5,
+      "ticks": 7800,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 32.5,
+      "duration": 0.5,
+      "ticks": 7800,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 32.5,
+      "duration": 0.5,
+      "ticks": 7800,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 33,
+      "duration": 0.5,
+      "ticks": 7920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 33,
+      "duration": 0.5,
+      "ticks": 7920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 33,
+      "duration": 0.5,
+      "ticks": 7920,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 75,
+      "time": 33,
+      "duration": 0.5,
+      "ticks": 7920,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 33.5,
+      "duration": 0.5,
+      "ticks": 8040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 33.5,
+      "duration": 0.5,
+      "ticks": 8040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 33.5,
+      "duration": 0.5,
+      "ticks": 8040,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 33.5,
+      "duration": 0.5,
+      "ticks": 8040,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 34,
+      "duration": 0.5,
+      "ticks": 8160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 34,
+      "duration": 0.5,
+      "ticks": 8160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 34,
+      "duration": 0.5,
+      "ticks": 8160,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 34,
+      "duration": 0.5,
+      "ticks": 8160,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 34.5,
+      "duration": 0.5,
+      "ticks": 8280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 34.5,
+      "duration": 0.5,
+      "ticks": 8280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 34.5,
+      "duration": 0.5,
+      "ticks": 8280,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 75,
+      "time": 34.5,
+      "duration": 0.5,
+      "ticks": 8280,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 35,
+      "duration": 0.5,
+      "ticks": 8400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 35,
+      "duration": 0.5,
+      "ticks": 8400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 35,
+      "duration": 0.5,
+      "ticks": 8400,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 35,
+      "duration": 0.5,
+      "ticks": 8400,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 35.5,
+      "duration": 0.5,
+      "ticks": 8520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 35.5,
+      "duration": 0.5,
+      "ticks": 8520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 35.5,
+      "duration": 0.5,
+      "ticks": 8520,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 35.5,
+      "duration": 0.5,
+      "ticks": 8520,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 36,
+      "duration": 0.5,
+      "ticks": 8640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 36,
+      "duration": 0.5,
+      "ticks": 8640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 36,
+      "duration": 0.5,
+      "ticks": 8640,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 36,
+      "duration": 0.5,
+      "ticks": 8640,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 36.5,
+      "duration": 0.5,
+      "ticks": 8760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 36.5,
+      "duration": 0.5,
+      "ticks": 8760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 36.5,
+      "duration": 0.5,
+      "ticks": 8760,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 36.5,
+      "duration": 0.5,
+      "ticks": 8760,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 37,
+      "duration": 0.5,
+      "ticks": 8880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 37,
+      "duration": 0.5,
+      "ticks": 8880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 37,
+      "duration": 0.5,
+      "ticks": 8880,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 37,
+      "duration": 0.5,
+      "ticks": 8880,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 37.5,
+      "duration": 0.5,
+      "ticks": 9000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 37.5,
+      "duration": 0.5,
+      "ticks": 9000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 37.5,
+      "duration": 0.5,
+      "ticks": 9000,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 37.5,
+      "duration": 0.5,
+      "ticks": 9000,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 38,
+      "duration": 0.75,
+      "ticks": 9120,
+      "durationTicks": 180,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 38,
+      "duration": 0.75,
+      "ticks": 9120,
+      "durationTicks": 180,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 38,
+      "duration": 0.75,
+      "ticks": 9120,
+      "durationTicks": 180,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 38,
+      "duration": 0.75,
+      "ticks": 9120,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 38,
+      "duration": 0.75,
+      "ticks": 9120,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 38,
+      "duration": 0.75,
+      "ticks": 9120,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 38.75,
+      "duration": 0.25,
+      "ticks": 9300,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 38.75,
+      "duration": 0.25,
+      "ticks": 9300,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 38.75,
+      "duration": 0.25,
+      "ticks": 9300,
+      "durationTicks": 60,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 38.75,
+      "duration": 0.25,
+      "ticks": 9300,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 38.75,
+      "duration": 0.25,
+      "ticks": 9300,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 38.75,
+      "duration": 0.25,
+      "ticks": 9300,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 39,
+      "duration": 0.5,
+      "ticks": 9360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 39,
+      "duration": 0.5,
+      "ticks": 9360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 39,
+      "duration": 0.5,
+      "ticks": 9360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 39,
+      "duration": 1,
+      "ticks": 9360,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 39,
+      "duration": 1,
+      "ticks": 9360,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 39,
+      "duration": 1,
+      "ticks": 9360,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 39.5,
+      "duration": 0.5,
+      "ticks": 9480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 46,
+      "time": 40,
+      "duration": 0.5,
+      "ticks": 9600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 40,
+      "duration": 0.5,
+      "ticks": 9600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 40,
+      "duration": 0.5,
+      "ticks": 9600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 40.5,
+      "duration": 0.5,
+      "ticks": 9720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 40.5,
+      "duration": 0.5,
+      "ticks": 9720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 40.5,
+      "duration": 0.5,
+      "ticks": 9720,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 40.5,
+      "duration": 0.5,
+      "ticks": 9720,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 41,
+      "duration": 0.5,
+      "ticks": 9840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 41,
+      "duration": 0.5,
+      "ticks": 9840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 41,
+      "duration": 0.5,
+      "ticks": 9840,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 75,
+      "time": 41,
+      "duration": 0.5,
+      "ticks": 9840,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 41.5,
+      "duration": 0.5,
+      "ticks": 9960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 41.5,
+      "duration": 0.5,
+      "ticks": 9960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 41.5,
+      "duration": 0.5,
+      "ticks": 9960,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 41.5,
+      "duration": 0.5,
+      "ticks": 9960,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 44,
+      "time": 42,
+      "duration": 0.5,
+      "ticks": 10080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g#/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 42,
+      "duration": 0.5,
+      "ticks": 10080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 42,
+      "duration": 0.5,
+      "ticks": 10080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 42.5,
+      "duration": 0.5,
+      "ticks": 10200,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 42.5,
+      "duration": 0.5,
+      "ticks": 10200,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 42.5,
+      "duration": 0.5,
+      "ticks": 10200,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 42.5,
+      "duration": 0.5,
+      "ticks": 10200,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 61,
+      "time": 43,
+      "duration": 0.5,
+      "ticks": 10320,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 43,
+      "duration": 0.5,
+      "ticks": 10320,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 43,
+      "duration": 0.5,
+      "ticks": 10320,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 43,
+      "duration": 0.5,
+      "ticks": 10320,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 43.5,
+      "duration": 0.5,
+      "ticks": 10440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 43.5,
+      "duration": 0.5,
+      "ticks": 10440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 43.5,
+      "duration": 0.5,
+      "ticks": 10440,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 43.5,
+      "duration": 0.5,
+      "ticks": 10440,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 44,
+      "duration": 1,
+      "ticks": 10560,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 44,
+      "duration": 0.5,
+      "ticks": 10560,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 44,
+      "duration": 0.5,
+      "ticks": 10560,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 44.5,
+      "duration": 0.5,
+      "ticks": 10680,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 44.5,
+      "duration": 0.5,
+      "ticks": 10680,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 45,
+      "duration": 1,
+      "ticks": 10800,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 64,
+      "time": 45,
+      "duration": 1,
+      "ticks": 10800,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "e/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 67,
+      "time": 45,
+      "duration": 1,
+      "ticks": 10800,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "g/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 45,
+      "duration": 1,
+      "ticks": 10800,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 45,
+      "duration": 0.75,
+      "ticks": 10800,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 45,
+      "duration": 0.75,
+      "ticks": 10800,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 45,
+      "duration": 0.75,
+      "ticks": 10800,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 45.75,
+      "duration": 0.25,
+      "ticks": 10980,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 46,
+      "duration": 1,
+      "ticks": 11040,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 46,
+      "duration": 1,
+      "ticks": 11040,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 46,
+      "duration": 1,
+      "ticks": 11040,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 46,
+      "duration": 1,
+      "ticks": 11040,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 47,
+      "duration": 0.5,
+      "ticks": 11280,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 80,
+      "time": 47.5,
+      "duration": 0.5,
+      "ticks": 11400,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "g#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 48,
+      "duration": 0.5,
+      "ticks": 11520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 48,
+      "duration": 0.5,
+      "ticks": 11520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 48,
+      "duration": 0.25,
+      "ticks": 11520,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 48,
+      "duration": 0.25,
+      "ticks": 11520,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 48.25,
+      "duration": 0.25,
+      "ticks": 11580,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 48.5,
+      "duration": 0.5,
+      "ticks": 11640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 48.5,
+      "duration": 0.5,
+      "ticks": 11640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 48.5,
+      "duration": 0.25,
+      "ticks": 11640,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 48.5,
+      "duration": 0.25,
+      "ticks": 11640,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 48.75,
+      "duration": 0.25,
+      "ticks": 11700,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 43,
+      "time": 49,
+      "duration": 0.5,
+      "ticks": 11760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 49,
+      "duration": 0.5,
+      "ticks": 11760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 49,
+      "duration": 0.25,
+      "ticks": 11760,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 82,
+      "time": 49,
+      "duration": 0.25,
+      "ticks": 11760,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 49.25,
+      "duration": 0.25,
+      "ticks": 11820,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 45,
+      "time": 49.5,
+      "duration": 0.5,
+      "ticks": 11880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 49.5,
+      "duration": 0.5,
+      "ticks": 11880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 49.5,
+      "duration": 0.25,
+      "ticks": 11880,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 84,
+      "time": 49.5,
+      "duration": 0.25,
+      "ticks": 11880,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/6",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 49.75,
+      "duration": 0.25,
+      "ticks": 11940,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 45,
+      "time": 50,
+      "duration": 0.5,
+      "ticks": 12000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 50,
+      "duration": 0.5,
+      "ticks": 12000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 50,
+      "duration": 0.25,
+      "ticks": 12000,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 84,
+      "time": 50,
+      "duration": 0.25,
+      "ticks": 12000,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/6",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 50.25,
+      "duration": 0.25,
+      "ticks": 12060,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 43,
+      "time": 50.5,
+      "duration": 0.5,
+      "ticks": 12120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 50.5,
+      "duration": 0.5,
+      "ticks": 12120,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 50.5,
+      "duration": 0.25,
+      "ticks": 12120,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 82,
+      "time": 50.5,
+      "duration": 0.25,
+      "ticks": 12120,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 50.75,
+      "duration": 0.25,
+      "ticks": 12180,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 51,
+      "duration": 0.5,
+      "ticks": 12240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 51,
+      "duration": 0.5,
+      "ticks": 12240,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 51,
+      "duration": 0.25,
+      "ticks": 12240,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 51,
+      "duration": 0.25,
+      "ticks": 12240,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 51.25,
+      "duration": 0.25,
+      "ticks": 12300,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 40,
+      "time": 51.5,
+      "duration": 0.5,
+      "ticks": 12360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 51.5,
+      "duration": 0.5,
+      "ticks": 12360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 51.5,
+      "duration": 0.25,
+      "ticks": 12360,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 51.5,
+      "duration": 0.25,
+      "ticks": 12360,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 51.75,
+      "duration": 0.25,
+      "ticks": 12420,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 38,
+      "time": 52,
+      "duration": 0.5,
+      "ticks": 12480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 52,
+      "duration": 0.5,
+      "ticks": 12480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 52,
+      "duration": 0.25,
+      "ticks": 12480,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 52,
+      "duration": 0.25,
+      "ticks": 12480,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 52.25,
+      "duration": 0.25,
+      "ticks": 12540,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 38,
+      "time": 52.5,
+      "duration": 0.5,
+      "ticks": 12600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 52.5,
+      "duration": 0.5,
+      "ticks": 12600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 52.5,
+      "duration": 0.25,
+      "ticks": 12600,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 52.5,
+      "duration": 0.25,
+      "ticks": 12600,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 52.75,
+      "duration": 0.25,
+      "ticks": 12660,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 40,
+      "time": 53,
+      "duration": 0.5,
+      "ticks": 12720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 53,
+      "duration": 0.5,
+      "ticks": 12720,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 53,
+      "duration": 0.25,
+      "ticks": 12720,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 53,
+      "duration": 0.25,
+      "ticks": 12720,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 53.25,
+      "duration": 0.25,
+      "ticks": 12780,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 53.5,
+      "duration": 0.5,
+      "ticks": 12840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 53.5,
+      "duration": 0.5,
+      "ticks": 12840,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 53.5,
+      "duration": 0.25,
+      "ticks": 12840,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 53.5,
+      "duration": 0.25,
+      "ticks": 12840,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 53.75,
+      "duration": 0.25,
+      "ticks": 12900,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 36,
+      "time": 54,
+      "duration": 0.5,
+      "ticks": 12960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 54,
+      "duration": 0.5,
+      "ticks": 12960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 54,
+      "duration": 0.75,
+      "ticks": 12960,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 54,
+      "duration": 0.75,
+      "ticks": 12960,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 54,
+      "duration": 0.75,
+      "ticks": 12960,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 54.5,
+      "duration": 0.5,
+      "ticks": 13080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 54.5,
+      "duration": 0.5,
+      "ticks": 13080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 54.5,
+      "duration": 0.5,
+      "ticks": 13080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 54.75,
+      "duration": 0.25,
+      "ticks": 13140,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 54.75,
+      "duration": 0.25,
+      "ticks": 13140,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 54.75,
+      "duration": 0.25,
+      "ticks": 13140,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 55,
+      "duration": 1,
+      "ticks": 13200,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 55,
+      "duration": 1,
+      "ticks": 13200,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 55,
+      "duration": 1,
+      "ticks": 13200,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 55,
+      "duration": 1,
+      "ticks": 13200,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 55,
+      "duration": 1,
+      "ticks": 13200,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 55,
+      "duration": 1,
+      "ticks": 13200,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 56,
+      "duration": 0.5,
+      "ticks": 13440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 56,
+      "duration": 0.5,
+      "ticks": 13440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 56,
+      "duration": 0.25,
+      "ticks": 13440,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 56,
+      "duration": 0.25,
+      "ticks": 13440,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 56.25,
+      "duration": 0.25,
+      "ticks": 13500,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 56.5,
+      "duration": 0.5,
+      "ticks": 13560,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 56.5,
+      "duration": 0.5,
+      "ticks": 13560,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 56.5,
+      "duration": 0.25,
+      "ticks": 13560,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 56.5,
+      "duration": 0.25,
+      "ticks": 13560,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 56.75,
+      "duration": 0.25,
+      "ticks": 13620,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 43,
+      "time": 57,
+      "duration": 0.5,
+      "ticks": 13680,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 57,
+      "duration": 0.5,
+      "ticks": 13680,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 57,
+      "duration": 0.25,
+      "ticks": 13680,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 82,
+      "time": 57,
+      "duration": 0.25,
+      "ticks": 13680,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 57.25,
+      "duration": 0.25,
+      "ticks": 13740,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 45,
+      "time": 57.5,
+      "duration": 0.5,
+      "ticks": 13800,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 57.5,
+      "duration": 0.5,
+      "ticks": 13800,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 57.5,
+      "duration": 0.25,
+      "ticks": 13800,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 84,
+      "time": 57.5,
+      "duration": 0.25,
+      "ticks": 13800,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/6",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 57.75,
+      "duration": 0.25,
+      "ticks": 13860,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 45,
+      "time": 58,
+      "duration": 0.5,
+      "ticks": 13920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 58,
+      "duration": 0.5,
+      "ticks": 13920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 58,
+      "duration": 0.25,
+      "ticks": 13920,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 84,
+      "time": 58,
+      "duration": 0.25,
+      "ticks": 13920,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/6",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 58.25,
+      "duration": 0.25,
+      "ticks": 13980,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 43,
+      "time": 58.5,
+      "duration": 0.5,
+      "ticks": 14040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 58.5,
+      "duration": 0.5,
+      "ticks": 14040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 58.5,
+      "duration": 0.25,
+      "ticks": 14040,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 82,
+      "time": 58.5,
+      "duration": 0.25,
+      "ticks": 14040,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 58.75,
+      "duration": 0.25,
+      "ticks": 14100,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 59,
+      "duration": 0.5,
+      "ticks": 14160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 59,
+      "duration": 0.5,
+      "ticks": 14160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 59,
+      "duration": 0.25,
+      "ticks": 14160,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 59,
+      "duration": 0.25,
+      "ticks": 14160,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 59.25,
+      "duration": 0.25,
+      "ticks": 14220,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 40,
+      "time": 59.5,
+      "duration": 0.5,
+      "ticks": 14280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 59.5,
+      "duration": 0.5,
+      "ticks": 14280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 59.5,
+      "duration": 0.25,
+      "ticks": 14280,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 59.5,
+      "duration": 0.25,
+      "ticks": 14280,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 59.75,
+      "duration": 0.25,
+      "ticks": 14340,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 38,
+      "time": 60,
+      "duration": 0.5,
+      "ticks": 14400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 60,
+      "duration": 0.5,
+      "ticks": 14400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 60,
+      "duration": 0.25,
+      "ticks": 14400,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 60,
+      "duration": 0.25,
+      "ticks": 14400,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 60.25,
+      "duration": 0.25,
+      "ticks": 14460,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 38,
+      "time": 60.5,
+      "duration": 0.5,
+      "ticks": 14520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 60.5,
+      "duration": 0.5,
+      "ticks": 14520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 60.5,
+      "duration": 0.25,
+      "ticks": 14520,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 60.5,
+      "duration": 0.25,
+      "ticks": 14520,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 60.75,
+      "duration": 0.25,
+      "ticks": 14580,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 40,
+      "time": 61,
+      "duration": 0.5,
+      "ticks": 14640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 61,
+      "duration": 0.5,
+      "ticks": 14640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 61,
+      "duration": 0.25,
+      "ticks": 14640,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 61,
+      "duration": 0.25,
+      "ticks": 14640,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 61.25,
+      "duration": 0.25,
+      "ticks": 14700,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 61.5,
+      "duration": 0.5,
+      "ticks": 14760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 61.5,
+      "duration": 0.5,
+      "ticks": 14760,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 61.5,
+      "duration": 0.25,
+      "ticks": 14760,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 61.5,
+      "duration": 0.25,
+      "ticks": 14760,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 61.75,
+      "duration": 0.25,
+      "ticks": 14820,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 36,
+      "time": 62,
+      "duration": 0.5,
+      "ticks": 14880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 62,
+      "duration": 0.5,
+      "ticks": 14880,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 62,
+      "duration": 0.75,
+      "ticks": 14880,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 62,
+      "duration": 0.75,
+      "ticks": 14880,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 62,
+      "duration": 0.75,
+      "ticks": 14880,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 62.5,
+      "duration": 0.5,
+      "ticks": 15000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 62.5,
+      "duration": 0.5,
+      "ticks": 15000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 62.5,
+      "duration": 0.5,
+      "ticks": 15000,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 62.75,
+      "duration": 0.25,
+      "ticks": 15060,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 62.75,
+      "duration": 0.25,
+      "ticks": 15060,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 62.75,
+      "duration": 0.25,
+      "ticks": 15060,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 63,
+      "duration": 1,
+      "ticks": 15120,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 63,
+      "duration": 1,
+      "ticks": 15120,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 63,
+      "duration": 1,
+      "ticks": 15120,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 63,
+      "duration": 1,
+      "ticks": 15120,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 63,
+      "duration": 1,
+      "ticks": 15120,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 63,
+      "duration": 1,
+      "ticks": 15120,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 36,
+      "time": 64,
+      "duration": 0.5,
+      "ticks": 15360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 64,
+      "duration": 0.5,
+      "ticks": 15360,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 64,
+      "duration": 0.75,
+      "ticks": 15360,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 64,
+      "duration": 0.75,
+      "ticks": 15360,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 64,
+      "duration": 0.75,
+      "ticks": 15360,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 64.5,
+      "duration": 0.5,
+      "ticks": 15480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 64.5,
+      "duration": 0.5,
+      "ticks": 15480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 64.5,
+      "duration": 0.5,
+      "ticks": 15480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 64.5,
+      "duration": 0.5,
+      "ticks": 15480,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 64.75,
+      "duration": 0.25,
+      "ticks": 15540,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 65,
+      "duration": 0.5,
+      "ticks": 15600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 65,
+      "duration": 0.5,
+      "ticks": 15600,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 65,
+      "duration": 0.5,
+      "ticks": 15600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 65,
+      "duration": 0.5,
+      "ticks": 15600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 65,
+      "duration": 0.5,
+      "ticks": 15600,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 65.5,
+      "duration": 0.5,
+      "ticks": 15720,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 38,
+      "time": 66,
+      "duration": 1,
+      "ticks": 15840,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "d/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 66,
+      "duration": 1,
+      "ticks": 15840,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 66,
+      "duration": 0.75,
+      "ticks": 15840,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 66,
+      "time": 66,
+      "duration": 0.75,
+      "ticks": 15840,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "f#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 70,
+      "time": 66,
+      "duration": 0.75,
+      "ticks": 15840,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "a#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 66.5,
+      "duration": 0.5,
+      "ticks": 15960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 54,
+      "time": 66.5,
+      "duration": 0.5,
+      "ticks": 15960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 66.5,
+      "duration": 0.5,
+      "ticks": 15960,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 66.75,
+      "duration": 0.25,
+      "ticks": 16020,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 66,
+      "time": 66.75,
+      "duration": 0.25,
+      "ticks": 16020,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 66.75,
+      "duration": 0.25,
+      "ticks": 16020,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 50,
+      "time": 67,
+      "duration": 0.5,
+      "ticks": 16080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 54,
+      "time": 67,
+      "duration": 0.5,
+      "ticks": 16080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 67,
+      "duration": 0.5,
+      "ticks": 16080,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 60,
+      "time": 67,
+      "duration": 0.5,
+      "ticks": 16080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "c/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 66,
+      "time": 67,
+      "duration": 0.5,
+      "ticks": 16080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f#/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 67,
+      "duration": 0.5,
+      "ticks": 16080,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 67.5,
+      "duration": 0.5,
+      "ticks": 16200,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 31,
+      "time": 68,
+      "duration": 1,
+      "ticks": 16320,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "g/1",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 43,
+      "time": 68,
+      "duration": 1,
+      "ticks": 16320,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "g/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 68,
+      "duration": 0.75,
+      "ticks": 16320,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 71,
+      "time": 68,
+      "duration": 0.75,
+      "ticks": 16320,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "b/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 75,
+      "time": 68,
+      "duration": 0.75,
+      "ticks": 16320,
+      "durationTicks": 180,
+      "trackIndex": 0,
+      "vexKey": "d#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 68.5,
+      "duration": 0.5,
+      "ticks": 16440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 59,
+      "time": 68.5,
+      "duration": 0.5,
+      "ticks": 16440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "b/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 68.5,
+      "duration": 0.5,
+      "ticks": 16440,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 68.75,
+      "duration": 0.25,
+      "ticks": 16500,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 71,
+      "time": 68.75,
+      "duration": 0.25,
+      "ticks": 16500,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "b/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 68.75,
+      "duration": 0.25,
+      "ticks": 16500,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 69,
+      "duration": 0.5,
+      "ticks": 16560,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 59,
+      "time": 69,
+      "duration": 0.5,
+      "ticks": 16560,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "b/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 62,
+      "time": 69,
+      "duration": 0.5,
+      "ticks": 16560,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "d/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 65,
+      "time": 69,
+      "duration": 0.5,
+      "ticks": 16560,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "f/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 71,
+      "time": 69,
+      "duration": 0.5,
+      "ticks": 16560,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "b/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 69,
+      "duration": 0.5,
+      "ticks": 16560,
+      "durationTicks": 120,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 82,
+      "time": 69.5,
+      "duration": 0.25,
+      "ticks": 16680,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a#/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 69.75,
+      "duration": 0.25,
+      "ticks": 16740,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 36,
+      "time": 70,
+      "duration": 1,
+      "ticks": 16800,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 70,
+      "duration": 1,
+      "ticks": 16800,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 70,
+      "duration": 0.25,
+      "ticks": 16800,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 70.25,
+      "duration": 0.25,
+      "ticks": 16860,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 70.5,
+      "duration": 0.5,
+      "ticks": 16920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 70.5,
+      "duration": 0.5,
+      "ticks": 16920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 70.5,
+      "duration": 0.5,
+      "ticks": 16920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 70.5,
+      "duration": 0.5,
+      "ticks": 16920,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 70.5,
+      "duration": 0.25,
+      "ticks": 16920,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 70.75,
+      "duration": 0.25,
+      "ticks": 16980,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 71,
+      "duration": 0.5,
+      "ticks": 17040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 71,
+      "duration": 0.5,
+      "ticks": 17040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 71,
+      "duration": 0.5,
+      "ticks": 17040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 71,
+      "duration": 0.5,
+      "ticks": 17040,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 71,
+      "duration": 0.25,
+      "ticks": 17040,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 71.25,
+      "duration": 0.25,
+      "ticks": 17100,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 71.5,
+      "duration": 0.5,
+      "ticks": 17160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 71.5,
+      "duration": 0.5,
+      "ticks": 17160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 55,
+      "time": 71.5,
+      "duration": 0.5,
+      "ticks": 17160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "g/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 71.5,
+      "duration": 0.5,
+      "ticks": 17160,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 74,
+      "time": 71.5,
+      "duration": 0.25,
+      "ticks": 17160,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "d/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 71.75,
+      "duration": 0.25,
+      "ticks": 17220,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 72,
+      "duration": 0.5,
+      "ticks": 17280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 72,
+      "duration": 0.5,
+      "ticks": 17280,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 72,
+      "duration": 0.25,
+      "ticks": 17280,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 72.25,
+      "duration": 0.25,
+      "ticks": 17340,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 72.5,
+      "duration": 0.5,
+      "ticks": 17400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 72.5,
+      "duration": 0.5,
+      "ticks": 17400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 72.5,
+      "duration": 0.5,
+      "ticks": 17400,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 72.5,
+      "duration": 0.25,
+      "ticks": 17400,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 72.75,
+      "duration": 0.25,
+      "ticks": 17460,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 73,
+      "duration": 0.5,
+      "ticks": 17520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 73,
+      "duration": 0.5,
+      "ticks": 17520,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 73,
+      "duration": 0.25,
+      "ticks": 17520,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 81,
+      "time": 73.25,
+      "duration": 0.25,
+      "ticks": 17580,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "a/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 73.5,
+      "duration": 0.5,
+      "ticks": 17640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 52,
+      "time": 73.5,
+      "duration": 0.5,
+      "ticks": 17640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "e/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 58,
+      "time": 73.5,
+      "duration": 0.5,
+      "ticks": 17640,
+      "durationTicks": 120,
+      "trackIndex": 1,
+      "vexKey": "a#/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 79,
+      "time": 73.5,
+      "duration": 0.25,
+      "ticks": 17640,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "g/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 76,
+      "time": 73.75,
+      "duration": 0.25,
+      "ticks": 17700,
+      "durationTicks": 60,
+      "trackIndex": 0,
+      "vexKey": "e/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 53,
+      "time": 74,
+      "duration": 1,
+      "ticks": 17760,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "f/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 57,
+      "time": 74,
+      "duration": 1,
+      "ticks": 17760,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "a/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 74,
+      "duration": 1,
+      "ticks": 17760,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 36,
+      "time": 75,
+      "duration": 1,
+      "ticks": 18000,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 48,
+      "time": 75,
+      "duration": 1,
+      "ticks": 18000,
+      "durationTicks": 240,
+      "trackIndex": 1,
+      "vexKey": "c/3",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 75,
+      "duration": 1,
+      "ticks": 18000,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 75,
+      "duration": 1,
+      "ticks": 18000,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 75,
+      "duration": 1,
+      "ticks": 18000,
+      "durationTicks": 240,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 29,
+      "time": 76,
+      "duration": 2,
+      "ticks": 18240,
+      "durationTicks": 480,
+      "trackIndex": 1,
+      "vexKey": "f/1",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 41,
+      "time": 76,
+      "duration": 2,
+      "ticks": 18240,
+      "durationTicks": 480,
+      "trackIndex": 1,
+      "vexKey": "f/2",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 69,
+      "time": 76,
+      "duration": 2,
+      "ticks": 18240,
+      "durationTicks": 480,
+      "trackIndex": 0,
+      "vexKey": "a/4",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 72,
+      "time": 76,
+      "duration": 2,
+      "ticks": 18240,
+      "durationTicks": 480,
+      "trackIndex": 0,
+      "vexKey": "c/5",
+      "velocity": 0.7086614173228346
+    },
+    {
+      "midi": 77,
+      "time": 76,
+      "duration": 2,
+      "ticks": 18240,
+      "durationTicks": 480,
+      "trackIndex": 0,
+      "vexKey": "f/5",
+      "velocity": 0.7086614173228346
+    }
+  ],
+  "noteCount": 600,
+  "minMidi": 29,
+  "maxMidi": 84
+}

@@ -985,7 +985,8 @@ body {
 .falling-note {
   position: absolute;
   border-radius: 4px;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   box-sizing: border-box;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
@@ -1039,6 +1040,83 @@ body {
   background: linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%);
   border: 1px solid #0d3d10;
   box-shadow: 0 2px 4px rgba(27, 94, 32, 0.35);
+}
+
+/* 下落音符上的指法编号 */
+.falling-note-finger {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* ── 右键指法弹出菜单 ── */
+.finger-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  padding: 6px;
+  transform: translate(-50%, -120%);
+}
+
+.finger-menu-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.finger-menu-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--toolbar-muted);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s, transform 0.1s;
+}
+
+.finger-menu-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.finger-menu-btn--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.finger-menu-btn--clear {
+  color: #f87171;
+  font-size: 13px;
+  margin-left: 4px;
+  border-color: rgba(248,113,113,0.3);
+}
+
+.finger-menu-btn--clear:hover {
+  background: #f87171;
+  color: #fff;
 }
 
 /* 与轨道拼成一块：顶 padding 去掉，判定线可与白键上沿对齐 */
@@ -1229,6 +1307,63 @@ body {
   border-radius: 50%;
   z-index: 3;
   pointer-events: none;
+}
+
+/* 有指法标注时：用数字替代圆点 */
+.piano-key.finger.hint-lh::after,
+.piano-key.finger.hint-rh::after,
+.piano-key.finger.active-lh::after,
+.piano-key.finger.active-rh::after {
+  content: attr(data-finger);
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
+  border: 2px solid rgba(255,255,255,0.6);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  /* 用 line-height 垂直居中 */
+  display: block;
+  padding: 0;
+}
+
+.piano-key.white.finger.hint-lh::after,
+.piano-key.white.finger.active-lh::after {
+  bottom: 6px;
+  width: 28px;
+  height: 28px;
+  line-height: 24px;
+  background: #2e7d32;
+}
+
+.piano-key.white.finger.hint-rh::after,
+.piano-key.white.finger.active-rh::after {
+  bottom: 6px;
+  width: 28px;
+  height: 28px;
+  line-height: 24px;
+  background: #1565c0;
+}
+
+.piano-key.black.finger.hint-lh::after,
+.piano-key.black.finger.active-lh::after {
+  bottom: 3px;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  line-height: 14px;
+  background: #1b5e20;
+}
+
+.piano-key.black.finger.hint-rh::after,
+.piano-key.black.finger.active-rh::after {
+  bottom: 3px;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  line-height: 14px;
+  background: #0d47a1;
 }
 
 .piano-key.white.hint-lh::after,

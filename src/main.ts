@@ -9,12 +9,14 @@
  *   ui/         — 页面与组件（设置、历史、结算、选歌、MIDI 管理、练习控制、钢琴页编排）
  */
 import './style.css';
-import { Midi } from '@tonejs/midi';
+import type { Midi } from '@tonejs/midi';
+import type { SongDataJson } from './core/types';
 
 import type { AppSettings } from './core/types';
 import { DIFFICULTY_WINDOWS } from './core/types';
 import { createFallingNotesLane } from './rendering/fallingNotes';
 import { flattenNotes } from './core/midiScore';
+import { createMidiFromJson } from './core/midiScore';
 import { loadSettings, saveSettings, applySettings, applySettingsToUI, collectSettingsFromUI } from './ui/settings';
 import { MidiSetup } from './ui/midiSetup';
 import { fetchSongList, updateHistoryPanel, refreshSongBest, startPreview, stopPreview } from './ui/songList';
@@ -402,18 +404,26 @@ let selectedIndex = 0;
 let resultFromHistory = false;
 
 async function loadSongFile(filename: string): Promise<Midi> {
-  const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf = await res.arrayBuffer();
-  return new Midi(buf);
+  const url = `/songs/json/${encodeURIComponent(filename)}`;
+  console.log('[loadSong] fetching:', url);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  const json: SongDataJson = await res.json();
+  console.log('[loadSong] loaded:', json.name, json.noteCount, 'notes');
+  return createMidiFromJson(json);
 }
 
-/** 加载歌曲元数据 JSON（{filename}.json） */
+/** 加载歌曲元数据（从 JSON 文件读取） */
 async function fetchSongMeta(filename: string): Promise<{ starRating: number; noteCount: number; bpm: number } | null> {
   try {
-    const res = await fetch(`/songs/${encodeURIComponent(filename)}.json`);
+    const res = await fetch(`/songs/json/${encodeURIComponent(filename)}`);
     if (!res.ok) return null;
-    return await res.json() as { starRating: number; noteCount: number; bpm: number };
+    const json: SongDataJson = await res.json();
+    return {
+      starRating: 1,
+      noteCount: json.noteCount,
+      bpm: json.header.tempos[0]?.bpm ?? 120,
+    };
   } catch {
     return null;
   }
@@ -434,13 +444,14 @@ async function goPlaySong(filename: string): Promise<void> {
   stopPreview();
   await new Promise(r => setTimeout(r, 80));
   pianoPage.currentSongFile = filename;
-  pianoPage.currentSongName = filename.replace(/\.(mid|midi)$/i, '');
+  pianoPage.currentSongName = filename.replace(/\.json$/i, '');
   pianoPage.pianoPageEl.hidden = false;
   songListPage.hidden = true;
   try {
     const midi = await loadSongFile(filename);
     await pianoPage.enterAndPlay(midi);
-  } catch {
+  } catch (err) {
+    console.error('[goPlaySong] error:', err);
     alert(`加载歌曲失败：${filename}`);
   }
 }
@@ -449,13 +460,14 @@ async function goPractice(filename: string): Promise<void> {
   stopPreview();
   await new Promise(r => setTimeout(r, 80));
   pianoPage.currentSongFile = filename;
-  pianoPage.currentSongName = filename.replace(/\.(mid|midi)$/i, '');
+  pianoPage.currentSongName = filename.replace(/\.json$/i, '');
   pianoPage.pianoPageEl.hidden = false;
   songListPage.hidden = true;
   try {
     const midi = await loadSongFile(filename);
     await pianoPage.enterPractice(midi);
-  } catch {
+  } catch (err) {
+    console.error('[goPractice] error:', err);
     alert(`加载歌曲失败：${filename}`);
   }
 }
@@ -482,7 +494,7 @@ async function refreshSongList(): Promise<void> {
   for (let i = 0; i < songFiles.length; i++) {
     const f = songFiles[i];
     const info = metas[i];
-    const name = f.replace(/\.(mid|midi)$/i, '');
+    const name = f.replace(/\.json$/i, '');
     const stars = info ? renderStars(info.starRating) : '';
     const meta = info
       ? `<span class="song-list-meta">${info.noteCount} 音符 · ${info.bpm}BPM</span>`
@@ -749,6 +761,7 @@ fileInput.addEventListener('change', async () => {
   pianoPage.currentSongFile = null;
   pianoPage.currentSongName = f.name.replace(/\.(mid|midi)$/i, '');
   try {
+    const { Midi } = await import('@tonejs/midi');
     const buf = await f.arrayBuffer();
     const midi = new Midi(buf);
     pianoPage.pianoPageEl.hidden = false;

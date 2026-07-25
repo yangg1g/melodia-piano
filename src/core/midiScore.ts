@@ -15,6 +15,10 @@ export interface FlatNote {
   durationTicks: number;
   trackIndex: number;
   vexKey: string;
+  /** JSON 预置指法（1-5），undefined 表示未设置 */
+  finger?: number;
+  /** 预计算的 NoteKey（小节:手:atom:key），供下落音符直接使用 */
+  noteKey?: string;
   /** MIDI 力度 0‑1 */
   velocity: number;
 }
@@ -96,7 +100,8 @@ export function flattenNotes(midi: Midi): FlatNote[] {
         ticks: n.ticks,
         durationTicks: n.durationTicks,
         trackIndex,
-        vexKey: noteToVexKey(n),
+        vexKey: (n as any).vexKey ?? noteToVexKey(n as any),
+        finger: (n as any).finger as number | undefined,
         velocity: 'velocity' in n ? (n.velocity as number) : 0.78,
       });
     });
@@ -284,4 +289,75 @@ export function measureCount(midi: Midi, ctx: MeasureContext): number {
   const ticks = midi.durationTicks;
   if (ticks <= 0) return 1;
   return Math.max(1, Math.ceil(ticks / ctx.ticksPerMeasure - 1e-9));
+}
+
+/** 为所有 FlatNote 预计算 NoteKey（小节:手:atom:key） */
+export function assignNoteKeys(flatNotes: FlatNote[], midi: Midi, ctx: MeasureContext): void {
+  const totalMeasures = measureCount(midi, ctx);
+
+  for (let mi = 0; mi < totalMeasures; mi++) {
+    for (const hand of ['treble', 'bass'] as const) {
+      const atoms = buildAtomsForHand(flatNotes, midi, hand, ctx, mi);
+      for (let ai = 0; ai < atoms.length; ai++) {
+        const atom = atoms[ai];
+        if (atom.rest) continue;
+        for (let ki = 0; ki < atom.keys.length; ki++) {
+          const vexKey = atom.keys[ki];
+          const measureStartSec = mi * ctx.secPerMeasure;
+          const measureEndSec = (mi + 1) * ctx.secPerMeasure;
+          for (const fn of flatNotes) {
+            if (fn.vexKey === vexKey && fn.time >= measureStartSec && fn.time < measureEndSec
+              && assignHandForNote(fn, midi) === hand && !fn.noteKey) {
+              fn.noteKey = `${mi}:${hand}:${ai}:${ki}`;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/** 从 JSON 数据构建兼容 Midi 接口的对象（替代 @tonejs/midi 解析） */
+export function createMidiFromJson(json: import('../core/types').SongDataJson): Midi {
+  const ppq = json.header.ppq;
+  const tempos = json.header.tempos;
+  const timeSigs = json.header.timeSignatures;
+
+  return {
+    name: json.name,
+    duration: json.duration,
+    durationTicks: json.durationTicks,
+    header: {
+      ppq,
+      tempos: tempos.map(t => ({ bpm: t.bpm, ticks: t.ticks })),
+      timeSignatures: timeSigs.map(ts => ({
+        ticks: ts.ticks,
+        timeSignature: ts.timeSignature,
+        measures: ts.measures,
+      })),
+      ticksToSeconds(ticks: number): number {
+        const tempo = tempos[0]?.bpm ?? 120;
+        return (ticks / ppq) * (60 / tempo);
+      },
+      secondsToTicks(seconds: number): number {
+        const tempo = tempos[0]?.bpm ?? 120;
+        return (seconds / (60 / tempo)) * ppq;
+      },
+    },
+    tracks: json.tracksWithNotes.map((ti: number) => ({
+      notes: json.notes
+        .filter((n: any) => n.trackIndex === ti)
+        .map((n: any) => ({
+          midi: n.midi,
+          time: n.time,
+          duration: n.duration,
+          ticks: n.ticks,
+          durationTicks: n.durationTicks,
+          velocity: n.velocity,
+          vexKey: n.vexKey,
+          finger: n.finger,
+        })),
+    })),
+  } as unknown as Midi;
 }

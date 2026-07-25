@@ -1,7 +1,6 @@
 /**
  * 歌曲列表 UI：加载、渲染、预览
  */
-import { Midi } from '@tonejs/midi';
 import { getBestForSong, getHistoryForSong, deleteHistoryEntry } from './history';
 import { ensurePiano, playPianoMidi, releaseAllPiano } from '../audio/salamanderPiano';
 
@@ -119,27 +118,24 @@ export async function startPreview(filename: string): Promise<void> {
 
   try {
     await ensurePiano();
-    const res = await fetch(`/songs/${encodeURIComponent(filename)}`);
+    const res = await fetch(`/songs/json/${encodeURIComponent(filename)}`);
     if (!res.ok || previewCancelled) return;
-    const buf = await res.arrayBuffer();
-    const midi = new Midi(buf);
+    const json = await res.json();
     if (previewCancelled) return;
 
     const PREVIEW_SEC = 8;
-    for (const track of midi.tracks) {
-      for (const note of track.notes) {
-        if (note.time > PREVIEW_SEC) continue;
-        if (previewCancelled) return;
-        const delayMs = note.time * 1000;
-        const dur = Math.max(0.05, note.duration);
-        const vel = (note.velocity as number) ?? 0.78;
+    for (const note of json.notes) {
+      if (note.time > PREVIEW_SEC) continue;
+      if (previewCancelled) return;
+      const delayMs = note.time * 1000;
+      const dur = Math.max(0.05, note.duration);
+      const vel = note.velocity ?? 0.78;
         const id = window.setTimeout(() => {
           if (previewCancelled) return;
           playPianoMidi(note.midi, dur, vel);
         }, delayMs);
         previewTimers.push(id);
       }
-    }
   } catch {
     // preview failure silently
   }

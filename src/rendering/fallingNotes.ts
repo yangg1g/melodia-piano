@@ -22,6 +22,9 @@ export type FallingNotesHandle = {
   setSpeed: (speed: number) => void;
   setTimingWindows: (w: { perfect: number; ok: number; bad: number }) => void;
   setLoopRange: (startSec: number, endSec: number) => void;
+  /** 设置指法数据：NoteKey 级别 + MIDI:时间 → NoteKey 映射 */
+  setFingerData: (fingerNumbers: Map<string, number>, flatNotes: FlatNote[]) => void;
+  setOnNoteClick: (cb: ((noteKey: string | null, midi: number) => void) | null) => void;
   update: (nowSec: number) => void;
   updateKeyboardPractice: (state: KeyboardFallingState | null) => void;
   pushTimingMarker: (offsetMs: number, judgement: 'PERFECT' | 'OK' | 'BAD') => void;
@@ -115,18 +118,45 @@ function resolveNoteRenderContext(
   return { midi, hand, isWhite, barW, cx, opacity: 0.92 };
 }
 
-function buildNoteElement(ctx: NoteRenderContext, geom: FallGeom): HTMLElement | null {
+function buildNoteElement(
+  ctx: NoteRenderContext,
+  geom: FallGeom,
+  noteTime: number,
+  finger?: number,
+  noteKey?: string,
+  onClick?: ((noteKey: string | null, midi: number) => void) | null,
+): HTMLElement | null {
   if (geom.kind === 'hidden' || geom.kind === 'gone') return null;
   if (geom.height <= 0) return null;
 
   const el = document.createElement('div');
   el.className = fallingNoteClasses(ctx.hand, ctx.isWhite);
+  el.dataset.midi = String(ctx.midi);
+  el.dataset.time = noteTime.toFixed(3);
+  if (noteKey) el.dataset.noteKey = noteKey;
+  el.style.cursor = 'pointer';
+  if (onClick) {
+    const nk = noteKey;
+    el.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onClick(nk ?? null, ctx.midi);
+    }, true);
+  }
 
   el.style.left = `${ctx.cx - ctx.barW / 2}px`;
   el.style.top = `${geom.y}px`;
   el.style.width = `${ctx.barW}px`;
   el.style.height = `${geom.height}px`;
   el.style.opacity = String(ctx.opacity);
+
+  // 在下落音符上显示指法编号（高度足够时）
+  if (finger !== undefined && geom.height >= 24) {
+    const lbl = document.createElement('span');
+    lbl.className = 'falling-note-finger';
+    lbl.textContent = String(finger);
+    el.appendChild(lbl);
+  }
 
   return el;
 }
@@ -138,6 +168,8 @@ function renderFallingNotesFrame(
   startMidi: number,
   endMidi: number,
   midiFile: Midi,
+  fingerNumbers?: Map<string, number>,
+  onNoteClick?: ((noteKey: string | null, midi: number) => void) | null,
 ): DocumentFragment {
   const frag = document.createDocumentFragment();
 
@@ -153,7 +185,10 @@ function renderFallingNotesFrame(
     }
 
     const geom = fallGeometryForNote(n, currentTimeSec, hitY);
-    const el = buildNoteElement(ctx, geom);
+    // 直接从 FlatNote.noteKey 取指法
+    const noteKey = n.noteKey;
+    const finger = (noteKey && fingerNumbers) ? fingerNumbers.get(noteKey) : undefined;
+    const el = buildNoteElement(ctx, geom, n.time, finger, noteKey, onNoteClick);
     if (el) frag.appendChild(el);
   }
 
@@ -316,6 +351,10 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
   let endMidi = 84;
   let notes: FlatNote[] = [];
   let midiFile: Midi | null = null;
+  /** NoteKey → 手指 */
+  let fingerNumbers: Map<string, number> = new Map();
+  /** 下落音符点击回调 */
+  let onNoteClick: ((noteKey: string | null, midi: number) => void) | null = null;
 
   let kbState: KeyboardFallingState | null = null;
   let kbRaf = 0;
@@ -391,7 +430,7 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       return { note: n, opacity };
     });
 
-    const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile);
+    const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile, fingerNumbers, onNoteClick);
 
     // 当前位置指示线
     const line = buildNowLine(hitY, dragOffsetSec, VISIBLE_WINDOW_SEC);
@@ -419,7 +458,7 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
     const effectiveTime = lastTimeSec + dragOffsetSec;
     const hitY = resolveHitY();
     const items = notes.map((n) => ({ note: n }));
-    const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile);
+    const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile, fingerNumbers, onNoteClick);
 
     const line = buildNowLine(hitY, dragOffsetSec, VISIBLE_WINDOW_SEC);
     if (line) frag.appendChild(line);
@@ -477,6 +516,12 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       loopEndSec = endSec;
       hasLoopRange = true;
     },
+    setFingerData(fn: Map<string, number>, _notes: FlatNote[]) {
+      fingerNumbers = fn;
+    },
+    setOnNoteClick(cb: ((noteKey: string | null, midi: number) => void) | null) {
+      onNoteClick = cb;
+    },
     update(nowSec: number) {
       cancelKbAnim();
       kbState = null;
@@ -490,7 +535,7 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       const effectiveTime = nowSec + dragOffsetSec;
       const hitY = resolveHitY();
       const items = notes.map((n) => ({ note: n }));
-      const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile);
+      const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile, fingerNumbers, onNoteClick);
 
       const line = buildNowLine(hitY, dragOffsetSec, VISIBLE_WINDOW_SEC);
       if (line) frag.appendChild(line);

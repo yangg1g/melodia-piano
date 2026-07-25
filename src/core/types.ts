@@ -66,3 +66,33 @@ export const DIFFICULTY_WINDOWS: Record<AppSettings['difficulty'], { label: stri
     windows: { perfect: 15, ok: 120, bad: 180 },
   },
 };
+
+/** MIDI 转 JSON 后的歌曲数据结构 */
+export interface SongDataJson {
+  version: number;
+  name: string;
+  duration: number;
+  durationTicks: number;
+  header: {
+    tempos: Array<{ bpm: number; ticks: number }>;
+    timeSignatures: Array<{ ticks: number; timeSignature: [number, number]; measures: number }>;
+    ppq: number;
+  };
+  trackCount: number;
+  tracksWithNotes: number[];
+  notes: Array<{
+    midi: number;
+    time: number;
+    duration: number;
+    ticks: number;
+    durationTicks: number;
+    trackIndex: number;
+    vexKey: string;
+    velocity: number;
+    /** 预置指法（1-5），可选 */
+    finger?: number;
+  }>;
+  noteCount: number;
+  minMidi: number;
+  maxMidi: number;
+}

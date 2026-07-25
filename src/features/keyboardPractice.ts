@@ -75,7 +75,7 @@ export function startKeyboardPractice(
   midiFile: Midi,
   keyEls: Map<number, HTMLElement>,
   midiInput: MIDIInput,
-  onEnded?: () => void,
+  onEnded?: (completed?: boolean) => void,
   onTimeSec?: (sec: number) => void,
   onPracticePaint?: (state: KeyboardFallingState) => void,
   scoring?: ScoringEngine,
@@ -85,6 +85,7 @@ export function startKeyboardPractice(
   onWallTimeSec?: (wallSec: number) => void,
   onChordUpdate?: (pressed: Set<number>) => void,
   initialGameTimeSec?: number,
+  midiFingerMap?: Map<number, number>,
 ): PlaybackController {
   // 每次弹奏创建新的日志文件
   resetLogFile();
@@ -115,8 +116,8 @@ export function startKeyboardPractice(
       playPianoMidi(midi, 0.3, velocity);
     },
 
-    onVisualUpdate(expected, pressed) {
-      applyKeyVisuals(keyEls, { expected, active: undefined, pressed });
+    onVisualUpdate(expected, pressed, expectedFingers) {
+      applyKeyVisuals(keyEls, { expected, active: undefined, pressed, expectedFingers });
       onChordUpdate?.(pressed);
     },
     onPaintState(notes, effectiveTimeSec) {
@@ -126,9 +127,9 @@ export function startKeyboardPractice(
     onTimeSec,
     onWallTimeSec,
 
-    onEnded() {
+    onEnded(completed) {
       releaseAllPiano();
-      onEnded?.();
+      onEnded?.(completed);
     },
 
     onScoreUpdate() {
@@ -146,6 +147,7 @@ export function startKeyboardPractice(
     getHandForNote: (note) => assignHandForNote(note, midiFile),
     startWallTimeMs,
     initialGameTimeSec,
+    midiFingerMap,
   });
 
   // 动画帧循环

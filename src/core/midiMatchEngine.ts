@@ -25,12 +25,12 @@ export interface MidiMatchCallbacks {
   onNoteStart?: (midi: number, velocity: number) => void;
   onNoteRelease?: (midi: number) => void;
   onWrongKey?: (midi: number, velocity: number) => void;
-  onVisualUpdate?: (expected: Map<number, Hand>, pressed: Set<number>) => void;
+  onVisualUpdate?: (expected: Map<number, Hand>, pressed: Set<number>, expectedFingers?: Map<number, number>) => void;
   onPaintState?: (notes: NoteState[], currentTimeSec: number) => void;
   onScoreUpdate?: () => void;
   onTimeSec?: (sec: number) => void;
   onWallTimeSec?: (wallSec: number) => void;
-  onEnded?: () => void;
+  onEnded?: (completed?: boolean) => void;
 }
 
 export interface EngineOptions {
@@ -43,6 +43,8 @@ export interface EngineOptions {
   startWallTimeMs?: number;
   /** 初始游戏时间（秒），默认 firstNoteTime - 1.5。Node 模拟建议传 Math.max(0, firstNoteTime - 1.5) */
   initialGameTimeSec?: number;
+  /** MIDI 音高 → 手指编号 (1-5)，用于在琴键上显示指法标注 */
+  midiFingerMap?: Map<number, number>;
 }
 
 // ─── 公共工具函数 ──────────────────────────────────────────
@@ -103,6 +105,8 @@ export class MidiMatchEngine {
   private firstPressWallSec = 0;
   /** 跟弹模式：每个音符变得可弹时的墙上时间 */
   private noteReadyWallSec = new Map<number, number>();
+  /** MIDI → 手指编号，用于键盘视觉 */
+  private midiFingerMap: Map<number, number>;
 
   constructor(flatNotes: FlatNote[], callbacks: MidiMatchCallbacks, options: EngineOptions) {
     this.flatNotes = flatNotes;
@@ -124,6 +128,8 @@ export class MidiMatchEngine {
           if (!options.freePlay) return Math.max(0, firstNoteTime - 0.3);
           return firstNoteTime - 1.5;
         })();
+
+    this.midiFingerMap = options.midiFingerMap ?? new Map();
 
     this.noteStates = flatNotes.map(note => ({
       note,
@@ -359,7 +365,7 @@ export class MidiMatchEngine {
 
 
     // 6. 视觉更新
-    this.callbacks.onVisualUpdate?.(expected, this.pressedMidis);
+    this.callbacks.onVisualUpdate?.(expected, this.pressedMidis, this.midiFingerMap);
     this.callbacks.onPaintState?.(this.noteStates, effectiveTimeSec);
 
     // 7. 结束检测
@@ -471,7 +477,7 @@ export class MidiMatchEngine {
     this.keyPressTimes.clear();
     this.callbacks.onVisualUpdate?.(new Map(), new Set());
     this.callbacks.onPaintState?.(this.noteStates, this.getEffectiveTimeSec());
-    this.callbacks.onEnded?.();
+    this.callbacks.onEnded?.(this.isAllDone());
   }
 
   isAllDone(): boolean {
