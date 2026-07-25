@@ -38,6 +38,8 @@ export interface PlayHistoryEntry {
   originalDurationSec?: number;
   /** 回放用的 MIDI 事件（序列化格式：[dataBytes, wallTimeSec]） */
   recordedEvents?: Array<{ data: number[]; wallTimeSec: number }>;
+  /** 跟弹模式用时占比数据点 */
+  timeRatioPoints?: Array<{ gameSec: number; ratio: number }>;
 }
 
 export interface PracticeLoopRecord {

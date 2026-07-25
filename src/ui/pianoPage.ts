@@ -27,7 +27,7 @@ import { addHistoryEntry, getHistoryForSong } from './history';
 import { showResultScreen, type ResultPageElements } from './resultScreen';
 import { countdown } from './countdown';
 import { updateProgressBar, resetProgressBar } from './progressBar';
-import { updateScoreUI } from './scoreDisplay';
+import { updateScoreUI, resetScoreUI } from './scoreDisplay';
 import { MidiSetup } from './midiSetup';
 import { PracticeControls, type MeasureErrorInfo } from './practiceControls';
 
@@ -89,6 +89,8 @@ export class PianoPage {
   playback: PlaybackController | null = null;
   seeking = false;
   finalWallTimeSec = 0;
+  /** 当前游戏时间（秒），供实时准度图表使用 */
+  lastGameTimeSec = 0;
   /** 最后一次键盘弹奏的录制事件（用于回放） */
   lastRecordedEvents: import('../features/playback').MidiEventRecord[] = [];
   /** 最后一次弹奏的模式（用于回放时匹配正确的 freePlay） */
@@ -142,9 +144,23 @@ export class PianoPage {
   scoreComboEl: HTMLSpanElement;
   scoreJudgeEl: HTMLSpanElement;
   scoreWrongEl: HTMLSpanElement;
+  centerJudgeEl: HTMLDivElement;
 
   // 结果页
   resultElements: ResultPageElements;
+
+  // 实时准度面板
+  liveAccuracyPanel: HTMLDivElement;
+  liveAccuracyCanvas: HTMLCanvasElement;
+  liveTimelineCanvas: HTMLCanvasElement;
+  liveErrorCanvas: HTMLCanvasElement;
+  /** 用时占比面板 */
+  liveTimeRatioSection: HTMLDivElement;
+  liveTimeRatioCanvas: HTMLCanvasElement;
+  /** 实时准度数据点（时间, 准确率） */
+  liveAccuracyPoints: Array<{ timeSec: number; accuracy: number }> = [];
+  /** 用时占比数据点（游戏时间, 实际耗时比例%） */
+  liveTimeRatioPoints: Array<{ gameSec: number; ratio: number }> = [];
 
   // MIDI 设备
   midiSetup: MidiSetup;
@@ -185,6 +201,13 @@ export class PianoPage {
     resultElements: ResultPageElements;
     midiSetup: MidiSetup;
     fallingNotes: FallingNotesHandle;
+    liveAccuracyPanel: HTMLDivElement;
+    liveAccuracyCanvas: HTMLCanvasElement;
+    liveTimelineCanvas: HTMLCanvasElement;
+    liveErrorCanvas: HTMLCanvasElement;
+    centerJudgeEl: HTMLDivElement;
+    liveTimeRatioSection: HTMLDivElement;
+    liveTimeRatioCanvas: HTMLCanvasElement;
   }) {
     this.pianoPageEl = elements.pianoPageEl;
     this.scoreEl = elements.scoreEl;
@@ -218,6 +241,13 @@ export class PianoPage {
     this.resultElements = elements.resultElements;
     this.midiSetup = elements.midiSetup;
     this.fallingNotes = elements.fallingNotes;
+    this.liveAccuracyPanel = elements.liveAccuracyPanel;
+    this.liveAccuracyCanvas = elements.liveAccuracyCanvas;
+    this.liveTimelineCanvas = elements.liveTimelineCanvas;
+    this.liveErrorCanvas = elements.liveErrorCanvas;
+    this.centerJudgeEl = elements.centerJudgeEl;
+    this.liveTimeRatioSection = elements.liveTimeRatioSection;
+    this.liveTimeRatioCanvas = elements.liveTimeRatioCanvas;
     this.keyEls = createPianoKeyboard(this.keyboardHost);
     // 创建右键指法弹出菜单
     this.fingerMenuEl = this.createFingerMenu();
@@ -646,6 +676,7 @@ export class PianoPage {
           recordedEvents: this.lastRecordedEvents.length > 0
             ? this.lastRecordedEvents.map(e => ({ data: Array.from(e.data), wallTimeSec: e.wallTimeSec }))
             : undefined,
+          timeRatioPoints: this.liveTimeRatioPoints.length > 0 ? [...this.liveTimeRatioPoints] : undefined,
         };
         if (this.currentSongFile) {
           try { addHistoryEntry(entry); } catch { /* ignore */ }
@@ -674,6 +705,7 @@ export class PianoPage {
     this.practice.elements.sideHeader.hidden = false;
     this.practice.elements.sideScores.hidden = false;
     this.practice.elements.sideScores.innerHTML = '';
+    this.liveAccuracyPanel.hidden = true;
   }
 
   /* ── 播放逻辑 ── */
@@ -687,10 +719,33 @@ export class PianoPage {
     this.btnPlay.disabled = true;
     this.btnStop.disabled = false;
 
+    // 显示并重置实时面板
+    this.liveAccuracyPoints = [];
+    this.liveTimeRatioPoints = [];
+    this.lastGameTimeSec = 0;
+    resetScoreUI();
+    this.centerJudgeEl.className = 'center-judge';
+    this.centerJudgeEl.textContent = '';
+    this.liveAccuracyPanel.hidden = false;
+    // 先清空所有 canvas 避免上一局残留
+    for (const c of [this.liveTimelineCanvas, this.liveErrorCanvas, this.liveAccuracyCanvas, this.liveTimeRatioCanvas]) {
+      const w = this.liveAccuracyPanel.clientWidth - 28;
+      const ctx = c.getContext('2d');
+      if (ctx) { c.width = w * (window.devicePixelRatio || 1); ctx.clearRect(0, 0, c.width, c.height); }
+    }
+    this.renderLiveTimelineChart();
+    this.renderLiveErrorChart();
+    this.renderLiveAccuracyChart();
+
     const mode = this.getPlayMode();
+    this.liveTimeRatioSection.hidden = mode !== 'keyboard';
+
     const settings = loadSettings();
 
     const onPlaybackEnded = (completed?: boolean) => {
+      // 隐藏实时准度面板
+      this.liveAccuracyPanel.hidden = true;
+
       // 保存录制事件和模式（用于回放）
       this.lastRecordedEvents = this.playback?.getRecordedEvents?.() ?? [];
       this.lastRecordedMode = mode;
@@ -722,6 +777,7 @@ export class PianoPage {
           recordedEvents: this.lastRecordedEvents.length > 0
             ? this.lastRecordedEvents.map(e => ({ data: Array.from(e.data), wallTimeSec: e.wallTimeSec }))
             : undefined,
+          timeRatioPoints: this.liveTimeRatioPoints.length > 0 ? [...this.liveTimeRatioPoints] : undefined,
         };
         if (this.currentSongFile) {
           try { addHistoryEntry(entry); } catch { /* 忽略存储错误 */ }
@@ -880,6 +936,7 @@ export class PianoPage {
           onLoopEnded,
           (t) => {
             const absTime = this.practiceLoopStartTimeSec + t;
+            this.lastGameTimeSec = absTime;
             this.updateScorePlayhead(absTime);
             updateProgressBar(this.progressBar, this.progressTime, absTime, this.totalDurationSec, this.seeking);
             const currentTick = startTick + midi.header.secondsToTicks(t);
@@ -889,7 +946,7 @@ export class PianoPage {
           },
           (s) => this.fallingNotes.updateKeyboardPractice(s),
           this.scoringEngine,
-          (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); },
+          (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); this.updateLiveAccuracyFromEngine(); },
           false,
           settings.playbackSpeed,
           (wallSec) => { this.practiceCurrentWallSec = wallSec; },
@@ -919,12 +976,13 @@ export class PianoPage {
         input,
         onPlaybackEnded,
         (t) => {
+          this.lastGameTimeSec = t;
           this.updateScorePlayhead(t);
           updateProgressBar(this.progressBar, this.progressTime, t, this.totalDurationSec, this.seeking);
         },
         (s) => this.fallingNotes.updateKeyboardPractice(s),
         this.scoringEngine,
-        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); },
+        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); this.updateLiveAccuracyFromEngine(); },
         true,
         settings.playbackSpeed,
         undefined,
@@ -954,13 +1012,14 @@ export class PianoPage {
         input,
         onPlaybackEnded,
         (t) => {
+          this.lastGameTimeSec = t;
           this.updateScorePlayhead(t);
           updateProgressBar(this.progressBar, this.progressTime, t, this.totalDurationSec, this.seeking);
           lastGameTimeSec = t;
         },
         (s) => this.fallingNotes.updateKeyboardPractice(s),
         this.scoringEngine,
-        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); },
+        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); this.updateLiveAccuracyFromEngine(); },
         false,
         settings.playbackSpeed,
         (wallSec) => {
@@ -968,6 +1027,12 @@ export class PianoPage {
           const refTimeSec = lastGameTimeSec > 0 ? lastGameTimeSec : this.totalDurationSec;
           const pct = refTimeSec > 0 ? Math.max(0, (wallSec / refTimeSec) * 100) : 0;
           this.practiceTime.textContent = `用时 ${formatTime(wallSec)} · ${pct.toFixed(1)}%`;
+          // 至少命中一个音符后开始记录（MISS 不算，因为跟弹模式会自动 MISS 未弹音符）
+          const hasHit = this.scoringEngine.noteResults.some(n => n.judgement !== 'MISS');
+          if (lastGameTimeSec > 1 && hasHit) {
+            this.liveTimeRatioPoints.push({ gameSec: wallSec, ratio: wallSec / lastGameTimeSec * 100 });
+            this.renderLiveTimeRatioChart();
+          }
         },
         (pressed) => this.updateChordDisplay(pressed),
         undefined,
@@ -1602,7 +1667,7 @@ export class PianoPage {
   /* ── Score 渲染辅助 ── */
 
   private scoreElements() {
-    return { valueEl: this.scoreValueEl, accuEl: this.scoreAccuEl, comboEl: this.scoreComboEl, judgeEl: this.scoreJudgeEl, wrongEl: this.scoreWrongEl };
+    return { valueEl: this.scoreValueEl, accuEl: this.scoreAccuEl, comboEl: this.scoreComboEl, judgeEl: this.scoreJudgeEl, wrongEl: this.scoreWrongEl, centerJudgeEl: this.centerJudgeEl };
   }
 
   /** 已推入预览线的最新结果索引 */
@@ -1622,6 +1687,362 @@ export class PianoPage {
     }
     this.lastPushedResultIdx = results.length;
     this.fallingNotes.tickMarkerTime(wallSec);
+  }
+
+  /** 从计分引擎同步所有实时图表 */
+  private updateLiveAccuracyFromEngine(): void {
+    this.renderLiveTimelineChart();
+    this.renderLiveErrorChart();
+
+    // 准度曲线需要额外计算数据点
+    const results = this.scoringEngine.noteResults;
+    if (results.length === 0) return;
+
+    // 按时间升序排列，计算每个位置的累计准度
+    const sorted = [...results].sort((a, b) => a.time - b.time);
+
+    const ACCU_WEIGHT: Record<string, number> = {
+      PERFECT: 320, OK: 150, BAD: 50, MISS: 0,
+    };
+
+    const points: Array<{ timeSec: number; accuracy: number }> = [];
+    let achieved = 0;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const n = sorted[i];
+      achieved += ACCU_WEIGHT[n.judgement] ?? 0;
+      const acc = achieved / (320 * (i + 1));
+      points.push({ timeSec: n.time, accuracy: acc });
+    }
+
+    this.liveAccuracyPoints = points;
+    this.renderLiveAccuracyChart();
+  }
+
+  /** 读取当前主题配色（适配亮/暗模式） */
+  private getChartTheme() {
+    const s = getComputedStyle(document.body);
+    return {
+      bg: s.getPropertyValue('--bg-secondary').trim() || '#f1f3f6',
+      surface: s.getPropertyValue('--surface').trim() || '#ffffff',
+      border: s.getPropertyValue('--border').trim() || '#e5e3ed',
+      text: s.getPropertyValue('--text').trim() || '#1c1b22',
+      muted: s.getPropertyValue('--muted').trim() || '#6b6978',
+      accent: s.getPropertyValue('--accent').trim() || '#4f6ef7',
+    };
+  }
+
+  /** 绘制实时准度曲线到左侧面板 Canvas */
+  private renderLiveAccuracyChart(): void {
+    const canvas = this.liveAccuracyCanvas;
+    const points = this.liveAccuracyPoints;
+    const dpr = window.devicePixelRatio || 1;
+    const t = this.getChartTheme();
+
+    const containerW = this.liveAccuracyPanel.clientWidth - 28;
+    const h = 138;
+    canvas.style.width = `${containerW}px`;
+    canvas.style.height = `${h}px`;
+    canvas.width = containerW * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(dpr, dpr);
+
+    // 背景
+    ctx.fillStyle = t.surface;
+    ctx.fillRect(0, 0, containerW, h);
+
+    if (points.length === 0) {
+      ctx.fillStyle = t.muted;
+      ctx.font = '11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('等待弹奏...', containerW / 2, h / 2);
+      ctx.textAlign = 'start';
+      return;
+    }
+
+    const padding = { top: 8, right: 10, bottom: 16, left: 28 };
+    const plotW = containerW - padding.left - padding.right;
+    const plotH = h - padding.top - padding.bottom;
+
+    let minAcc = 1, maxAcc = 0;
+    for (const p of points) { if (p.accuracy < minAcc) minAcc = p.accuracy; if (p.accuracy > maxAcc) maxAcc = p.accuracy; }
+    const yMin = Math.max(0, Math.floor((minAcc * 100 - 5) / 10) * 10);
+    const effectiveYRange = Math.max(10, 100 - yMin);
+
+    const maxTime = points[points.length - 1].timeSec;
+    const duration = Math.max(maxTime + 1, 1);
+    const timeToX = (v: number) => padding.left + (v / duration) * plotW;
+    const accToY = (a: number) => padding.top + (1 - (a * 100 - yMin) / effectiveYRange) * plotH;
+
+    // 网格
+    ctx.strokeStyle = t.border;
+    ctx.lineWidth = 0.5;
+    const gridSteps = 4;
+    for (let i = 0; i <= gridSteps; i++) {
+      const y = accToY((yMin + (i / gridSteps) * effectiveYRange) / 100);
+      ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + plotW, y); ctx.stroke();
+    }
+
+    // 100% 虚线
+    ctx.strokeStyle = t.muted;
+    ctx.setLineDash([3, 3]);
+    const y100 = accToY(1);
+    if (y100 >= padding.top) { ctx.beginPath(); ctx.moveTo(padding.left, y100); ctx.lineTo(padding.left + plotW, y100); ctx.stroke(); }
+    ctx.setLineDash([]);
+
+    // 填充
+    if (points.length > 1) {
+      const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotH);
+      grad.addColorStop(0, t.accent + '26');
+      grad.addColorStop(1, t.accent + '05');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(timeToX(points[0].timeSec), padding.top + plotH);
+      for (const p of points) ctx.lineTo(timeToX(p.timeSec), accToY(p.accuracy));
+      ctx.lineTo(timeToX(points[points.length - 1].timeSec), padding.top + plotH);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // 曲线
+    if (points.length > 1) {
+      ctx.strokeStyle = t.accent;
+      ctx.lineWidth = 1.4;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(timeToX(points[0].timeSec), accToY(points[0].accuracy));
+      for (const p of points) ctx.lineTo(timeToX(p.timeSec), accToY(p.accuracy));
+      ctx.stroke();
+    }
+
+    // Y 标签
+    ctx.fillStyle = t.muted;
+    ctx.font = '8px system-ui';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= gridSteps; i++) {
+      const pct = yMin + (i / gridSteps) * effectiveYRange;
+      ctx.fillText(`${Math.round(pct)}%`, padding.left - 3, accToY(pct / 100) + 3);
+    }
+    ctx.textAlign = 'start';
+
+    // 低于 90% 警告
+    if (minAcc < 0.9) {
+      ctx.fillStyle = 'rgba(239,68,68,0.07)';
+      ctx.fillRect(padding.left, accToY(0.9), plotW, padding.top + plotH - accToY(0.9));
+    }
+  }
+
+  /** 绘制实时判定时间线 */
+  private renderLiveTimelineChart(): void {
+    const canvas = this.liveTimelineCanvas;
+    const notes = this.scoringEngine.noteResults;
+    const wrongs = this.scoringEngine.wrongKeyRecords;
+    const dpr = window.devicePixelRatio || 1;
+    const t = this.getChartTheme();
+
+    const containerW = this.liveAccuracyPanel.clientWidth - 28;
+    const h = 118;
+    canvas.style.width = `${containerW}px`;
+    canvas.style.height = `${h}px`;
+    canvas.width = containerW * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = t.surface;
+    ctx.fillRect(0, 0, containerW, h);
+
+    if (notes.length === 0 && wrongs.length === 0) {
+      ctx.fillStyle = t.muted;
+      ctx.font = '11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('等待弹奏...', containerW / 2, h / 2);
+      ctx.textAlign = 'start';
+      return;
+    }
+
+    let maxTime = 0;
+    for (const n of notes) maxTime = Math.max(maxTime, n.time);
+    for (const w of wrongs) maxTime = Math.max(maxTime, w.timeSec);
+    if (maxTime <= 0) maxTime = 10;
+    const duration = maxTime + 2;
+
+    const padding = { top: 6, right: 4, bottom: 2, left: 4 };
+    const plotW = containerW - padding.left - padding.right;
+    const plotH = h - padding.top - padding.bottom;
+    const timeToX = (v: number) => padding.left + (v / duration) * plotW;
+
+    const midiMin = 21, midiMax = 108;
+    const midiToY = (midi: number) => padding.top + (1 - (midi - midiMin) / (midiMax - midiMin)) * plotH;
+
+    const barH = Math.max(1.2, plotH / 88);
+    const barW = Math.max(1.5, containerW / 200);
+    for (const n of notes) {
+      const x = timeToX(n.time);
+      const y = midiToY(n.midi) - barH / 2;
+      ctx.fillStyle = n.judgement === 'PERFECT' ? '#f59e0b' : n.judgement === 'OK' ? '#8b5cf6' : n.judgement === 'BAD' ? '#f97316' : '#ef4444';
+            ctx.fillRect(x, y, barW, Math.max(1, barH));
+          }
+
+          for (const w of wrongs) {
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(timeToX(w.timeSec), midiToY(w.midi), 2, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+
+        /** 绘制实时按键偏差散点 */
+        private renderLiveErrorChart(): void {
+          const canvas = this.liveErrorCanvas;
+          const notes = this.scoringEngine.noteResults;
+          const dpr = window.devicePixelRatio || 1;
+          const t = this.getChartTheme();
+
+          const containerW = this.liveAccuracyPanel.clientWidth - 28;
+          const h = 118;
+          canvas.style.width = `${containerW}px`;
+          canvas.style.height = `${h}px`;
+          canvas.width = containerW * dpr;
+          canvas.height = h * dpr;
+          const ctx = canvas.getContext('2d')!;
+          ctx.scale(dpr, dpr);
+
+          ctx.fillStyle = t.surface;
+          ctx.fillRect(0, 0, containerW, h);
+
+          if (notes.length === 0) {
+            ctx.fillStyle = t.muted;
+            ctx.font = '11px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText('等待弹奏...', containerW / 2, h / 2);
+            ctx.textAlign = 'start';
+            return;
+          }
+
+          const adjustMs = this.scoringEngine.offsetAdjustMs;
+          const offsets = notes.map(n => n.offsetMs - adjustMs);
+          let maxAbs = 200;
+          for (const o of offsets) maxAbs = Math.max(maxAbs, Math.abs(o));
+          maxAbs = Math.ceil(maxAbs / 50) * 50;
+
+          const padding = { top: 8, right: 6, bottom: 2, left: 26 };
+          const plotW = containerW - padding.left - padding.right;
+          const plotH = h - padding.top - padding.bottom;
+          const yToPx = (o: number) => padding.top + plotH / 2 - (o / maxAbs) * (plotH / 2);
+
+          ctx.strokeStyle = t.muted;
+          ctx.lineWidth = 0.5;
+          ctx.setLineDash([3, 3]);
+          const zeroY = yToPx(0);
+          ctx.beginPath(); ctx.moveTo(padding.left, zeroY); ctx.lineTo(padding.left + plotW, zeroY); ctx.stroke();
+          ctx.setLineDash([]);
+
+          const maxTime = notes[notes.length - 1].time;
+          const duration = Math.max(maxTime + 1, 1);
+          const timeToX = (v: number) => padding.left + (v / duration) * plotW;
+
+          for (const n of notes) {
+            const adjMs = n.offsetMs - adjustMs;
+            ctx.fillStyle = n.judgement === 'PERFECT' ? '#f59e0b' : n.judgement === 'OK' ? '#8b5cf6' : n.judgement === 'BAD' ? '#f97316' : '#ef4444';
+            ctx.beginPath(); ctx.arc(timeToX(n.time), yToPx(adjMs), 2, 0, Math.PI * 2); ctx.fill();
+          }
+
+          // 平均偏差线
+          const avgMs = offsets.length > 0 ? offsets.reduce((a, b) => a + b, 0) / offsets.length : 0;
+          const avgY = yToPx(avgMs);
+          ctx.strokeStyle = t.accent;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath(); ctx.moveTo(padding.left, avgY); ctx.lineTo(padding.left + plotW, avgY); ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Y 标签 (±ms)
+          ctx.fillStyle = t.muted;
+          ctx.font = '7px system-ui';
+          ctx.textAlign = 'right';
+          ctx.fillText(`+${maxAbs}`, padding.left - 3, yToPx(maxAbs) + 3);
+          ctx.fillText('0', padding.left - 3, zeroY + 3);
+          ctx.fillText(`-${maxAbs}`, padding.left - 3, yToPx(-maxAbs) + 3);
+          ctx.textAlign = 'start';
+  }
+
+  /** 绘制实时用时占比曲线（跟弹模式） */
+  private renderLiveTimeRatioChart(): void {
+    const canvas = this.liveTimeRatioCanvas;
+    const points = this.liveTimeRatioPoints;
+    const dpr = window.devicePixelRatio || 1;
+    const t = this.getChartTheme();
+
+    const containerW = this.liveAccuracyPanel.clientWidth - 28;
+    const h = 118;
+    canvas.style.width = `${containerW}px`;
+    canvas.style.height = `${h}px`;
+    canvas.width = containerW * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = t.surface;
+    ctx.fillRect(0, 0, containerW, h);
+
+    if (points.length === 0) {
+      ctx.fillStyle = t.muted;
+      ctx.font = '11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('等待弹奏...', containerW / 2, h / 2);
+      ctx.textAlign = 'start';
+      return;
+    }
+
+    const padding = { top: 8, right: 6, bottom: 2, left: 26 };
+    const plotW = containerW - padding.left - padding.right;
+    const plotH = h - padding.top - padding.bottom;
+
+    const maxGameSec = points[points.length - 1].gameSec;
+    const maxRatio = Math.max(100, ...points.map(p => p.ratio));
+
+    const timeToX = (v: number) => padding.left + (v / maxGameSec) * plotW;
+    const ratioToY = (r: number) => padding.top + (1 - Math.min(r, maxRatio) / maxRatio) * plotH;
+
+    // 100% 参考线
+    const y100 = ratioToY(100);
+    ctx.strokeStyle = t.muted;
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(padding.left, y100); ctx.lineTo(padding.left + plotW, y100); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 填充区域
+    if (points.length > 1) {
+      const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotH);
+      const color = maxRatio <= 100 ? t.accent : '#ef4444';
+      grad.addColorStop(0, color + '30');
+      grad.addColorStop(1, color + '05');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, padding.top + plotH);
+      for (const p of points) ctx.lineTo(timeToX(p.gameSec), ratioToY(Math.min(p.ratio, maxRatio)));
+      ctx.lineTo(timeToX(points[points.length - 1].gameSec), padding.top + plotH);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // 曲线
+    if (points.length > 1) {
+      ctx.strokeStyle = maxRatio <= 100 ? t.accent : '#ef4444';
+      ctx.lineWidth = 1.2;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(timeToX(points[0].gameSec), ratioToY(Math.min(points[0].ratio, maxRatio)));
+      for (const p of points) ctx.lineTo(timeToX(p.gameSec), ratioToY(Math.min(p.ratio, maxRatio)));
+      ctx.stroke();
+    }
+
+    // Y 标签
+    ctx.fillStyle = t.muted;
+    ctx.font = '7px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${Math.round(maxRatio)}%`, padding.left - 3, ratioToY(maxRatio) + 3);
+    ctx.fillText('100%', padding.left - 3, y100 + 3);
+    ctx.textAlign = 'start';
   }
 
   private renderStaffImage(stripEl: HTMLElement, midi: Midi, measureWidth: number): void {

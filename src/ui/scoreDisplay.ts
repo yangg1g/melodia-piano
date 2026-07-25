@@ -3,6 +3,14 @@
  */
 import type { ScoreState } from '../core/scoring';
 
+let lastTotalHits = -1;
+let lastWrongKeys = 0;
+
+export function resetScoreUI(): void {
+  lastTotalHits = -1;
+  lastWrongKeys = 0;
+}
+
 export function updateScoreUI(
   state: ScoreState,
   elements: {
@@ -11,6 +19,7 @@ export function updateScoreUI(
     comboEl: HTMLSpanElement;
     judgeEl: HTMLSpanElement;
     wrongEl: HTMLSpanElement;
+    centerJudgeEl?: HTMLDivElement;
   },
 ): void {
   elements.valueEl.textContent = `${state.score.toLocaleString()}`;
@@ -41,5 +50,26 @@ export function updateScoreUI(
     requestAnimationFrame(() => {
       elements.judgeEl.classList.add(`judge--${state.lastJudgement!.toLowerCase()}`);
     });
+  }
+
+  // 居中判定大字 — 每次击键命中/失误/错键时重播
+  if (elements.centerJudgeEl) {
+    const judgeMap: Record<string, string> = { PERFECT: 'PERFECT', OK: 'OK', BAD: 'BAD', MISS: 'MISS' };
+    if (state.lastJudgement && state.totalHits !== lastTotalHits) {
+      lastTotalHits = state.totalHits;
+      const el = elements.centerJudgeEl;
+      el.textContent = judgeMap[state.lastJudgement] ?? '';
+      el.className = 'center-judge';
+      void el.offsetWidth;
+      el.className = `center-judge center-judge--${state.lastJudgement.toLowerCase()}`;
+    }
+    if (state.wrongKeys !== lastWrongKeys) {
+      lastWrongKeys = state.wrongKeys;
+      const el = elements.centerJudgeEl;
+      el.textContent = 'WRONG';
+      el.className = 'center-judge';
+      void el.offsetWidth;
+      el.className = 'center-judge center-judge--wrong';
+    }
   }
 }

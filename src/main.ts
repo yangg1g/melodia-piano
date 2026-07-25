@@ -128,6 +128,7 @@ app.innerHTML = `
         <p class="hint" id="keyboard-hint"></p>
         <div id="keyboard-stack" class="keyboard-stack">
           <div id="keyboard-host"></div>
+          <div id="center-judge" class="center-judge"></div>
         </div>
       </section>
     </main>
@@ -145,6 +146,25 @@ app.innerHTML = `
       </div>
       <div class="practice-side-panel-header" id="practice-side-header">练习记录</div>
       <div id="practice-side-scores" class="practice-side-scores"></div>
+    </div>
+    <div id="live-accuracy-panel" class="live-accuracy-panel" hidden>
+      <div class="live-accuracy-panel-header">实时图表</div>
+      <div class="live-chart-section">
+        <div class="live-chart-title">判定时间线</div>
+        <canvas id="live-timeline-canvas" class="live-accuracy-canvas"></canvas>
+      </div>
+      <div class="live-chart-section">
+        <div class="live-chart-title">按键偏差</div>
+        <canvas id="live-error-canvas" class="live-accuracy-canvas"></canvas>
+      </div>
+      <div class="live-chart-section">
+        <div class="live-chart-title">实时准度</div>
+        <canvas id="live-accuracy-canvas" class="live-accuracy-canvas"></canvas>
+      </div>
+      <div class="live-chart-section" id="live-time-ratio-section" hidden>
+        <div class="live-chart-title">用时占比</div>
+        <canvas id="live-time-ratio-canvas" class="live-accuracy-canvas"></canvas>
+      </div>
     </div>
   </div>
 
@@ -186,6 +206,14 @@ app.innerHTML = `
       <div class="result-error-section">
         <div class="result-error-header"><span class="result-error-title">按键偏差曲线</span><span class="result-error-avg" id="result-avg-error">平均偏差 0.0ms</span></div>
         <div class="result-chart-wrap"><canvas id="result-error-curve-canvas" class="result-chart-canvas"></canvas></div>
+      </div>
+      <div class="result-error-section">
+        <div class="result-error-header"><span class="result-error-title">实时准度曲线</span><span class="result-error-avg" id="result-accuracy-curve-info"></span></div>
+        <div class="result-chart-wrap"><canvas id="result-accuracy-curve-canvas" class="result-chart-canvas"></canvas></div>
+      </div>
+      <div class="result-error-section" id="result-time-ratio-section" hidden>
+        <div class="result-error-header"><span class="result-error-title">用时占比曲线</span><span class="result-error-avg" id="result-time-ratio-info"></span></div>
+        <div class="result-chart-wrap"><canvas id="result-time-ratio-canvas" class="result-chart-canvas"></canvas></div>
       </div>
       <div class="result-buttons">
         <button type="button" id="result-replay-btn" class="btn secondary result-replay-btn" hidden>回放</button>
@@ -292,6 +320,7 @@ const scoreScrollEl = document.querySelector<HTMLDivElement>('#score-scroll')!;
 const scorePagerEl = document.querySelector<HTMLDivElement>('#score-pager')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
 const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
+const centerJudgeEl = document.querySelector<HTMLDivElement>('#center-judge')!;
 const keyboardHint = document.querySelector<HTMLParagraphElement>('#keyboard-hint')!;
 const chordDisplay = document.querySelector<HTMLDivElement>('#chord-display')!;
 const chordDisplayNotes = document.querySelector<HTMLSpanElement>('#chord-display-notes')!;
@@ -301,6 +330,12 @@ const progressBar = document.querySelector<HTMLInputElement>('#progress-bar')!;
 const progressTime = document.querySelector<HTMLSpanElement>('#progress-time')!;
 const practiceTime = document.querySelector<HTMLSpanElement>('#practice-time')!;
 const scoreDisplay = document.querySelector<HTMLDivElement>('#score-display')!;
+const liveAccuracyPanel = document.querySelector<HTMLDivElement>('#live-accuracy-panel')!;
+const liveAccuracyCanvas = document.querySelector<HTMLCanvasElement>('#live-accuracy-canvas')!;
+const liveTimelineCanvas = document.querySelector<HTMLCanvasElement>('#live-timeline-canvas')!;
+const liveErrorCanvas = document.querySelector<HTMLCanvasElement>('#live-error-canvas')!;
+const liveTimeRatioSection = document.querySelector<HTMLDivElement>('#live-time-ratio-section')!;
+const liveTimeRatioCanvas = document.querySelector<HTMLCanvasElement>('#live-time-ratio-canvas')!;
 const scoreValueEl = document.querySelector<HTMLSpanElement>('#score-value')!;
 const scoreAccuEl = document.querySelector<HTMLSpanElement>('#score-accu')!;
 const scoreComboEl = document.querySelector<HTMLSpanElement>('#score-combo')!;
@@ -381,7 +416,12 @@ const resultElements = {
   timingSlower: document.querySelector<HTMLSpanElement>('#result-timing-slower')!,
   chartCanvas: document.querySelector<HTMLCanvasElement>('#result-chart-canvas')!,
   errorCurveCanvas: document.querySelector<HTMLCanvasElement>('#result-error-curve-canvas')!,
+  accuracyCurveCanvas: document.querySelector<HTMLCanvasElement>('#result-accuracy-curve-canvas')!,
   avgErrorEl: document.querySelector<HTMLSpanElement>('#result-avg-error')!,
+  accuracyCurveInfoEl: document.querySelector<HTMLSpanElement>('#result-accuracy-curve-info')!,
+  timeRatioSection: document.querySelector<HTMLDivElement>('#result-time-ratio-section')!,
+  timeRatioCanvas: document.querySelector<HTMLCanvasElement>('#result-time-ratio-canvas')!,
+  timeRatioInfoEl: document.querySelector<HTMLSpanElement>('#result-time-ratio-info')!,
   replayBtn: resultReplayBtn,
 };
 
@@ -392,6 +432,8 @@ const pianoPage = new PianoPage({
   btnPlay, btnStop, btnEdit, btnFinger, btnSlur, btnTie, btnStem, btnSaveEdits, editToolbar,
   scoreValueEl, scoreAccuEl, scoreComboEl, scoreJudgeEl, scoreWrongEl,
   resultElements, midiSetup, fallingNotes,
+  liveAccuracyPanel, liveAccuracyCanvas, liveTimelineCanvas, liveErrorCanvas, centerJudgeEl,
+  liveTimeRatioSection, liveTimeRatioCanvas,
 });
 
 pianoPage.onGoBack = () => showSongList();

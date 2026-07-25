@@ -158,7 +158,7 @@ export class PracticeControls {
       const isBest = i === bestIdx && this.records.length > 1;
       const cls = isBest ? 'practice-side-score-item practice-side-score-item--best' : 'practice-side-score-item';
       const timePct = r.loopDurationSec > 0 ? (r.elapsedSec / r.loopDurationSec) * 100 : 0;
-      const timeColor = timePct <= 100 ? '#22c55e' : timePct <= 130 ? '#fbbf24' : '#ef4444';
+      const timeColor = timePct <= 100 ? '#22c55e' : timePct <= 130 ? '#f59e0b' : '#ef4444';
       return `<div class="${cls}">
         <div class="practice-side-score-row">
           <span class="practice-side-score-round">#${r.round}</span>

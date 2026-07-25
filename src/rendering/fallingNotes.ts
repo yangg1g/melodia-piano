@@ -285,13 +285,13 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
     };
 
     const grad = ctx.createLinearGradient(0, 0, w, 0);
-    grad.addColorStop(0, '#fb923c');                                            // -bad: BAD 橙
-    grad.addColorStop((bad - ok) / (2 * bad), '#a78bfa');                       // -ok: OK 紫
-    grad.addColorStop((bad - perfect) / (2 * bad), '#fbbf24');                  // -perfect: PERFECT 黄
-    grad.addColorStop(0.5, '#fbbf24');                                          // 0: PERFECT 黄
-    grad.addColorStop((bad + perfect) / (2 * bad), '#fbbf24');                  // +perfect: PERFECT 黄
-    grad.addColorStop((bad + ok) / (2 * bad), '#a78bfa');                       // +ok: OK 紫
-    grad.addColorStop(1, '#fb923c');                                            // +bad: BAD 橙
+    grad.addColorStop(0, '#f97316');
+    grad.addColorStop((bad - ok) / (2 * bad), '#8b5cf6');
+    grad.addColorStop((bad - perfect) / (2 * bad), '#f59e0b');
+    grad.addColorStop(0.5, '#f59e0b');
+    grad.addColorStop((bad + perfect) / (2 * bad), '#f59e0b');
+    grad.addColorStop((bad + ok) / (2 * bad), '#8b5cf6');
+    grad.addColorStop(1, '#f97316');
 
     ctx.strokeStyle = grad;
     ctx.globalAlpha = 0.7;
@@ -311,9 +311,9 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       const r = 2 + (1 - age / PREVIEW_WINDOW_SEC) * 3;
 
       let color: string;
-      if (m.judgement === 'PERFECT') color = '#fbbf24';
-      else if (m.judgement === 'OK') color = '#a78bfa';
-      else color = '#fb923c';
+      if (m.judgement === 'PERFECT') color = '#f59e0b';
+      else if (m.judgement === 'OK') color = '#8b5cf6';
+      else color = '#f97316';
 
       ctx.fillStyle = color;
       ctx.globalAlpha = opacity;
