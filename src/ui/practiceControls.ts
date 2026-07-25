@@ -17,6 +17,23 @@ export interface PracticeControlElements {
   sideHeader: HTMLDivElement;
   sideScores: HTMLDivElement;
   progressBar: HTMLInputElement;
+  /** 左侧错误分析面板 */
+  leftPanel: HTMLDivElement;
+  leftContent: HTMLDivElement;
+  /** 合并小节数 */
+  groupSizeInput: HTMLInputElement;
+}
+
+/** 小节错误分析条目 */
+export interface MeasureErrorInfo {
+  measureNumber: number;  // 显示起始序号（1-based）
+  measureIndex: number;   // 曲目内起始 0-based 索引
+  measureEndIndex: number; // 结束索引（含）
+  errorCount: number;     // 总错误数
+  missCount: number;
+  badCount: number;
+  wrongCount: number;
+  totalNotes: number;     // 该区域音符总数
 }
 
 export class PracticeControls {
@@ -26,6 +43,10 @@ export class PracticeControls {
   loopRound = 0;
   records: PracticeLoopRecord[] = [];
   bestScore = 0;
+  measureErrors: MeasureErrorInfo[] = [];
+  onJumpToMeasure: ((measureStart: number, measureEnd: number) => void) | null = null;
+  onGroupSizeChange: (() => void) | null = null;
+  measureGroupSize = 1;
 
   elements: PracticeControlElements;
 
@@ -40,6 +61,7 @@ export class PracticeControls {
     this.loopRound = 0;
     this.records = [];
     this.bestScore = 0;
+    this.measureErrors = [];
     this.updateUI();
   }
 
@@ -48,6 +70,18 @@ export class PracticeControls {
     this.records.push(record);
     if (record.score > this.bestScore) this.bestScore = record.score;
     this.updateUI();
+  }
+
+  /** 更新小节错误分析数据（渲染到左侧面板） */
+  setMeasureErrors(errors: MeasureErrorInfo[]): void {
+    this.measureErrors = errors;
+    this.renderMeasureErrorsLeft();
+  }
+
+  /** 清除小节错误分析 */
+  clearMeasureErrors(): void {
+    this.measureErrors = [];
+    this.renderMeasureErrorsLeft();
   }
 
   /** 获取最佳一轮记录 */
@@ -105,10 +139,13 @@ export class PracticeControls {
   }
 
   private renderSidePanel(): void {
-    if (this.records.length === 0) {
-      this.elements.sideScores.innerHTML = '<div class="practice-side-empty">暂无循环记录</div>';
-      return;
-    }
+    const scoresHtml = this.records.length === 0
+      ? '<div class="practice-side-empty">暂无循环记录</div>'
+      : this.renderRoundScores();
+    this.elements.sideScores.innerHTML = scoresHtml;
+  }
+
+  private renderRoundScores(): string {
     let bestIdx = 0;
     let bestScore = 0;
     for (let i = 0; i < this.records.length; i++) {
@@ -117,7 +154,7 @@ export class PracticeControls {
         bestIdx = i;
       }
     }
-    this.elements.sideScores.innerHTML = this.records.map((r, i) => {
+    return this.records.map((r, i) => {
       const isBest = i === bestIdx && this.records.length > 1;
       const cls = isBest ? 'practice-side-score-item practice-side-score-item--best' : 'practice-side-score-item';
       const timePct = r.loopDurationSec > 0 ? (r.elapsedSec / r.loopDurationSec) * 100 : 0;
@@ -133,5 +170,52 @@ export class PracticeControls {
         </div>
       </div>`;
     }).join('');
+  }
+
+  /** 渲染小节错误分析到左侧面板 */
+  private renderMeasureErrorsLeft(): void {
+    const container = this.elements.leftContent;
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (this.measureErrors.length === 0) {
+      container.innerHTML = '<div class="practice-left-empty">暂无错误分析数据</div>';
+      return;
+    }
+
+    for (const info of this.measureErrors) {
+      const item = document.createElement('div');
+      item.className = 'practice-measure-error-item';
+      const measureLabel = info.measureIndex === info.measureEndIndex
+        ? `第 ${info.measureNumber} 小节`
+        : `第 ${info.measureNumber}–${info.measureNumber + (info.measureEndIndex - info.measureIndex)} 小节`;
+      item.title = `点击跳转到 ${measureLabel}`;
+
+      const barPct = this.measureErrors.length > 0 && this.measureErrors[0].errorCount > 0
+        ? (info.errorCount / this.measureErrors[0].errorCount) * 100
+        : 0;
+
+      item.innerHTML = `
+        <div class="practice-measure-error-row">
+          <span class="practice-measure-error-measure">${measureLabel}</span>
+          <span class="practice-measure-error-count">${info.errorCount} 处</span>
+        </div>
+        <div class="practice-measure-error-detail">
+          <span class="practice-measure-error-detail-item detail--miss">MISS ${info.missCount}</span>
+          <span class="practice-measure-error-detail-item detail--bad">BAD ${info.badCount}</span>
+          <span class="practice-measure-error-detail-item detail--wrong">错键 ${info.wrongCount}</span>
+          <span class="practice-measure-error-detail-item detail--notes">${info.totalNotes}音</span>
+        </div>
+        <div class="practice-measure-error-bar">
+          <div class="practice-measure-error-bar-fill" style="width:${barPct}%"></div>
+        </div>
+      `;
+
+      item.addEventListener('click', () => {
+        this.onJumpToMeasure?.(info.measureIndex, info.measureEndIndex);
+      });
+
+      container.appendChild(item);
+    }
   }
 }

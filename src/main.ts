@@ -108,6 +108,10 @@ app.innerHTML = `
         <span class="practice-loop-counter" id="practice-loop-counter">第 1 轮</span>
         <span class="practice-loop-best" id="practice-loop-best"></span>
       </div>
+      <div class="practice-group-size">
+        <span class="practice-group-size-label">合并小节</span>
+        <input type="number" class="practice-measure-input" id="practice-group-size-input" value="1" min="1" max="50" step="1" />
+      </div>
     </div>
     <main class="main">
       <div id="score-scroll" class="score-scroll">
@@ -125,6 +129,10 @@ app.innerHTML = `
         </div>
       </section>
     </main>
+    <div id="practice-left-panel" class="practice-left-panel" hidden>
+      <div class="practice-left-panel-header">错误分析</div>
+      <div id="practice-left-content" class="practice-left-content"></div>
+    </div>
     <div id="practice-side-panel" class="practice-side-panel" hidden>
       <div id="score-display" class="score-display score-display--side" hidden>
         <span class="score-display-score" id="score-value">0</span>

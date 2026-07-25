@@ -84,6 +84,7 @@ export function startKeyboardPractice(
   speedMultiplier = 1,
   onWallTimeSec?: (wallSec: number) => void,
   onChordUpdate?: (pressed: Set<number>) => void,
+  initialGameTimeSec?: number,
 ): PlaybackController {
   // 每次弹奏创建新的日志文件
   resetLogFile();
@@ -144,6 +145,7 @@ export function startKeyboardPractice(
     scoring,
     getHandForNote: (note) => assignHandForNote(note, midiFile),
     startWallTimeMs,
+    initialGameTimeSec,
   });
 
   // 动画帧循环

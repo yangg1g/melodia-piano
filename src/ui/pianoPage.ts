@@ -21,13 +21,13 @@ import { ScoringEngine } from '../core/scoring';
 import { ensurePiano } from '../audio/salamanderPiano';
 import type { PlayMode, PlayHistoryEntry } from '../core/types';
 import { loadSettings } from './settings';
-import { addHistoryEntry } from './history';
+import { addHistoryEntry, getHistoryForSong } from './history';
 import { showResultScreen, type ResultPageElements } from './resultScreen';
 import { countdown } from './countdown';
 import { updateProgressBar, resetProgressBar } from './progressBar';
 import { updateScoreUI } from './scoreDisplay';
 import { MidiSetup } from './midiSetup';
-import { PracticeControls } from './practiceControls';
+import { PracticeControls, type MeasureErrorInfo } from './practiceControls';
 
 /* ── 常量 ── */
 const SCORE_LAYOUT = { measuresPerRow: 2 } as const;
@@ -114,12 +114,17 @@ export class PianoPage {
     sideHeader: document.querySelector<HTMLDivElement>('#practice-side-header')!,
     sideScores: document.querySelector<HTMLDivElement>('#practice-side-scores')!,
     progressBar: document.querySelector<HTMLInputElement>('#progress-bar')!,
+    leftPanel: document.querySelector<HTMLDivElement>('#practice-left-panel')!,
+    leftContent: document.querySelector<HTMLDivElement>('#practice-left-content')!,
+    groupSizeInput: document.querySelector<HTMLInputElement>('#practice-group-size-input')!,
   });
   practiceActive = false;
   practiceRestarting = false;
   practiceLoopNotes: FlatNote[] = [];
   practiceLoopStartFn: (() => void) | null = null;
   practiceLoopDurationSec = 0;
+  /** 当前练习循环在原曲中的起始时间（秒），用于将 loop-relative NoteResult.time 映射回原曲小节 */
+  private practiceLoopStartTimeSec = 0;
   practiceCurrentWallSec = 0;
 
   // 计分 UI 元素
@@ -205,6 +210,12 @@ export class PianoPage {
     this.midiSetup = elements.midiSetup;
     this.fallingNotes = elements.fallingNotes;
     this.keyEls = createPianoKeyboard(this.keyboardHost);
+    this.practice.onJumpToMeasure = (measureStart, measureEnd) => {
+      this.practice.measureStart = measureStart;
+      this.practice.measureEnd = measureEnd;
+      this.practice.updateUI();
+      this.restartPracticeLoop();
+    };
     this.initEvents();
   }
 
@@ -222,7 +233,7 @@ export class PianoPage {
     // 进度条
     let wasPlayingBeforeSeek = false;
     this.progressBar.addEventListener('input', () => {
-      if (this.getPlayMode() === 'keyboard' || this.practiceActive) return;
+      if (this.getPlayMode() === 'keyboard' && !this.practiceActive) return;
       this.seeking = true;
       if (this.playback && !wasPlayingBeforeSeek) {
         wasPlayingBeforeSeek = true;
@@ -233,16 +244,35 @@ export class PianoPage {
       }
       if (!this.currentMidi || this.flatNotes.length === 0) return;
       const pct = Number(this.progressBar.value) / 1000;
-      updateProgressBar(this.progressBar, this.progressTime, pct * this.totalDurationSec, this.totalDurationSec, false);
+      const timeSec = pct * this.totalDurationSec;
+      this.seekPreview(timeSec);
     });
 
     this.progressBar.addEventListener('change', () => {
-      if (this.getPlayMode() === 'keyboard' || this.practiceActive) return;
+      if (this.getPlayMode() === 'keyboard' && !this.practiceActive) return;
       this.seeking = false;
       if (!this.currentMidi || this.flatNotes.length === 0) return;
       const pct = Number(this.progressBar.value) / 1000;
-      const timeSec = pct * this.totalDurationSec;
-      updateProgressBar(this.progressBar, this.progressTime, timeSec, this.totalDurationSec, false);
+
+      if (this.practiceActive) {
+        // 练习模式：跳到对应小节重新开始
+        const timeSec = pct * this.totalDurationSec;
+        const midi = this.currentMidi;
+        const ctx = getMeasureContext(midi);
+        const ticksPerMeasure = ctx.ticksPerMeasure;
+        const absTick = midi.header.secondsToTicks(timeSec);
+        const targetMeasure = Math.floor(absTick / ticksPerMeasure);
+        this.practice.measureStart = this.practice.clampMeasure(targetMeasure);
+        this.practice.measureEnd = this.practice.measureStart;
+        this.practice.updateUI();
+        wasPlayingBeforeSeek = false;
+        this.restartPracticeLoop();
+        return;
+      }
+
+      const dur = this.totalDurationSec;
+      const timeSec = pct * dur;
+      updateProgressBar(this.progressBar, this.progressTime, timeSec, dur, false);
       if (wasPlayingBeforeSeek) {
         wasPlayingBeforeSeek = false;
         this.startPlayFrom(timeSec);
@@ -263,6 +293,25 @@ export class PianoPage {
       const v = parseInt(this.practice.elements.endLabel.value, 10);
       if (!isNaN(v) && v >= 1) this.handlePracticeEndChange(v - 1);
       else this.practice.updateUI();
+    });
+
+    // 合并小节数变更
+    this.practice.elements.groupSizeInput.addEventListener('change', () => {
+      const v = parseInt(this.practice.elements.groupSizeInput.value, 10);
+      if (!isNaN(v) && v >= 1) {
+        this.practice.measureGroupSize = v;
+        this.loadHistoryAnalysis();
+        if (this.practice.records.length > 0) this.updateMeasureErrors();
+      }
+    });
+
+    // 窗口大小变化时重新定位左侧面板
+    window.addEventListener('resize', () => {
+      if (this.practiceActive && !this.practice.elements.leftPanel.hidden) {
+        const barRect = this.practice.elements.controlsBar.getBoundingClientRect();
+        this.practice.elements.leftPanel.style.top = `${barRect.bottom + 8}px`;
+        this.practice.elements.leftPanel.style.maxHeight = `calc(100% - ${barRect.bottom + 24}px)`;
+      }
     });
 
     // 编辑模式键盘事件
@@ -339,8 +388,8 @@ export class PianoPage {
     this.updateKeyboardHint();
     this.btnEdit.hidden = this.pianoPageEl.hidden || this.getRenderMode() !== 'original';
     const isKeyboard = this.getPlayMode() === 'keyboard';
-    this.progressBar.style.pointerEvents = isKeyboard ? 'none' : '';
-    this.progressBar.style.opacity = isKeyboard ? '0.55' : '';
+    this.progressBar.style.pointerEvents = (isKeyboard && !this.practiceActive) ? 'none' : '';
+    this.progressBar.style.opacity = (isKeyboard && !this.practiceActive) ? '0.55' : '';
   }
 
   /* ── 乐谱渲染 ── */
@@ -420,13 +469,21 @@ export class PianoPage {
   async enterPractice(midi: Midi): Promise<void> {
     await this.setupPianoPage(midi);
     this.practiceActive = true;
+    this.syncModeUi();
     this.practice.elements.controlsBar.hidden = false;
     this.practice.elements.sidePanel.hidden = false;
     this.practice.elements.sideHeader.hidden = false;
     this.practice.elements.sideScores.hidden = false;
     this.practice.elements.sideScores.innerHTML = '';
+    this.practice.elements.leftPanel.hidden = false;
+    // 动态定位左侧面板：放在 practice-controls-bar 下方
+    const barRect = this.practice.elements.controlsBar.getBoundingClientRect();
+    this.practice.elements.leftPanel.style.top = `${barRect.bottom + 8}px`;
+    this.practice.elements.leftPanel.style.maxHeight = `calc(100% - ${barRect.bottom + 24}px)`;
     this.practice.init(measureCount(midi, getMeasureContext(midi)));
     this.practice.updateUI();
+    // 加载历史记录分析
+    this.loadHistoryAnalysis();
     this.btnPlay.disabled = true;
     this.btnStop.disabled = false;
     await this.startPlayFrom(0);
@@ -632,6 +689,7 @@ export class PianoPage {
       const startTimeSec = midi.header.ticksToSeconds(startTick);
       const endTimeSec = midi.header.ticksToSeconds(endTick);
       this.practiceLoopDurationSec = endTimeSec - startTimeSec;
+      this.practiceLoopStartTimeSec = startTimeSec;
 
       this.practiceLoopNotes = this.flatNotes
         .filter(n => n.ticks >= startTick && n.ticks < endTick)
@@ -652,14 +710,13 @@ export class PianoPage {
           this.hideScorePlayhead();
           this.fallingNotes.clear();
           this.playback = null;
-          resetProgressBar(this.progressBar, this.progressTime, this.totalDurationSec);
-          this.updateMeasureInfo(0, this.practice.measureEnd - this.practice.measureStart + 1);
 
-          if (!this.practiceActive) {
+          if (!this.practiceActive || this.seeking || this.practiceRestarting) {
             this.btnPlay.disabled = false;
             this.btnStop.disabled = true;
             return;
           }
+          resetProgressBar(this.progressBar, this.progressTime, this.totalDurationSec);
           if (this.practiceRestarting) return;
 
           const snap = this.scoringEngine.snapshot();
@@ -674,6 +731,7 @@ export class PianoPage {
             noteResults: snap.noteResults,
             wrongKeyRecords: snap.wrongKeyRecords,
           });
+          this.updateMeasureErrors();
 
           setTimeout(() => {
             if (!this.practiceActive) return;
@@ -688,8 +746,9 @@ export class PianoPage {
           input,
           onLoopEnded,
           (t) => {
-            this.updateScorePlayhead(t);
-            updateProgressBar(this.progressBar, this.progressTime, t, this.practiceLoopDurationSec, this.seeking);
+            const absTime = this.practiceLoopStartTimeSec + t;
+            this.updateScorePlayhead(absTime);
+            updateProgressBar(this.progressBar, this.progressTime, absTime, this.totalDurationSec, this.seeking);
             const currentTick = startTick + midi.header.secondsToTicks(t);
             const currentMeasure = Math.floor(currentTick / ticksPerMeasure);
             const loopMeasure = Math.max(0, Math.min(currentMeasure - this.practice.measureStart, this.practice.measureEnd - this.practice.measureStart));
@@ -779,7 +838,23 @@ export class PianoPage {
     }
   }
 
-  /* ── 乐谱播放头 ── */
+  /** 用绝对时间统一更新五线谱、进度条、小节信息（拖动时预览用） */
+  private seekPreview(timeSec: number): void {
+    updateProgressBar(this.progressBar, this.progressTime, timeSec, this.totalDurationSec, false);
+    this.updateScorePlayhead(timeSec);
+    if (this.practiceActive) {
+      this.fallingNotes.clear();
+    } else {
+      this.fallingNotes.update(timeSec);
+    }
+    if (this.currentMidi) {
+      const ctx = getMeasureContext(this.currentMidi);
+      const tick = this.currentMidi.header.secondsToTicks(Math.max(0, timeSec));
+      const m = Math.floor(tick / ctx.ticksPerMeasure);
+      const total = measureCount(this.currentMidi, ctx);
+      this.updateMeasureInfo(Math.min(m, total - 1), total);
+    }
+  }
 
   /** 更新乐谱播放头位置（回放也用到） */
   updateScorePlayhead(sec: number): void {
@@ -977,14 +1052,191 @@ export class PianoPage {
     this.restartPracticeLoop();
   }
 
+  /** 加载历史记录并做全曲分析（进入练习模式时调用） */
+  private loadHistoryAnalysis(): void {
+    if (!this.currentMidi || !this.currentSongFile) return;
+    const midi = this.currentMidi;
+    const ctx = getMeasureContext(midi);
+    const ticksPerMeasure = ctx.ticksPerMeasure;
+    if (ticksPerMeasure <= 0) return;
+    const totalMeasures = measureCount(midi, ctx);
+
+    // 统计全曲各小节音符数
+    const measureTotalNotes = new Map<number, number>();
+    for (const n of this.flatNotes) {
+      const mIdx = Math.floor(n.ticks / ticksPerMeasure);
+      measureTotalNotes.set(mIdx, (measureTotalNotes.get(mIdx) ?? 0) + 1);
+    }
+
+    const measureStats = new Map<number, { missCount: number; badCount: number; wrongCount: number }>();
+    const initM = (idx: number) => {
+      if (!measureStats.has(idx)) measureStats.set(idx, { missCount: 0, badCount: 0, wrongCount: 0 });
+      return measureStats.get(idx)!;
+    };
+
+    // 扫描历史记录
+    const historyEntries = getHistoryForSong(this.currentSongFile);
+    for (const entry of historyEntries) {
+      for (const nr of entry.noteResults ?? []) {
+        // 历史记录中 NoteResult.time 是原始 MIDI 时间
+        const tick = midi.header.secondsToTicks(nr.time);
+        const mIdx = Math.floor(tick / ticksPerMeasure);
+        if (mIdx >= 0 && mIdx < totalMeasures) {
+          const s = initM(mIdx);
+          if (nr.judgement === 'MISS') s.missCount++;
+          else if (nr.judgement === 'BAD') s.badCount++;
+        }
+      }
+      for (const wr of entry.wrongKeyRecords ?? []) {
+        const tick = midi.header.secondsToTicks(wr.timeSec);
+        const mIdx = Math.floor(tick / ticksPerMeasure);
+        if (mIdx >= 0 && mIdx < totalMeasures) {
+          initM(mIdx).wrongCount++;
+        }
+      }
+    }
+
+    // 构建排序列表（按 groupSize 合并）
+    const groupSize = this.practice.measureGroupSize || 1;
+    const errors: MeasureErrorInfo[] = [];
+    for (let gStart = 0; gStart < totalMeasures; gStart += groupSize) {
+      const gEnd = Math.min(gStart + groupSize - 1, totalMeasures - 1);
+      let missCount = 0, badCount = 0, wrongCount = 0, totalNotes = 0;
+      for (let i = gStart; i <= gEnd; i++) {
+        const stats = measureStats.get(i);
+        if (stats) {
+          missCount += stats.missCount;
+          badCount += stats.badCount;
+          wrongCount += stats.wrongCount;
+        }
+        totalNotes += measureTotalNotes.get(i) ?? 0;
+      }
+      const ec = missCount + badCount + wrongCount;
+      if (ec > 0) {
+        errors.push({
+          measureIndex: gStart,
+          measureNumber: gStart + 1,
+          measureEndIndex: gEnd,
+          errorCount: ec,
+          missCount,
+          badCount,
+          wrongCount,
+          totalNotes,
+        });
+      }
+    }
+    errors.sort((a, b) => b.errorCount - a.errorCount);
+    this.practice.setMeasureErrors(errors);
+  }
+
+  /** 分析所有练习轮记录，计算各小节错误数并更新左侧面板 */
+  private updateMeasureErrors(): void {
+    if (!this.currentMidi || !this.currentSongFile) return;
+    if (!this.currentMidi) return;
+    const midi = this.currentMidi;
+    const ctx = getMeasureContext(midi);
+    const ticksPerMeasure = ctx.ticksPerMeasure;
+    if (ticksPerMeasure <= 0) return;
+    const totalMeasures = measureCount(midi, ctx);
+    const startTimeSec = this.practiceLoopStartTimeSec;
+
+    // 重新调用 loadHistoryAnalysis 获得历史基准，然后叠加当前轮数据
+    // 注：当前轮的 NoteResult.time 是 loop-relative
+    const measureTotalNotes = new Map<number, number>();
+    for (const n of this.flatNotes) {
+      const mIdx = Math.floor(n.ticks / ticksPerMeasure);
+      measureTotalNotes.set(mIdx, (measureTotalNotes.get(mIdx) ?? 0) + 1);
+    }
+
+    const measureStats = new Map<number, { missCount: number; badCount: number; wrongCount: number }>();
+    const initM = (idx: number) => {
+      if (!measureStats.has(idx)) measureStats.set(idx, { missCount: 0, badCount: 0, wrongCount: 0 });
+      return measureStats.get(idx)!;
+    };
+
+    // 1) 历史记录
+    const historyEntries = getHistoryForSong(this.currentSongFile ?? '');
+    for (const entry of historyEntries) {
+      for (const nr of entry.noteResults ?? []) {
+        const tick = midi.header.secondsToTicks(nr.time);
+        const mIdx = Math.floor(tick / ticksPerMeasure);
+        if (mIdx >= 0 && mIdx < totalMeasures) {
+          const s = initM(mIdx);
+          if (nr.judgement === 'MISS') s.missCount++;
+          else if (nr.judgement === 'BAD') s.badCount++;
+        }
+      }
+      for (const wr of entry.wrongKeyRecords ?? []) {
+        const tick = midi.header.secondsToTicks(wr.timeSec);
+        const mIdx = Math.floor(tick / ticksPerMeasure);
+        if (mIdx >= 0 && mIdx < totalMeasures) {
+          initM(mIdx).wrongCount++;
+        }
+      }
+    }
+
+    // 2) 当前轮记录（NoteResult.time 是 loop-relative）
+    for (const record of this.practice.records) {
+      for (const nr of record.noteResults) {
+        const originalTime = startTimeSec + nr.time;
+        const tick = midi.header.secondsToTicks(originalTime);
+        const mIdx = Math.floor(tick / ticksPerMeasure);
+        if (mIdx >= 0 && mIdx < totalMeasures) {
+          const s = initM(mIdx);
+          if (nr.judgement === 'MISS') s.missCount++;
+          else if (nr.judgement === 'BAD') s.badCount++;
+        }
+      }
+      for (const wr of record.wrongKeyRecords) {
+        const originalTime = startTimeSec + wr.timeSec;
+        const tick = midi.header.secondsToTicks(originalTime);
+        const mIdx = Math.floor(tick / ticksPerMeasure);
+        if (mIdx >= 0 && mIdx < totalMeasures) {
+          initM(mIdx).wrongCount++;
+        }
+      }
+    }
+
+    // 构建排序列表（按 groupSize 合并）
+    const groupSize = this.practice.measureGroupSize || 1;
+    const errors: MeasureErrorInfo[] = [];
+    for (let gStart = 0; gStart < totalMeasures; gStart += groupSize) {
+      const gEnd = Math.min(gStart + groupSize - 1, totalMeasures - 1);
+      let missCount = 0, badCount = 0, wrongCount = 0, totalNotes = 0;
+      for (let i = gStart; i <= gEnd; i++) {
+        const stats = measureStats.get(i);
+        if (stats) {
+          missCount += stats.missCount;
+          badCount += stats.badCount;
+          wrongCount += stats.wrongCount;
+        }
+        totalNotes += measureTotalNotes.get(i) ?? 0;
+      }
+      const ec = missCount + badCount + wrongCount;
+      if (ec > 0) {
+        errors.push({
+          measureIndex: gStart,
+          measureNumber: gStart + 1,
+          measureEndIndex: gEnd,
+          errorCount: ec,
+          missCount,
+          badCount,
+          wrongCount,
+          totalNotes,
+        });
+      }
+    }
+    errors.sort((a, b) => b.errorCount - a.errorCount);
+    this.practice.setMeasureErrors(errors);
+  }
+
   restartPracticeLoop(): void {
     if (!this.practiceActive || !this.currentMidi || !this.practiceLoopStartFn) return;
     this.practiceRestarting = true;
     this.playback?.stop();
     this.playback = null;
     this.fallingNotes.clear();
-    this.hideScorePlayhead();
-    resetProgressBar(this.progressBar, this.progressTime, this.totalDurationSec);
+    // 不调 hideScorePlayhead，而是直接跳到新位置
     this.updateMeasureInfo(0, this.practice.measureEnd - this.practice.measureStart + 1);
 
     const midi = this.currentMidi;
@@ -995,6 +1247,10 @@ export class PianoPage {
     const startTimeSec = midi.header.ticksToSeconds(startTick);
     const endTimeSec = midi.header.ticksToSeconds(endTick);
     this.practiceLoopDurationSec = endTimeSec - startTimeSec;
+    this.practiceLoopStartTimeSec = startTimeSec;
+
+    // 滚动乐谱 + 更新进度条到循环起始位置
+    this.seekPreview(startTimeSec);
 
     this.practiceLoopNotes = this.flatNotes
       .filter(n => n.ticks >= startTick && n.ticks < endTick)
