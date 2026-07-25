@@ -990,6 +990,31 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
+/* 偏移浏览时的当前位置指示线 */
+.falling-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  z-index: 2;
+}
+
+
+/* 练习模式小节范围标记带 */
+.falling-loop-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(255, 215, 0, 0.08);
+  border-top: 1px dashed rgba(255, 215, 0, 0.3);
+  border-bottom: 1px dashed rgba(255, 215, 0, 0.3);
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* 右手蓝：白键略浅、黑键更深 */
 .falling-note--rh.falling-note--key-white {
   background: linear-gradient(180deg, #64b5f6 0%, #42a5f5 100%);

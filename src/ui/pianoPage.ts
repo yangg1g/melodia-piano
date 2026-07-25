@@ -690,6 +690,7 @@ export class PianoPage {
       const endTimeSec = midi.header.ticksToSeconds(endTick);
       this.practiceLoopDurationSec = endTimeSec - startTimeSec;
       this.practiceLoopStartTimeSec = startTimeSec;
+      this.fallingNotes.setLoopRange(startTimeSec, endTimeSec);
 
       this.practiceLoopNotes = this.flatNotes
         .filter(n => n.ticks >= startTick && n.ticks < endTick)
@@ -709,6 +710,7 @@ export class PianoPage {
         const onLoopEnded = () => {
           this.hideScorePlayhead();
           this.fallingNotes.clear();
+          this.fallingNotes.setLoopRange(this.practiceLoopStartTimeSec, this.practiceLoopStartTimeSec + this.practiceLoopDurationSec);
           this.playback = null;
 
           if (!this.practiceActive || this.seeking || this.practiceRestarting) {
@@ -842,11 +844,7 @@ export class PianoPage {
   private seekPreview(timeSec: number): void {
     updateProgressBar(this.progressBar, this.progressTime, timeSec, this.totalDurationSec, false);
     this.updateScorePlayhead(timeSec);
-    if (this.practiceActive) {
-      this.fallingNotes.clear();
-    } else {
-      this.fallingNotes.update(timeSec);
-    }
+    this.fallingNotes.update(timeSec);
     if (this.currentMidi) {
       const ctx = getMeasureContext(this.currentMidi);
       const tick = this.currentMidi.header.secondsToTicks(Math.max(0, timeSec));
@@ -1248,6 +1246,7 @@ export class PianoPage {
     const endTimeSec = midi.header.ticksToSeconds(endTick);
     this.practiceLoopDurationSec = endTimeSec - startTimeSec;
     this.practiceLoopStartTimeSec = startTimeSec;
+    this.fallingNotes.setLoopRange(startTimeSec, endTimeSec);
 
     // 滚动乐谱 + 更新进度条到循环起始位置
     this.seekPreview(startTimeSec);

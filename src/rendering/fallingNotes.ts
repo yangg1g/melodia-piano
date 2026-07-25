@@ -21,6 +21,7 @@ export type FallingNotesHandle = {
   setSource: (notes: FlatNote[], midi: Midi) => void;
   setSpeed: (speed: number) => void;
   setTimingWindows: (w: { perfect: number; ok: number; bad: number }) => void;
+  setLoopRange: (startSec: number, endSec: number) => void;
   update: (nowSec: number) => void;
   updateKeyboardPractice: (state: KeyboardFallingState | null) => void;
   pushTimingMarker: (offsetMs: number, judgement: 'PERFECT' | 'OK' | 'BAD') => void;
@@ -159,6 +160,43 @@ function renderFallingNotesFrame(
   return frag;
 }
 
+/** 生成当前位置指示线元素 */
+function buildNowLine(hitY: number, offsetSec: number, visibleSec: number): HTMLElement | null {
+  const nowY = hitY * (1 + offsetSec / visibleSec);
+  if (isNaN(nowY)) return null;
+  const el = document.createElement('div');
+  el.className = 'falling-now-line';
+  el.style.top = `${Math.max(-2, Math.min(hitY + 2, nowY))}px`;
+  return el;
+}
+
+/** 生成小节范围标记带 */
+function buildLoopBand(
+  loopStartSec: number,
+  loopEndSec: number,
+  effectiveTimeSec: number,
+  hitY: number,
+  visibleSec: number,
+): HTMLElement | null {
+  const windowStart = effectiveTimeSec;
+  const windowEnd = effectiveTimeSec + visibleSec;
+  const total = windowEnd - windowStart;
+  if (total <= 0) return null;
+
+  const timeToY = (t: number) => ((windowEnd - t) / total) * hitY;
+
+  const yStart = Math.max(0, timeToY(loopEndSec));
+  const yEnd = Math.min(hitY, timeToY(loopStartSec));
+
+  if (yEnd <= yStart || yStart >= hitY || yEnd <= 0) return null;
+
+  const el = document.createElement('div');
+  el.className = 'falling-loop-band';
+  el.style.top = `${yStart}px`;
+  el.style.height = `${Math.max(1, yEnd - yStart)}px`;
+  return el;
+}
+
 export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHandle {
   const lane = document.createElement('div');
   lane.className = 'falling-lane';
@@ -282,6 +320,15 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
   let kbState: KeyboardFallingState | null = null;
   let kbRaf = 0;
 
+  // Ctrl+上下箭头偏移：浏览前后音符，不影响播放进度
+  let lastTimeSec = 0;
+  let dragOffsetSec = 0;
+
+  // 练习模式小节范围
+  let loopStartSec = 0;
+  let loopEndSec = 0;
+  let hasLoopRange = false;
+
   const syncInnerWidth = () => {
     const w = keyboardInnerWidthPx(startMidi, endMidi);
     inner.style.width = `${w}px`;
@@ -304,25 +351,109 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
     });
   };
 
+  /** 根据 kbState 构建命中查找表（用 MIDI + 绝对时间作为 key） */
+  const buildHitLookup = (): Map<number, Set<string>> => {
+    const map = new Map<number, Set<string>>();
+    if (!kbState) return map;
+    for (const ns of kbState.notes) {
+      const midi = ns.note.midi;
+      const absTime = (ns.note.time + loopStartSec).toFixed(3);
+      if (!map.has(midi)) map.set(midi, new Set());
+      map.get(midi)!.add(absTime);
+    }
+    return map;
+  };
+
   const runKeyboardPracticeFrame = () => {
-    if (!kbState || !midiFile || kbState.notes.length === 0) {
+    if (!kbState || !midiFile) {
       inner.replaceChildren();
       return;
     }
 
+    lastTimeSec = loopStartSec + kbState.currentTimeSec;
+    const effectiveTime = lastTimeSec + dragOffsetSec;
     const hitY = resolveHitY();
-    const items = kbState.notes.map((ns) => ({
-      note: ns.note,
-      opacity: ns.isHit ? 1 : 0.92,
-    }));
+    const hitLookup = hasLoopRange ? buildHitLookup() : null;
 
-    const frag = renderFallingNotesFrame(items, kbState.currentTimeSec, hitY, startMidi, endMidi, midiFile);
+    const items = notes.map((n) => {
+      let opacity = 0.92;
+      if (hasLoopRange) {
+        const inLoop = n.time >= loopStartSec && n.time < loopEndSec;
+        if (!inLoop) {
+          // 非循环范围音符：降低不透明度
+          opacity = 0.35;
+        } else if (hitLookup) {
+          const absKey = n.time.toFixed(3);
+          const set = hitLookup.get(n.midi);
+          if (set && set.has(absKey)) opacity = 1; // 已命中
+        }
+      }
+      return { note: n, opacity };
+    });
+
+    const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile);
+
+    // 当前位置指示线
+    const line = buildNowLine(hitY, dragOffsetSec, VISIBLE_WINDOW_SEC);
+    if (line) frag.appendChild(line);
+
+    // 循环范围标记带
+    if (hasLoopRange) {
+      const band = buildLoopBand(loopStartSec, loopEndSec, effectiveTime, hitY, VISIBLE_WINDOW_SEC);
+      if (band) frag.appendChild(band);
+    }
+
     inner.replaceChildren(frag);
 
     if (frag.childNodes.length > 0) {
       scheduleKbFrame();
     }
   };
+
+  // 使用全部音符渲染偏移后的画面（Ctrl+箭头时）
+  const renderOffsetFrame = () => {
+    if (!midiFile || notes.length === 0) {
+      inner.replaceChildren();
+      return;
+    }
+    const effectiveTime = lastTimeSec + dragOffsetSec;
+    const hitY = resolveHitY();
+    const items = notes.map((n) => ({ note: n }));
+    const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile);
+
+    const line = buildNowLine(hitY, dragOffsetSec, VISIBLE_WINDOW_SEC);
+    if (line) frag.appendChild(line);
+
+    if (hasLoopRange) {
+      const band = buildLoopBand(loopStartSec, loopEndSec, effectiveTime, hitY, VISIBLE_WINDOW_SEC);
+      if (band) frag.appendChild(band);
+    }
+
+    inner.replaceChildren(frag);
+  };
+
+  const onDocKeyDown = (e: KeyboardEvent) => {
+    if (!e.ctrlKey) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const step = VISIBLE_WINDOW_SEC * 0.15;
+      // ↑ 看后面的音符（offset 增大），↓ 看前面的音符（offset 减小）
+      dragOffsetSec += e.key === 'ArrowUp' ? step : -step;
+      if (kbState) runKeyboardPracticeFrame();
+      else renderOffsetFrame();
+    }
+  };
+
+  const onDocKeyUp = (e: KeyboardEvent) => {
+    if (e.key === 'Control' && dragOffsetSec !== 0) {
+      dragOffsetSec = 0;
+      if (kbState) runKeyboardPracticeFrame();
+      else renderOffsetFrame();
+    }
+  };
+
+  document.addEventListener('keydown', onDocKeyDown);
+  document.addEventListener('keyup', onDocKeyUp);
 
   return {
     setRange(s: number, e: number) {
@@ -341,18 +472,34 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       timingWindows = w;
       renderPreviewLine();
     },
+    setLoopRange(startSec: number, endSec: number) {
+      loopStartSec = startSec;
+      loopEndSec = endSec;
+      hasLoopRange = true;
+    },
     update(nowSec: number) {
       cancelKbAnim();
       kbState = null;
+      lastTimeSec = nowSec;
 
       if (!midiFile || notes.length === 0) {
         inner.replaceChildren();
         return;
       }
 
+      const effectiveTime = nowSec + dragOffsetSec;
       const hitY = resolveHitY();
       const items = notes.map((n) => ({ note: n }));
-      const frag = renderFallingNotesFrame(items, nowSec, hitY, startMidi, endMidi, midiFile);
+      const frag = renderFallingNotesFrame(items, effectiveTime, hitY, startMidi, endMidi, midiFile);
+
+      const line = buildNowLine(hitY, dragOffsetSec, VISIBLE_WINDOW_SEC);
+      if (line) frag.appendChild(line);
+
+      if (hasLoopRange) {
+        const band = buildLoopBand(loopStartSec, loopEndSec, effectiveTime, hitY, VISIBLE_WINDOW_SEC);
+        if (band) frag.appendChild(band);
+      }
+
       inner.replaceChildren(frag);
     },
     updateKeyboardPractice(state: KeyboardFallingState | null) {
@@ -372,6 +519,9 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
       hitMarkers = [];
       hitMarkerWallBase = 0;
       previewCanvas.style.display = 'none';
+      hasLoopRange = false;
+      loopStartSec = 0;
+      loopEndSec = 0;
     },
     pushTimingMarker(offsetMs: number, judgement: 'PERFECT' | 'OK' | 'BAD') {
       pushHitMarker(offsetMs, judgement, hitMarkerWallSec);
@@ -382,6 +532,8 @@ export function createFallingNotesLane(outerHost: HTMLElement): FallingNotesHand
     dispose() {
       cancelKbAnim();
       previewObserver.disconnect();
+      document.removeEventListener('keydown', onDocKeyDown);
+      document.removeEventListener('keyup', onDocKeyUp);
       lane.remove();
     },
   };
