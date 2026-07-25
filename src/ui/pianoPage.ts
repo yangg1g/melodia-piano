@@ -12,6 +12,7 @@ import {
 } from '../core/midiScore';
 import { playheadXInMeasureOverlay, renderGrandStaffRow, renderGrandStaffRowSVG, type GrandStaffColumn } from '../rendering/renderScore';
 import { applyKeyVisuals, createPianoKeyboard } from '../rendering/pianoKeyboard';
+import { detectChord } from '../core/chordDetector';
 import type { FallingNotesHandle } from '../rendering/fallingNotes';
 import { playNotes, type PlaybackController } from '../features/playback';
 import { startKeyboardPractice } from '../features/keyboardPractice';
@@ -55,6 +56,9 @@ export class PianoPage {
   keyboardHost: HTMLDivElement;
   keyboardStack: HTMLDivElement;
   keyboardHint: HTMLParagraphElement;
+  chordDisplay: HTMLDivElement;
+  chordDisplayNotes: HTMLSpanElement;
+  chordDisplayChord: HTMLSpanElement;
   measureInfoEl: HTMLSpanElement;
   progressBar: HTMLInputElement;
   progressTime: HTMLSpanElement;
@@ -142,6 +146,9 @@ export class PianoPage {
     keyboardHost: HTMLDivElement;
     keyboardStack: HTMLDivElement;
     keyboardHint: HTMLParagraphElement;
+    chordDisplay: HTMLDivElement;
+    chordDisplayNotes: HTMLSpanElement;
+    chordDisplayChord: HTMLSpanElement;
     measureInfoEl: HTMLSpanElement;
     progressBar: HTMLInputElement;
     progressTime: HTMLSpanElement;
@@ -172,6 +179,9 @@ export class PianoPage {
     this.keyboardHost = elements.keyboardHost;
     this.keyboardStack = elements.keyboardStack;
     this.keyboardHint = elements.keyboardHint;
+    this.chordDisplay = elements.chordDisplay;
+    this.chordDisplayNotes = elements.chordDisplayNotes;
+    this.chordDisplayChord = elements.chordDisplayChord;
     this.measureInfoEl = elements.measureInfoEl;
     this.progressBar = elements.progressBar;
     this.progressTime = elements.progressTime;
@@ -281,6 +291,43 @@ export class PianoPage {
       this.keyboardHint.textContent = 'MIDI 跟弹：绿色 / 蓝色描边为当前应弹的左 / 右手音；弹对后条缩短并发声前进；紫红色外圈为正在按下的键，错音不出声。';
     } else {
       this.keyboardHint.textContent = '普通模式：自动播放曲目，可同时使用 MIDI 键盘弹奏，实时判定计分。';
+    }
+  }
+
+  /** 更新和弦显示：根据当前按下的 MIDI 键显示和弦信息 */
+  updateChordDisplay(pressed: Set<number>): void {
+    if (pressed.size === 0) {
+      this.chordDisplay.hidden = true;
+      return;
+    }
+    this.chordDisplay.hidden = false;
+
+    const chord = detectChord(pressed);
+    if (!chord) {
+      this.chordDisplayNotes.textContent = '';
+      this.chordDisplayChord.textContent = '';
+      return;
+    }
+
+    const lang = loadSettings().chordLang;
+    this.chordDisplayNotes.textContent = chord.noteNames.join(' ');
+
+    if (chord.type) {
+      // 有和弦类型：显示和弦名
+      if (lang === 'zh') {
+        this.chordDisplayChord.textContent = chord.cnName
+          ? `${chord.rootName}${chord.cnName}和弦`
+          : chord.fullName;
+      } else {
+        this.chordDisplayChord.textContent = chord.fullName;
+      }
+    } else if (pressed.size === 1) {
+      // 单音
+      this.chordDisplayChord.textContent = lang === 'zh'
+        ? `${chord.rootName} 单音`
+        : chord.rootName;
+    } else {
+      this.chordDisplayChord.textContent = chord.fullName;
     }
   }
 
@@ -429,6 +476,7 @@ export class PianoPage {
     if (this.scorePagerState) this.updateMeasureInfo(0, this.scorePagerState.nMeas);
     this.fallingNotes.clear();
     applyKeyVisuals(this.keyEls, {});
+    this.chordDisplay.hidden = true;
     this.btnPlay.disabled = false;
     this.btnStop.disabled = true;
     resetProgressBar(this.progressBar, this.progressTime, this.totalDurationSec);
@@ -653,6 +701,7 @@ export class PianoPage {
           false,
           settings.playbackSpeed,
           (wallSec) => { this.practiceCurrentWallSec = wallSec; },
+          (pressed) => this.updateChordDisplay(pressed),
         );
       };
 
@@ -684,6 +733,8 @@ export class PianoPage {
         (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); },
         true,
         settings.playbackSpeed,
+        undefined,
+        (pressed) => this.updateChordDisplay(pressed),
       );
       return;
     }
@@ -722,6 +773,7 @@ export class PianoPage {
           const pct = refTimeSec > 0 ? Math.max(0, (wallSec / refTimeSec) * 100) : 0;
           this.practiceTime.textContent = `用时 ${formatTime(wallSec)} · ${pct.toFixed(1)}%`;
         },
+        (pressed) => this.updateChordDisplay(pressed),
       );
       return;
     }

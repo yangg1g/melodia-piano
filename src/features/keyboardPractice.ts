@@ -83,6 +83,7 @@ export function startKeyboardPractice(
   freePlay = false,
   speedMultiplier = 1,
   onWallTimeSec?: (wallSec: number) => void,
+  onChordUpdate?: (pressed: Set<number>) => void,
 ): PlaybackController {
   // 每次弹奏创建新的日志文件
   resetLogFile();
@@ -115,6 +116,7 @@ export function startKeyboardPractice(
 
     onVisualUpdate(expected, pressed) {
       applyKeyVisuals(keyEls, { expected, active: undefined, pressed });
+      onChordUpdate?.(pressed);
     },
     onPaintState(notes, effectiveTimeSec) {
       onPracticePaint?.({ notes, currentTimeSec: effectiveTimeSec });

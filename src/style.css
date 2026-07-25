@@ -1091,6 +1091,40 @@ body {
   font-weight: 500;
 }
 
+/* ── 和弦显示（toolbar 内） ── */
+.chord-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.chord-display[hidden] {
+  display: none;
+}
+
+.chord-display-notes {
+  font-size: 0.8rem;
+  color: var(--toolbar-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.chord-display-chord {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fbbf24;
+  white-space: nowrap;
+  padding: 1px 8px;
+  background: rgba(251, 191, 36, 0.13);
+  border-radius: 4px;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
 .piano-keyboard {
   overflow-x: auto;
   padding: 10px 6px 6px;

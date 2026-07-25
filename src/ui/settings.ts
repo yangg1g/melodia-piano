@@ -16,6 +16,7 @@ const DEFAULTS: AppSettings = {
   renderMode: 'image',
   measureWidth: 180,
   offsetAdjustMs: 0,
+  chordLang: 'zh',
 };
 
 export function loadSettings(): AppSettings {
@@ -46,6 +47,7 @@ export function applySettingsToUI(
     diffRadios: NodeListOf<HTMLInputElement>;
     difficultyInfo: HTMLSpanElement;
     renderRadios: NodeListOf<HTMLInputElement>;
+    chordLangRadios: NodeListOf<HTMLInputElement>;
   },
 ): void {
   const modeRadio = document.querySelector<HTMLInputElement>(`input[name="settings-mode"][value="${s.mode}"]`);
@@ -63,6 +65,8 @@ export function applySettingsToUI(
   elements.difficultyInfo.textContent = DIFFICULTY_WINDOWS[s.difficulty].label;
   const renderRadio = document.querySelector<HTMLInputElement>(`input[name="settings-render"][value="${s.renderMode}"]`);
   if (renderRadio) renderRadio.checked = true;
+  const chordLangRadio = document.querySelector<HTMLInputElement>(`input[name="settings-chord-lang"][value="${s.chordLang}"]`);
+  if (chordLangRadio) chordLangRadio.checked = true;
 }
 
 /** 将设置应用到运行时组件 */
@@ -85,7 +89,8 @@ export function updateSettingsSummary(s: AppSettings, el: HTMLElement): void {
   const modeLabel = s.mode === 'normal' ? '普通模式' : s.mode === 'auto' ? '自动播放' : 'MIDI跟弹';
   const diffLabel = s.difficulty === 'easy' ? '宽松' : s.difficulty === 'normal' ? '普通' : '严格';
   const offsetLabel = s.offsetAdjustMs === 0 ? '' : s.offsetAdjustMs > 0 ? ` · 偏移+${s.offsetAdjustMs}ms` : ` · 偏移${s.offsetAdjustMs}ms`;
-  el.textContent = `${modeLabel} · 下落 ${s.fallingSpeed.toFixed(1)}s · 速度 ${s.playbackSpeed.toFixed(1)}× · ${diffLabel}判定${offsetLabel}`;
+  const chordLabel = s.chordLang === 'zh' ? '' : ' · 和弦英文';
+  el.textContent = `${modeLabel} · 下落 ${s.fallingSpeed.toFixed(1)}s · 速度 ${s.playbackSpeed.toFixed(1)}× · ${diffLabel}判定${offsetLabel}${chordLabel}`;
 }
 
 /** 从设置页 DOM 收集当前设置值 */
@@ -97,5 +102,6 @@ export function collectSettingsFromUI(): AppSettings {
   const difficulty = (document.querySelector<HTMLInputElement>('input[name="settings-difficulty"]:checked')?.value as AppSettings['difficulty']) ?? 'normal';
   const renderMode = (document.querySelector<HTMLInputElement>('input[name="settings-render"]:checked')?.value as 'image' | 'original') ?? 'image';
   const offsetAdjustMs = Number((document.querySelector<HTMLInputElement>('#settings-offset-adjust'))!.value);
-  return { mode, fallingSpeed, playbackSpeed, difficulty, renderMode, measureWidth, offsetAdjustMs };
+  const chordLang = (document.querySelector<HTMLInputElement>('input[name="settings-chord-lang"]:checked')?.value as 'zh' | 'en') ?? 'zh';
+  return { mode, fallingSpeed, playbackSpeed, difficulty, renderMode, measureWidth, offsetAdjustMs, chordLang };
 }

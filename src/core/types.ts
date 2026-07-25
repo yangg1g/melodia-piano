@@ -14,6 +14,8 @@ export interface AppSettings {
   measureWidth: number;
   /** 全局判定偏移（ms），正=提前补偿（判定偏晚），负=延迟补偿（判定偏早） */
   offsetAdjustMs: number;
+  /** 和弦显示语言 */
+  chordLang: 'zh' | 'en';
 }
 
 export interface PlayHistoryEntry {

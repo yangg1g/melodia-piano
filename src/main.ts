@@ -67,6 +67,10 @@ app.innerHTML = `
     <header class="toolbar">
       <h1 class="title">MIDI 乐谱</h1>
       <span id="measure-info" class="measure-info"></span>
+      <div id="chord-display" class="chord-display" hidden>
+        <span class="chord-display-notes" id="chord-display-notes"></span>
+        <span class="chord-display-chord" id="chord-display-chord"></span>
+      </div>
       <div class="toolbar-actions">
         <button type="button" id="btn-back" class="btn secondary">← 返回</button>
         <button type="button" id="btn-play" class="btn primary">播放</button>
@@ -240,6 +244,13 @@ app.innerHTML = `
           </div>
           <div class="settings-hint">正向 = 补偿按晚，负向 = 补偿按早</div>
         </div>
+        <div class="settings-group">
+          <label class="settings-label">和弦显示语言</label>
+          <div class="settings-mode-group">
+            <label><input type="radio" name="settings-chord-lang" value="zh" checked /> 中文</label>
+            <label><input type="radio" name="settings-chord-lang" value="en" /> 英文</label>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -272,6 +283,9 @@ const scorePagerEl = document.querySelector<HTMLDivElement>('#score-pager')!;
 const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
 const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const keyboardHint = document.querySelector<HTMLParagraphElement>('#keyboard-hint')!;
+const chordDisplay = document.querySelector<HTMLDivElement>('#chord-display')!;
+const chordDisplayNotes = document.querySelector<HTMLSpanElement>('#chord-display-notes')!;
+const chordDisplayChord = document.querySelector<HTMLSpanElement>('#chord-display-chord')!;
 const measureInfoEl = document.querySelector<HTMLSpanElement>('#measure-info')!;
 const progressBar = document.querySelector<HTMLInputElement>('#progress-bar')!;
 const progressTime = document.querySelector<HTMLSpanElement>('#progress-time')!;
@@ -304,6 +318,7 @@ const settingsMeasureWidthVal = document.querySelector<HTMLSpanElement>('#settin
 const settingsDifficultyInfo = document.querySelector<HTMLSpanElement>('#settings-difficulty-info')!;
 const settingsOffsetAdjust = document.querySelector<HTMLInputElement>('#settings-offset-adjust')!;
 const settingsOffsetAdjustVal = document.querySelector<HTMLSpanElement>('#settings-offset-adjust-val')!;
+const settingsChordLangRadios = document.querySelectorAll<HTMLInputElement>('input[name="settings-chord-lang"]')!;
 const settingsSummaryEl = document.querySelector<HTMLDivElement>('#settings-summary')!;
 
 const songListMidiSelect = document.querySelector<HTMLSelectElement>('#song-list-midi-input')!;
@@ -362,7 +377,8 @@ const resultElements = {
 
 const pianoPage = new PianoPage({
   pianoPageEl, scoreEl, scoreScrollEl, scorePagerEl, keyboardHost, keyboardStack,
-  keyboardHint, measureInfoEl, progressBar, progressTime, practiceTime, scoreDisplay,
+  keyboardHint, chordDisplay, chordDisplayNotes, chordDisplayChord,
+  measureInfoEl, progressBar, progressTime, practiceTime, scoreDisplay,
   btnPlay, btnStop, btnEdit, btnFinger, btnSlur, btnTie, btnStem, btnSaveEdits, editToolbar,
   scoreValueEl, scoreAccuEl, scoreComboEl, scoreJudgeEl, scoreWrongEl,
   resultElements, midiSetup, fallingNotes,
@@ -678,6 +694,7 @@ settingsBtn.addEventListener('click', () => {
     renderRadios: document.querySelectorAll<HTMLInputElement>('input[name="settings-render"]'),
     offsetAdjustMs: settingsOffsetAdjust,
     offsetAdjustMsVal: settingsOffsetAdjustVal,
+    chordLangRadios: settingsChordLangRadios,
   });
   songListPage.hidden = true;
   settingsPage.hidden = false;
