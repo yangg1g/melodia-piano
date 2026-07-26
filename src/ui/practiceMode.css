@@ -152,7 +152,7 @@
   color: var(--gold);
 }
 
-/* ── 练习模式右侧面板内的成绩条 ── */
+/* ── 成绩侧边栏内的计分显示 ── */
 .score-display--side {
   display: flex;
   flex-direction: column;
@@ -194,21 +194,14 @@
 
 /* ── 练习模式右侧面板 ── */
 .practice-side-panel {
-  position: fixed;
-  right: 16px;
-  top: 124px;
-  width: 200px;
-  max-height: calc(100% - 150px);
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 16px;
-  box-shadow: var(--shadow-lg);
-  z-index: 20;
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .practice-side-panel[hidden] {
@@ -290,12 +283,8 @@
 }
 
 @media (max-width: 1100px) {
-  .practice-side-panel {
-    display: none;
-  }
-  .practice-left-panel {
-    display: none;
-  }
+  .right-side-panel,
+  .practice-left-panel,
   .live-accuracy-panel {
     display: none;
   }
@@ -303,25 +292,57 @@
 
 /* ── 练习模式：左侧错误分析面板 ── */
 .practice-left-panel {
-  position: fixed;
-  left: 16px;
-  top: 120px;
-  max-height: calc(100% - 150px);
-  width: 200px;
+  width: 180px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 16px;
-  box-shadow: var(--shadow-lg);
-  z-index: 20;
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .practice-left-panel[hidden] {
   display: none !important;
+}
+
+/* ── 右侧栏容器 ── */
+.right-side-panel {
+  width: 170px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+/* ── 成绩面板 ── */
+.score-side-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.score-side-panel[hidden] {
+  display: none !important;
+}
+
+.score-side-panel-header {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  width: 100%;
 }
 
 .practice-left-panel-header {
@@ -342,24 +363,18 @@
   gap: 6px;
 }
 
-/* ── 实时图表面板（左侧）── */
+/* ── 实时图表面板（中栏）── */
 .live-accuracy-panel {
-  position: fixed;
-  left: 0;
-  top: 120px;
-  width: calc(50vw - 490px);
+  flex-shrink: 0;
+  width: 260px;
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 14px 14px 10px;
-  box-shadow: var(--shadow-lg);
-  z-index: 19;
+  box-shadow: var(--shadow-sm);
   overflow-y: auto;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .live-accuracy-panel[hidden] {

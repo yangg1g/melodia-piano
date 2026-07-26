@@ -173,6 +173,10 @@ function renderFallingNotesFrame(
 ): DocumentFragment {
   const frag = document.createDocumentFragment();
 
+  // 收集同时到达判定线的可见音符，用于绘制虚线连接线
+  interface HeadEntry { time: number; x: number; barW: number; y: number }
+  const timeGroups = new Map<string, HeadEntry[]>();
+
   for (const item of notes) {
     const n = item.note;
     const hand = assignHandForNote(n, midiFile);
@@ -189,7 +193,33 @@ function renderFallingNotesFrame(
     const noteKey = n.noteKey;
     const finger = (noteKey && fingerNumbers) ? fingerNumbers.get(noteKey) : undefined;
     const el = buildNoteElement(ctx, geom, n.time, finger, noteKey, onNoteClick);
-    if (el) frag.appendChild(el);
+    if (el) {
+      frag.appendChild(el);
+      // 记录可见音符头部位置（底部 = 命中时刻）
+      if (geom.kind === 'visible' && geom.height > 0) {
+        const timeKey = n.time.toFixed(3);
+        if (!timeGroups.has(timeKey)) timeGroups.set(timeKey, []);
+        timeGroups.get(timeKey)!.push({
+          time: n.time,
+          x: ctx.cx,
+          barW: ctx.barW,
+          y: geom.y + geom.height,
+        });
+      }
+    }
+  }
+
+  // 为同时到达的音符组绘制虚线连接线
+  for (const [, heads] of timeGroups) {
+    if (heads.length < 2) continue;
+    heads.sort((a, b) => a.x - b.x);
+    const leftX = heads[0].x + heads[0].barW / 2;
+    const rightX = heads[heads.length - 1].x - heads[heads.length - 1].barW / 2;
+    const midY = heads[0].y;
+    const conn = document.createElement('div');
+    conn.className = 'falling-chord-connector';
+    conn.style.cssText = `position:absolute;left:${leftX}px;top:${midY}px;width:${Math.max(1, rightX - leftX)}px;height:0`;
+    frag.appendChild(conn);
   }
 
   return frag;

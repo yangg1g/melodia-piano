@@ -53,6 +53,7 @@ const keyboardHost = document.querySelector<HTMLDivElement>('#keyboard-host')!;
 const keyboardStack = document.querySelector<HTMLDivElement>('#keyboard-stack')!;
 const centerJudgeEl = document.querySelector<HTMLDivElement>('#center-judge')!;
 const keyboardHint = document.querySelector<HTMLParagraphElement>('#keyboard-hint')!;
+const chordSidePanel = document.querySelector<HTMLDivElement>('#chord-side-panel')!;
 const chordDisplay = document.querySelector<HTMLDivElement>('#chord-display')!;
 const chordDisplayNotes = document.querySelector<HTMLSpanElement>('#chord-display-notes')!;
 const chordDisplayChord = document.querySelector<HTMLSpanElement>('#chord-display-chord')!;
@@ -72,6 +73,7 @@ const scoreAccuEl = document.querySelector<HTMLSpanElement>('#score-accu')!;
 const scoreComboEl = document.querySelector<HTMLSpanElement>('#score-combo')!;
 const scoreJudgeEl = document.querySelector<HTMLSpanElement>('#score-judge')!;
 const scoreWrongEl = document.querySelector<HTMLSpanElement>('#score-wrong')!;
+const scoreSidePanel = document.querySelector<HTMLDivElement>('#score-side-panel')!;
 
 const btnPlay = document.querySelector<HTMLButtonElement>('#btn-play')!;
 const btnStop = document.querySelector<HTMLButtonElement>('#btn-stop')!;
@@ -158,10 +160,11 @@ const resultElements = {
 
 const pianoPage = new PianoPage({
   pianoPageEl, scoreEl, scoreScrollEl, scorePagerEl, keyboardHost, keyboardStack,
-  keyboardHint, chordDisplay, chordDisplayNotes, chordDisplayChord,
+  keyboardHint, chordSidePanel, chordDisplay, chordDisplayNotes, chordDisplayChord,
   measureInfoEl, progressBar, progressTime, practiceTime, scoreDisplay,
   btnPlay, btnStop, btnEdit, btnFinger, btnSlur, btnTie, btnStem, btnSaveEdits, editToolbar,
   scoreValueEl, scoreAccuEl, scoreComboEl, scoreJudgeEl, scoreWrongEl,
+  scoreSidePanel,
   resultElements, midiSetup, fallingNotes,
   liveAccuracyPanel, liveAccuracyCanvas, liveTimelineCanvas, liveErrorCanvas, centerJudgeEl,
   liveTimeRatioSection, liveTimeRatioCanvas,
@@ -431,7 +434,7 @@ resultReplayBtn.addEventListener('click', () => {
   pianoPage.progressTime.textContent = '0:00 / 0:00';
   pianoPage.btnPlay.disabled = true;
   pianoPage.btnStop.disabled = false;
-  pianoPage.scoreDisplay.hidden = false;
+  pianoPage.scoreSidePanel.hidden = false;
   pianoPage.updateKeyboardHint();
   pianoPage.renderAll();
   const isKeyboardMode = pianoPage.lastRecordedMode !== 'auto';
@@ -597,7 +600,7 @@ async function init(): Promise<void> {
     songListMidiStatus.textContent = '浏览器不支持 MIDI';
     songListMidiStatus.className = 'song-list-midi-status song-list-midi-status--none';
   }
-  pianoPage.syncModeUi();
+  pianoPage.syncPanels();
   showSongList();
 }
 

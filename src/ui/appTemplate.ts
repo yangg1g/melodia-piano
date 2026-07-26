@@ -36,10 +36,6 @@ export const appTemplate = `
     <header class="toolbar">
       <h1 class="title">MIDI 乐谱</h1>
       <span id="measure-info" class="measure-info"></span>
-      <div id="chord-display" class="chord-display" hidden>
-        <span class="chord-display-notes" id="chord-display-notes"></span>
-        <span class="chord-display-chord" id="chord-display-chord"></span>
-      </div>
       <div class="toolbar-actions">
         <button type="button" id="btn-back" class="btn secondary">← 返回</button>
         <button type="button" id="btn-play" class="btn primary">播放</button>
@@ -82,55 +78,69 @@ export const appTemplate = `
         <input type="number" class="practice-measure-input" id="practice-group-size-input" value="1" min="1" max="50" step="1" />
       </div>
     </div>
-    <main class="main">
-      <div id="score-scroll" class="score-scroll">
-        <div id="score-pager" class="score-pager" hidden>
-          <button type="button" id="score-prev" class="btn secondary">上一页</button>
-          <span id="score-page-info" class="score-page-info"></span>
-          <button type="button" id="score-next" class="btn secondary">下一页</button>
+    <div class="piano-content">
+      <div id="practice-left-panel" class="practice-left-panel" hidden>
+        <div class="practice-left-panel-header">错误分析</div>
+        <div id="practice-left-content" class="practice-left-content"></div>
+      </div>
+      <div id="live-accuracy-panel" class="live-accuracy-panel" hidden>
+        <div class="live-accuracy-panel-header">实时图表</div>
+        <div class="live-chart-section">
+          <div class="live-chart-title">错误时间线</div>
+          <canvas id="live-timeline-canvas" class="live-accuracy-canvas"></canvas>
         </div>
-        <div id="score" class="score"></div>
-      </div>
-      <section class="keyboard-section">
-        <p class="hint" id="keyboard-hint"></p>
-        <div id="keyboard-stack" class="keyboard-stack">
-          <div id="keyboard-host"></div>
-          <div id="center-judge" class="center-judge"></div>
+        <div class="live-chart-section">
+          <div class="live-chart-title">按键偏差</div>
+          <canvas id="live-error-canvas" class="live-accuracy-canvas"></canvas>
         </div>
-      </section>
-    </main>
-    <div id="practice-left-panel" class="practice-left-panel" hidden>
-      <div class="practice-left-panel-header">错误分析</div>
-      <div id="practice-left-content" class="practice-left-content"></div>
-    </div>
-    <div id="practice-side-panel" class="practice-side-panel" hidden>
-      <div id="score-display" class="score-display score-display--side" hidden>
-        <span class="score-display-score" id="score-value">0</span>
-        <span class="score-display-accu" id="score-accu">100.00%</span>
-        <span class="score-display-combo" id="score-combo"></span>
-        <span class="score-display-judge" id="score-judge"></span>
-        <span class="score-display-wrong" id="score-wrong"></span>
+        <div class="live-chart-section">
+          <div class="live-chart-title">实时准度</div>
+          <canvas id="live-accuracy-canvas" class="live-accuracy-canvas"></canvas>
+        </div>
+        <div class="live-chart-section" id="live-time-ratio-section" hidden>
+          <div class="live-chart-title">用时占比</div>
+          <canvas id="live-time-ratio-canvas" class="live-accuracy-canvas"></canvas>
+        </div>
       </div>
-      <div class="practice-side-panel-header" id="practice-side-header">练习记录</div>
-      <div id="practice-side-scores" class="practice-side-scores"></div>
-    </div>
-    <div id="live-accuracy-panel" class="live-accuracy-panel" hidden>
-      <div class="live-accuracy-panel-header">实时图表</div>
-      <div class="live-chart-section">
-        <div class="live-chart-title">判定时间线</div>
-        <canvas id="live-timeline-canvas" class="live-accuracy-canvas"></canvas>
-      </div>
-      <div class="live-chart-section">
-        <div class="live-chart-title">按键偏差</div>
-        <canvas id="live-error-canvas" class="live-accuracy-canvas"></canvas>
-      </div>
-      <div class="live-chart-section">
-        <div class="live-chart-title">实时准度</div>
-        <canvas id="live-accuracy-canvas" class="live-accuracy-canvas"></canvas>
-      </div>
-      <div class="live-chart-section" id="live-time-ratio-section" hidden>
-        <div class="live-chart-title">用时占比</div>
-        <canvas id="live-time-ratio-canvas" class="live-accuracy-canvas"></canvas>
+      <main class="main">
+        <div id="score-scroll" class="score-scroll">
+          <div id="score-pager" class="score-pager" hidden>
+            <button type="button" id="score-prev" class="btn secondary">上一页</button>
+            <span id="score-page-info" class="score-page-info"></span>
+            <button type="button" id="score-next" class="btn secondary">下一页</button>
+          </div>
+          <div id="score" class="score"></div>
+        </div>
+        <section class="keyboard-section">
+          <p class="hint" id="keyboard-hint"></p>
+          <div id="keyboard-stack" class="keyboard-stack">
+            <div id="keyboard-host"></div>
+            <div id="center-judge" class="center-judge"></div>
+          </div>
+        </section>
+      </main>
+      <div id="right-side-panel" class="right-side-panel">
+        <div id="score-side-panel" class="score-side-panel" hidden>
+          <div class="score-side-panel-header">成绩</div>
+          <div id="score-display" class="score-display score-display--side">
+            <span class="score-display-score" id="score-value">0</span>
+            <span class="score-display-accu" id="score-accu">100.00%</span>
+            <span class="score-display-combo" id="score-combo"></span>
+            <span class="score-display-judge" id="score-judge"></span>
+            <span class="score-display-wrong" id="score-wrong"></span>
+          </div>
+        </div>
+        <div id="practice-side-panel" class="practice-side-panel" hidden>
+          <div class="practice-side-panel-header" id="practice-side-header">练习记录</div>
+          <div id="practice-side-scores" class="practice-side-scores"></div>
+        </div>
+        <div id="chord-side-panel" class="chord-side-panel" hidden>
+          <div class="chord-side-panel-header">和弦</div>
+          <div id="chord-display" class="chord-display">
+            <span class="chord-display-notes" id="chord-display-notes"></span>
+            <span class="chord-display-chord" id="chord-display-chord"></span>
+          </div>
+        </div>
       </div>
     </div>
   </div>

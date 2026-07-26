@@ -123,6 +123,13 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+/* ── 同时到达判定线的和弦虚线连接 ── */
+.falling-chord-connector {
+  border-top: 1.5px dashed rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  z-index: 5;
+}
+
 /* ── 右键指法弹出菜单 ── */
 .finger-menu {
   position: fixed;

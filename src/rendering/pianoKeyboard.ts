@@ -1,4 +1,6 @@
 import type { Hand } from '../core/midiScore';
+import { midiToNoteName } from '../core/chordDetector';
+import { NOTE_COLORS } from '../core/pitchUtil';
 
 const WHITE_PC = new Set([0, 2, 4, 5, 7, 9, 11]);
 
@@ -87,6 +89,13 @@ export function createPianoKeyboard(
 
   const keyEls = new Map<number, HTMLElement>();
 
+  // 音名颜色映射
+  const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const midiToColor = (midi: number): string => {
+    const letter = NOTE_NAMES[midi % 12].charAt(0).toLowerCase();
+    return NOTE_COLORS[letter] ?? '#666';
+  };
+
   for (let m = startMidi; m <= endMidi; m++) {
     if (!isWhiteKey(m)) continue;
     const k = document.createElement('button');
@@ -95,6 +104,12 @@ export function createPianoKeyboard(
     k.dataset.midi = String(m);
     k.style.width = `${whiteW}px`;
     k.style.height = `${whiteH}px`;
+    // 音名标签
+    const label = document.createElement('span');
+    label.className = 'piano-key-label';
+    label.textContent = midiToNoteName(m);
+    label.style.color = midiToColor(m);
+    k.appendChild(label);
     keyEls.set(m, k);
     whiteRow.appendChild(k);
   }
@@ -120,6 +135,12 @@ export function createPianoKeyboard(
     k.style.height = `${blackH}px`;
     const left = (idx + 1) * whiteW - blackW / 2;
     k.style.left = `${left}px`;
+    // 黑键音名标签
+    const label = document.createElement('span');
+    label.className = 'piano-key-label piano-key-label--black';
+    label.textContent = midiToNoteName(m);
+    label.style.color = midiToColor(m);
+    k.appendChild(label);
     keyEls.set(m, k);
     blackLayer.appendChild(k);
   }

@@ -72,38 +72,59 @@
   font-weight: 500;
 }
 
-/* ── 和弦显示（toolbar 内） ── */
-.chord-display {
+/* ── 和弦面板（右侧栏底部）── */
+.chord-side-panel {
+  margin-top: auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
-  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-sm);
 }
 
-.chord-display[hidden] {
-  display: none;
+.chord-side-panel[hidden] {
+  display: none !important;
+}
+
+.chord-side-panel-header {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  width: 100%;
+}
+
+.chord-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
 }
 
 .chord-display-notes {
   font-size: 0.8rem;
-  color: var(--toolbar-muted);
+  color: var(--muted);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .chord-display-chord {
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #f59e0b;
   white-space: nowrap;
-  padding: 1px 8px;
-  background: rgba(245, 158, 11, 0.13);
-  border-radius: 4px;
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 4px 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .piano-keyboard {
@@ -113,6 +134,8 @@
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: center;
 }
 
 .piano-inner {
@@ -173,4 +196,23 @@
   border-radius: 2px;
   z-index: 1;
   pointer-events: none;
+}
+
+/* ── 琴键音名标签 ── */
+.piano-key-label {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.piano-key-label--black {
+  bottom: 2px;
+  font-size: 7px;
+  text-shadow: 0 0 2px rgba(0,0,0,0.6), 0 1px 1px rgba(0,0,0,0.4);
 }

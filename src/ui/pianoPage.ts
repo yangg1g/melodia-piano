@@ -12,7 +12,7 @@ import {
   type FlatNote,
 } from '../core/midiScore';
 import { playheadXInMeasureOverlay, renderGrandStaffRow, renderGrandStaffRowSVG, type GrandStaffColumn } from '../rendering/renderScore';
-import { applyKeyVisuals, createPianoKeyboard } from '../rendering/pianoKeyboard';
+import { applyKeyVisuals, createPianoKeyboard, isWhiteKey } from '../rendering/pianoKeyboard';
 import { autoAssignFingers } from '../core/fingerAssigner';
 import { detectChord } from '../core/chordDetector';
 import type { FallingNotesHandle } from '../rendering/fallingNotes';
@@ -75,6 +75,7 @@ export class PianoPage {
   keyboardHost: HTMLDivElement;
   keyboardStack: HTMLDivElement;
   keyboardHint: HTMLParagraphElement;
+  chordSidePanel: HTMLDivElement;
   chordDisplay: HTMLDivElement;
   chordDisplayNotes: HTMLSpanElement;
   chordDisplayChord: HTMLSpanElement;
@@ -161,6 +162,7 @@ export class PianoPage {
   scoreComboEl: HTMLSpanElement;
   scoreJudgeEl: HTMLSpanElement;
   scoreWrongEl: HTMLSpanElement;
+  scoreSidePanel: HTMLDivElement;
   centerJudgeEl: HTMLDivElement;
 
   // 结果页
@@ -193,6 +195,7 @@ export class PianoPage {
     keyboardHost: HTMLDivElement;
     keyboardStack: HTMLDivElement;
     keyboardHint: HTMLParagraphElement;
+    chordSidePanel: HTMLDivElement;
     chordDisplay: HTMLDivElement;
     chordDisplayNotes: HTMLSpanElement;
     chordDisplayChord: HTMLSpanElement;
@@ -215,6 +218,7 @@ export class PianoPage {
     scoreComboEl: HTMLSpanElement;
     scoreJudgeEl: HTMLSpanElement;
     scoreWrongEl: HTMLSpanElement;
+    scoreSidePanel: HTMLDivElement;
     resultElements: ResultPageElements;
     midiSetup: MidiSetup;
     fallingNotes: FallingNotesHandle;
@@ -233,6 +237,7 @@ export class PianoPage {
     this.keyboardHost = elements.keyboardHost;
     this.keyboardStack = elements.keyboardStack;
     this.keyboardHint = elements.keyboardHint;
+    this.chordSidePanel = elements.chordSidePanel;
     this.chordDisplay = elements.chordDisplay;
     this.chordDisplayNotes = elements.chordDisplayNotes;
     this.chordDisplayChord = elements.chordDisplayChord;
@@ -255,6 +260,7 @@ export class PianoPage {
     this.scoreComboEl = elements.scoreComboEl;
     this.scoreJudgeEl = elements.scoreJudgeEl;
     this.scoreWrongEl = elements.scoreWrongEl;
+    this.scoreSidePanel = elements.scoreSidePanel;
     this.resultElements = elements.resultElements;
     this.midiSetup = elements.midiSetup;
     this.fallingNotes = elements.fallingNotes;
@@ -365,15 +371,6 @@ export class PianoPage {
       }
     });
 
-    // 窗口大小变化时重新定位左侧面板
-    window.addEventListener('resize', () => {
-      if (this.practiceActive && !this.practice.elements.leftPanel.hidden) {
-        const barRect = this.practice.elements.controlsBar.getBoundingClientRect();
-        this.practice.elements.leftPanel.style.top = `${barRect.bottom + 8}px`;
-        this.practice.elements.leftPanel.style.maxHeight = `calc(100% - ${barRect.bottom + 24}px)`;
-      }
-    });
-
     // 编辑模式键盘事件
     document.addEventListener('keydown', (e) => this.handleEditKeydown(e));
 
@@ -429,13 +426,13 @@ export class PianoPage {
     }
   }
 
-  /** 更新和弦显示：根据当前按下的 MIDI 键显示和弦信息 */
+  /** 更新和弦显示：根据当前按下的 MIDI 键显示和弦信息（右侧边栏） */
   updateChordDisplay(pressed: Set<number>): void {
     if (pressed.size === 0) {
-      this.chordDisplay.hidden = true;
+      this.chordDisplayNotes.textContent = '-';
+      this.chordDisplayChord.textContent = '-';
       return;
     }
-    this.chordDisplay.hidden = false;
 
     const chord = detectChord(pressed);
     if (!chord) {
@@ -466,16 +463,31 @@ export class PianoPage {
     }
   }
 
-  syncModeUi(): void {
-    this.scoreDisplay.hidden = this.getPlayMode() === 'auto';
-    if (!this.playback && !this.practiceActive) {
-      this.practice.elements.sidePanel.hidden = this.getPlayMode() === 'auto';
-    }
+  /** 统一设置所有面板显隐 */
+  syncPanels(): void {
+    const isPractice = this.practiceActive;
+    const isAuto = this.getPlayMode() === 'auto';
+
+    // 左侧：错误分析（仅练习）
+    this.practice.elements.leftPanel.hidden = !isPractice;
+    // 中栏：实时图表（非 auto）
+    this.liveAccuracyPanel.hidden = isAuto;
+    // 右侧：成绩（非 auto）
+    this.scoreSidePanel.hidden = isAuto;
+    // 右侧：练习记录（仅练习）
+    this.practice.elements.sidePanel.hidden = !isPractice;
+    this.practice.elements.sideHeader.hidden = !isPractice;
+    this.practice.elements.sideScores.hidden = !isPractice;
+    // 练习控制栏（仅练习）
+    this.practice.elements.controlsBar.hidden = !isPractice;
+    // 和弦（始终显示）
+    this.chordSidePanel.hidden = false;
+
     this.updateKeyboardHint();
     this.btnEdit.hidden = this.pianoPageEl.hidden || this.getRenderMode() !== 'original';
     const isKeyboard = this.getPlayMode() === 'keyboard';
-    this.progressBar.style.pointerEvents = (isKeyboard && !this.practiceActive) ? 'none' : '';
-    this.progressBar.style.opacity = (isKeyboard && !this.practiceActive) ? '0.55' : '';
+    this.progressBar.style.pointerEvents = (isKeyboard && !isPractice) ? 'none' : '';
+    this.progressBar.style.opacity = (isKeyboard && !isPractice) ? '0.55' : '';
   }
 
   /** 自动分配指法：基于音高范围计算 MIDI → 手指编号 */
@@ -592,8 +604,19 @@ export class PianoPage {
     }
 
     const range = noteRange(this.flatNotes);
+    // 根据游戏区域宽度扩展键盘，延迟到下一帧获取准确布局
+    const doExpand = () => {
+      const container = this.keyboardHost?.parentElement;
+      const availW = container?.clientWidth ?? 700;
+      const expanded = expandRangeToFill(range, availW);
+      if (expanded.min !== range.min || expanded.max !== range.max) {
+        this.keyEls = createPianoKeyboard(this.keyboardHost, expanded.min, expanded.max);
+        this.fallingNotes.setRange(expanded.min, expanded.max);
+      }
+    };
     this.keyEls = createPianoKeyboard(this.keyboardHost, range.min, range.max);
     this.fallingNotes.setRange(range.min, range.max);
+    requestAnimationFrame(() => requestAnimationFrame(doExpand));
     this.fallingNotes.setSource(this.flatNotes, m);
     this.fallingNotes.clear();
 
@@ -611,7 +634,7 @@ export class PianoPage {
     this.staffEditState = createStaffEditState();
 
     this.renderAll(midi);
-    this.syncModeUi();
+    this.syncPanels();
 
     // 从 JSON 预置指法加载
     this.loadJsonFingers();
@@ -636,9 +659,22 @@ export class PianoPage {
   async enterAndPlay(midi: Midi): Promise<void> {
     await this.setupPianoPage(midi);
     this.practiceActive = false;
-    this.practice.elements.sidePanel.hidden = false;
-    this.practice.elements.sideHeader.hidden = true;
-    this.practice.elements.sideScores.hidden = true;
+    this.syncPanels();
+    // 清理并显示实时图表
+    this.liveAccuracyPoints = [];
+    this.liveTimeRatioPoints = [];
+    this.lastGameTimeSec = 0;
+    resetScoreUI();
+    this.centerJudgeEl.className = 'center-judge';
+    this.centerJudgeEl.textContent = '';
+    for (const c of [this.liveTimelineCanvas, this.liveErrorCanvas, this.liveAccuracyCanvas, this.liveTimeRatioCanvas]) {
+      const w = this.liveAccuracyPanel.clientWidth - 28;
+      const ctx = c.getContext('2d');
+      if (ctx) { c.width = w * (window.devicePixelRatio || 1); ctx.clearRect(0, 0, c.width, c.height); }
+    }
+    this.renderLiveTimelineChart();
+    this.renderLiveErrorChart();
+    this.renderLiveAccuracyChart();
     await countdown(3, this.pianoPageEl);
     await this.startPlayFrom(0);
   }
@@ -646,23 +682,28 @@ export class PianoPage {
   async enterPractice(midi: Midi): Promise<void> {
     await this.setupPianoPage(midi);
     this.practiceActive = true;
-    this.syncModeUi();
-    this.practice.elements.controlsBar.hidden = false;
-    this.practice.elements.sidePanel.hidden = false;
-    this.practice.elements.sideHeader.hidden = false;
-    this.practice.elements.sideScores.hidden = false;
+    this.syncPanels();
     this.practice.elements.sideScores.innerHTML = '';
-    this.practice.elements.leftPanel.hidden = false;
-    // 动态定位左侧面板：放在 practice-controls-bar 下方
-    const barRect = this.practice.elements.controlsBar.getBoundingClientRect();
-    this.practice.elements.leftPanel.style.top = `${barRect.bottom + 8}px`;
-    this.practice.elements.leftPanel.style.maxHeight = `calc(100% - ${barRect.bottom + 24}px)`;
     this.practice.init(measureCount(midi, getMeasureContext(midi)));
     this.practice.updateUI();
-    // 加载历史记录分析
     this.loadHistoryAnalysis();
     this.btnPlay.disabled = true;
     this.btnStop.disabled = false;
+    // 清理并显示实时图表
+    this.liveAccuracyPoints = [];
+    this.liveTimeRatioPoints = [];
+    this.lastGameTimeSec = 0;
+    resetScoreUI();
+    this.centerJudgeEl.className = 'center-judge';
+    this.centerJudgeEl.textContent = '';
+    for (const c of [this.liveTimelineCanvas, this.liveErrorCanvas, this.liveAccuracyCanvas, this.liveTimeRatioCanvas]) {
+      const w = this.liveAccuracyPanel.clientWidth - 28;
+      const ctx = c.getContext('2d');
+      if (ctx) { c.width = w * (window.devicePixelRatio || 1); ctx.clearRect(0, 0, c.width, c.height); }
+    }
+    this.renderLiveTimelineChart();
+    this.renderLiveErrorChart();
+    this.renderLiveAccuracyChart();
     await this.startPlayFrom(0);
   }
 
@@ -693,7 +734,6 @@ export class PianoPage {
     if (this.scorePagerState) this.updateMeasureInfo(0, this.scorePagerState.nMeas);
     this.fallingNotes.clear();
     applyKeyVisuals(this.keyEls, {});
-    this.chordDisplay.hidden = true;
     this.btnPlay.disabled = false;
     this.btnStop.disabled = true;
     resetProgressBar(this.progressBar, this.progressTime, this.totalDurationSec);
@@ -701,8 +741,6 @@ export class PianoPage {
     this.finalWallTimeSec = 0;
     this.practiceActive = false;
     this.progressBar.style.background = '';
-    this.practice.elements.sideHeader.hidden = false;
-    this.practice.elements.sideScores.hidden = false;
     this.practice.elements.sideScores.innerHTML = '';
     this.liveAccuracyPanel.hidden = true;
   }
@@ -804,7 +842,7 @@ export class PianoPage {
         if (ha !== hb) return ha === 'treble' ? -1 : 1;
         return a.time - b.time || a.midi - b.midi;
       });
-      this.scoreDisplay.hidden = true;
+      this.scoreSidePanel.hidden = true;
       this.playback = playNotes(
         sorted,
         this.currentMidi!,
@@ -864,7 +902,7 @@ export class PianoPage {
         .filter(n => n.ticks >= startTick && n.ticks < endTick)
         .map(n => ({ ...n, time: n.time - startTimeSec, ticks: n.ticks - startTick }));
 
-      this.scoreDisplay.hidden = false;
+      this.scoreSidePanel.hidden = false;
 
       const startLoop = () => {
         if (!this.practiceActive) return;
@@ -944,7 +982,7 @@ export class PianoPage {
 
     /* ── 普通模式 ── */
     if (mode === 'normal') {
-      this.scoreDisplay.hidden = false;
+      this.scoreSidePanel.hidden = false;
       const holdCount = this.flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
       this.scoringEngine.reset({ totalNotes: this.flatNotes.length, holdNoteCount: holdCount });
       this.lastPushedResultIdx = 0;
@@ -976,7 +1014,7 @@ export class PianoPage {
 
     /* ── MIDI 跟弹模式 ── */
     if (mode === 'keyboard') {
-      this.scoreDisplay.hidden = false;
+      this.scoreSidePanel.hidden = false;
       const holdCount = this.flatNotes.filter(n => Math.max(0, n.duration) >= 0.05).length;
       this.scoringEngine.reset({ totalNotes: this.flatNotes.length, holdNoteCount: holdCount });
       this.lastPushedResultIdx = 0;
@@ -1314,7 +1352,7 @@ export class PianoPage {
     renderLiveAccuracyChart(this);
   }
 
-  /** 绘制实时判定时间线 */
+  /** 绘制错误时间线（仅 Bad / Miss / Wrong） */
   private renderLiveTimelineChart(): void {
     renderLiveTimelineChart(this);
   }
@@ -1451,4 +1489,23 @@ function noteRange(notes: FlatNote[]): { min: number; max: number } {
     max = Math.max(max, n.midi);
   }
   return { min: Math.max(21, min - 2), max: Math.min(108, max + 2) };
+}
+
+/** 根据可用宽度扩展键盘范围，居中对称 */
+function expandRangeToFill(range: { min: number; max: number }, availW: number): { min: number; max: number } {
+  const whiteW = 28;
+  const targetKeys = Math.floor(availW / whiteW);
+  if (targetKeys < 1) return range;
+
+  let wc = 0;
+  for (let m = range.min; m <= range.max; m++) if (isWhiteKey(m)) wc++;
+  let min = range.min;
+  let max = range.max;
+  while (wc < targetKeys) {
+    if (min > 21) { min--; if (isWhiteKey(min)) wc++; }
+    if (wc >= targetKeys) break;
+    if (max < 108) { max++; if (isWhiteKey(max)) wc++; }
+    if (min <= 21 && max >= 108) break;
+  }
+  return { min, max };
 }

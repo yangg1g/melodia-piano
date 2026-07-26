@@ -117,13 +117,16 @@ export function renderLiveAccuracyChart(page: PianoPage): void {
   }
 }
 
-/** 绘制实时判定时间线 */
+/** 绘制错误时间线（仅 Bad / Miss / Wrong） */
 export function renderLiveTimelineChart(page: PianoPage): void {
   const canvas = page.liveTimelineCanvas;
-  const notes = page.scoringEngine.noteResults;
+  const allNotes = page.scoringEngine.noteResults;
   const wrongs = page.scoringEngine.wrongKeyRecords;
   const dpr = window.devicePixelRatio || 1;
   const t = getChartTheme();
+
+  // 只保留 BAD 和 MISS
+  const badNotes = allNotes.filter(n => n.judgement === 'BAD' || n.judgement === 'MISS');
 
   const containerW = page.liveAccuracyPanel.clientWidth - 28;
   const h = 118;
@@ -137,17 +140,17 @@ export function renderLiveTimelineChart(page: PianoPage): void {
   ctx.fillStyle = t.surface;
   ctx.fillRect(0, 0, containerW, h);
 
-  if (notes.length === 0 && wrongs.length === 0) {
+  if (badNotes.length === 0 && wrongs.length === 0) {
     ctx.fillStyle = t.muted;
     ctx.font = '11px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('等待弹奏...', containerW / 2, h / 2);
+    ctx.fillText('没有错误', containerW / 2, h / 2);
     ctx.textAlign = 'start';
     return;
   }
 
   let maxTime = 0;
-  for (const n of notes) maxTime = Math.max(maxTime, n.time);
+  for (const n of badNotes) maxTime = Math.max(maxTime, n.time);
   for (const w of wrongs) maxTime = Math.max(maxTime, w.timeSec);
   if (maxTime <= 0) maxTime = 10;
   const duration = maxTime + 2;
@@ -160,18 +163,20 @@ export function renderLiveTimelineChart(page: PianoPage): void {
   const midiMin = 21, midiMax = 108;
   const midiToY = (midi: number) => padding.top + (1 - (midi - midiMin) / (midiMax - midiMin)) * plotH;
 
-  const barH = Math.max(1.2, plotH / 88);
-  const barW = Math.max(1.5, containerW / 200);
-  for (const n of notes) {
+  const barH = Math.max(3, plotH / 88);
+  const barW = Math.max(3, containerW / 200);
+  for (const n of badNotes) {
     const x = timeToX(n.time);
     const y = midiToY(n.midi) - barH / 2;
-    ctx.fillStyle = n.judgement === 'PERFECT' ? '#f59e0b' : n.judgement === 'OK' ? '#8b5cf6' : n.judgement === 'BAD' ? '#f97316' : '#ef4444';
-    ctx.fillRect(x, y, barW, Math.max(1, barH));
+    ctx.fillStyle = n.judgement === 'BAD' ? '#f97316' : '#ef4444';
+    ctx.fillRect(x, y, barW, barH);
   }
 
   for (const w of wrongs) {
+    const x = timeToX(w.timeSec);
+    const y = midiToY(w.midi) - barH / 2;
     ctx.fillStyle = '#ef4444';
-    ctx.beginPath(); ctx.arc(timeToX(w.timeSec), midiToY(w.midi), 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(x, y, barW, barH);
   }
 }
 
