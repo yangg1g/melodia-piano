@@ -26,10 +26,27 @@ import { loadSettings } from './settings';
 import { addHistoryEntry, getHistoryForSong } from './history';
 import { showResultScreen, type ResultPageElements } from './resultScreen';
 import { countdown } from './countdown';
-import { updateProgressBar, resetProgressBar } from './progressBar';
+import { updateProgressBar, resetProgressBar, formatTime } from './progressBar';
 import { updateScoreUI, resetScoreUI } from './scoreDisplay';
 import { MidiSetup } from './midiSetup';
 import { PracticeControls, type MeasureErrorInfo } from './practiceControls';
+import { renderLiveAccuracyChart, renderLiveTimelineChart, renderLiveErrorChart, renderLiveTimeRatioChart, updateTimingDots, updateLiveAccuracyFromEngine } from './pianoCharts';
+import {
+  toggleEditMode,
+  setEditTool,
+  handleStemToggle,
+  saveEdits,
+  saveToJson,
+  handleEditKeydown,
+  handleScoreMouseDown,
+  handleScoreMouseMove,
+  handleScoreMouseUp,
+  createFingerMenu,
+  handleScoreContextMenu,
+  handleScoreNoteClick,
+  hideFingerMenu,
+  handleFallingNoteClick,
+} from './pianoEdit';
 
 /* ── 常量 ── */
 const SCORE_LAYOUT = { measuresPerRow: 2 } as const;
@@ -107,7 +124,7 @@ export class PianoPage {
   /** 右键指法弹出菜单 */
   fingerMenuEl: HTMLDivElement;
   /** 当前右键点击的音符 noteKey */
-  private fingerMenuNoteKey: string | null = null;
+  fingerMenuNoteKey: string | null = null;
 
   // 乐谱状态
   // 练习模式
@@ -509,7 +526,7 @@ export class PianoPage {
   }
 
   /** 从 staffEditState.fingerNumbers（NoteKey 格式）构建 MIDI → 手指的映射 */
-  private buildFingerMapFromEditState(): void {
+  buildFingerMapFromEditState(): void {
     if (!this.currentMidi) return;
     const ctx = getMeasureContext(this.currentMidi);
     this.currentFingerMap = new Map();
@@ -542,7 +559,7 @@ export class PianoPage {
     }
 
   /** 同步指法到下落音符 */
-  private syncFingerMapToFallingNotes(): void {
+  syncFingerMapToFallingNotes(): void {
     this.fallingNotes.setFingerData(this.staffEditState.fingerNumbers, this.flatNotes);
   }
 
@@ -653,31 +670,13 @@ export class PianoPage {
     if (this.practiceActive && this.practice.records.length > 0) {
       const best = this.practice.getBestRecord();
       if (best) {
-        const curSettings = loadSettings();
         let maxComboRun = 0;
         let curRun = 0;
         for (const nr of best.noteResults) {
           if (nr.judgement !== 'MISS') { curRun++; if (curRun > maxComboRun) maxComboRun = curRun; }
           else curRun = 0;
         }
-        const entry: PlayHistoryEntry = {
-          songFile: this.currentSongFile ?? '',
-          songName: this.currentSongName,
-          score: best.score,
-          accuracy: best.accuracy,
-          maxCombo: maxComboRun,
-          mode: 'practice',
-          date: new Date().toISOString(),
-          settings: { fallingSpeed: curSettings.fallingSpeed, playbackSpeed: curSettings.playbackSpeed, difficulty: curSettings.difficulty, offsetAdjustMs: curSettings.offsetAdjustMs },
-          noteResults: best.noteResults,
-          wrongKeyRecords: best.wrongKeyRecords,
-          wallTimeSec: this.finalWallTimeSec || undefined,
-          originalDurationSec: undefined,
-          recordedEvents: this.lastRecordedEvents.length > 0
-            ? this.lastRecordedEvents.map(e => ({ data: Array.from(e.data), wallTimeSec: e.wallTimeSec }))
-            : undefined,
-          timeRatioPoints: this.liveTimeRatioPoints.length > 0 ? [...this.liveTimeRatioPoints] : undefined,
-        };
+        const entry = this.buildHistoryEntry(best.score, best.accuracy, maxComboRun, 'practice');
         if (this.currentSongFile) {
           try { addHistoryEntry(entry); } catch { /* ignore */ }
         }
@@ -758,27 +757,9 @@ export class PianoPage {
 
       // 只有完成整首才写入历史
       if (completed && this.getPlayMode() !== 'auto') {
-        // 构建入场并显示结算
-        const curSettings = loadSettings();
+        const modeForHistory = loadSettings().mode;
         const state = this.scoringEngine.getState();
-        const entry: PlayHistoryEntry = {
-          songFile: this.currentSongFile ?? '',
-          songName: this.currentSongName,
-          score: this.scoringEngine.getTotalScore(),
-          accuracy: state.accuracy,
-          maxCombo: state.maxCombo,
-          mode: curSettings.mode,
-          date: new Date().toISOString(),
-          settings: { fallingSpeed: curSettings.fallingSpeed, playbackSpeed: curSettings.playbackSpeed, difficulty: curSettings.difficulty, offsetAdjustMs: curSettings.offsetAdjustMs },
-          noteResults: this.scoringEngine.noteResults,
-          wrongKeyRecords: this.scoringEngine.wrongKeyRecords,
-          wallTimeSec: this.finalWallTimeSec || undefined,
-          originalDurationSec: this.totalDurationSec || undefined,
-          recordedEvents: this.lastRecordedEvents.length > 0
-            ? this.lastRecordedEvents.map(e => ({ data: Array.from(e.data), wallTimeSec: e.wallTimeSec }))
-            : undefined,
-          timeRatioPoints: this.liveTimeRatioPoints.length > 0 ? [...this.liveTimeRatioPoints] : undefined,
-        };
+        const entry = this.buildHistoryEntry(this.scoringEngine.getScore(), state.accuracy, state.maxCombo, modeForHistory);
         if (this.currentSongFile) {
           try { addHistoryEntry(entry); } catch { /* 忽略存储错误 */ }
         }
@@ -946,7 +927,7 @@ export class PianoPage {
           },
           (s) => this.fallingNotes.updateKeyboardPractice(s),
           this.scoringEngine,
-          (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); this.updateLiveAccuracyFromEngine(); },
+          () => this.onScoreTick(),
           false,
           settings.playbackSpeed,
           (wallSec) => { this.practiceCurrentWallSec = wallSec; },
@@ -982,7 +963,7 @@ export class PianoPage {
         },
         (s) => this.fallingNotes.updateKeyboardPractice(s),
         this.scoringEngine,
-        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); this.updateLiveAccuracyFromEngine(); },
+        () => this.onScoreTick(),
         true,
         settings.playbackSpeed,
         undefined,
@@ -1019,7 +1000,7 @@ export class PianoPage {
         },
         (s) => this.fallingNotes.updateKeyboardPractice(s),
         this.scoringEngine,
-        (state) => { updateScoreUI(state, this.scoreElements()); this.updateTimingDots(); this.updateLiveAccuracyFromEngine(); },
+        () => this.onScoreTick(),
         false,
         settings.playbackSpeed,
         (wallSec) => {
@@ -1077,373 +1058,39 @@ export class PianoPage {
 
   /* ── 编辑模式 ── */
 
-  private toggleEditMode(): void {
-    this.editModeActive = !this.editModeActive;
-    this.syncEditModeUI();
-    if (this.editModeActive) {
-      this.stopPlayback();
-      this.selectedNoteKeys.clear();
-      this.renderAll();
-    } else {
-      this.selectedNoteKeys.clear();
-    }
-  }
+  private toggleEditMode(): void { toggleEditMode(this); }
 
-  private setEditTool(tool: EditTool, hint: string): void {
-    this.editTool = tool;
-    this.syncEditModeUI();
-    this.keyboardHint.textContent = hint;
-  }
+  private setEditTool(tool: EditTool, hint: string): void { setEditTool(this, tool, hint); }
 
-  private handleStemToggle(): void {
-    if (this.selectedNoteKeys.size === 0) return;
-    let hasDown = false;
-    for (const nk of this.selectedNoteKeys) {
-      if (this.staffEditState.stemDirections.get(nk) === -1) { hasDown = true; break; }
-    }
-    const dir: 1 | -1 = hasDown ? 1 : -1;
-    for (const nk of this.selectedNoteKeys) {
-      this.staffEditState.stemDirections.set(nk, dir);
-    }
-    this.renderAll();
-  }
+  private handleStemToggle(): void { handleStemToggle(this); }
 
-  private async saveEdits(): Promise<void> {
-    await this.saveToJson();
-    this.btnSaveEdits.textContent = '✓ 已保存';
-    setTimeout(() => { this.btnSaveEdits.textContent = '保存'; }, 2000);
-  }
+  private async saveEdits(): Promise<void> { await saveEdits(this); }
 
-  /** 保存指法到 JSON 文件（静默） */
-  private async saveFingerEdits(): Promise<void> {
-    console.log('[saveFingerEdits] fingerNumbers size:', this.staffEditState.fingerNumbers.size);
-    console.log('[saveFingerEdits] currentSongFile:', this.currentSongFile);
-    console.log('[saveFingerEdits] currentSongName:', this.currentSongName);
-    await this.saveToJson();
-  }
+  private async saveToJson(): Promise<void> { await saveToJson(this); }
 
-  private async saveToJson(): Promise<void> {
-    if (!this.currentSongFile || !this.currentMidi) {
-      console.warn('[saveToJson] 跳过：currentSongFile=', this.currentSongFile, 'currentMidi=', !!this.currentMidi);
-      return;
-    }
-    try {
-      // 构建完整的 JSON（包含指法）
-      const flatNotes = this.flatNotes;
-      let fingerCount = 0;
-      const notes = flatNotes.map(n => {
-        const finger = n.noteKey ? this.staffEditState.fingerNumbers.get(n.noteKey) : undefined;
-        if (finger) fingerCount++;
-        return {
-          midi: n.midi, time: n.time, duration: n.duration,
-          ticks: n.ticks, durationTicks: n.durationTicks,
-          trackIndex: n.trackIndex, vexKey: n.vexKey, velocity: n.velocity,
-          ...(finger ? { finger } : {}),
-        };
-      });
-      console.log('[saveToJson] flatNotes count:', flatNotes.length, '带指法的音符:', fingerCount);
+  private handleEditKeydown(e: KeyboardEvent): void { handleEditKeydown(this, e); }
 
-      const data = {
-        version: 1,
-        name: this.currentSongName,
-        duration: this.currentMidi.duration,
-        durationTicks: this.currentMidi.durationTicks,
-        header: {
-          tempos: this.currentMidi.header.tempos.map(t => ({ bpm: t.bpm, ticks: t.ticks })),
-          timeSignatures: this.currentMidi.header.timeSignatures.map(ts => ({
-            ticks: ts.ticks, timeSignature: ts.timeSignature, measures: ts.measures,
-          })),
-          ppq: this.currentMidi.header.ppq,
-        },
-        trackCount: this.currentMidi.tracks.length,
-        tracksWithNotes: this.currentMidi.tracks
-          .map((t: any, i: number) => (t.notes?.length > 0 ? i : -1))
-          .filter((i: number) => i >= 0),
-        notes,
-        noteCount: notes.length,
-        minMidi: notes.length > 0 ? Math.min(...notes.map(n => n.midi)) : 60,
-        maxMidi: notes.length > 0 ? Math.max(...notes.map(n => n.midi)) : 84,
-      };
+  private handleScoreMouseDown(e: MouseEvent): void { handleScoreMouseDown(this, e); }
 
-      console.log('[saveToJson] 发送 POST, filename:', this.currentSongFile, 'notes:', notes.length);
-      const resp = await fetch('/api/songs/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: this.currentSongFile, data }),
-      });
-      const result = await resp.json();
-      console.log('[saveToJson] 响应:', result);
-    } catch (e) {
-      console.error('[saveToJson] error:', e);
-    }
-  }
+  private handleScoreMouseMove(e: MouseEvent): void { handleScoreMouseMove(this, e); }
 
-  private syncEditModeUI(): void {
-    const show = this.editModeActive;
-    this.btnEdit.textContent = show ? '✓ 编辑' : '编辑';
-    this.btnEdit.classList.toggle('primary', show);
-    this.btnEdit.classList.toggle('secondary', !show);
-    this.editToolbar.hidden = !show;
-    this.btnFinger.classList.toggle('primary', this.editTool === 'select');
-    this.btnFinger.classList.toggle('secondary', this.editTool !== 'select');
-    this.btnSlur.classList.toggle('primary', this.editTool === 'slur');
-    this.btnSlur.classList.toggle('secondary', this.editTool !== 'slur');
-    this.btnTie.classList.toggle('primary', this.editTool === 'tie');
-    this.btnTie.classList.toggle('secondary', this.editTool !== 'tie');
-    if (!show) {
-      this.keyboardHint.textContent = this.keyboardHint.textContent?.replace(/编辑.*?。/, '') ?? '';
-    }
-  }
+  private handleScoreMouseUp(): void { handleScoreMouseUp(this); }
 
-  private handleEditKeydown(e: KeyboardEvent): void {
-    if (!this.editModeActive || this.selectedNoteKeys.size === 0 || this.getPlayMode() === 'auto') return;
-    if (e.repeat) return;
-    if (e.key >= '1' && e.key <= '5') {
-      e.preventDefault();
-      for (const nk of this.selectedNoteKeys) this.staffEditState.fingerNumbers.set(nk, Number(e.key));
-      this.buildFingerMapFromEditState();
-      this.syncFingerMapToFallingNotes();
-      this.renderAll();
-      void this.saveFingerEdits();
-    } else if (e.key === '0' || e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      for (const nk of this.selectedNoteKeys) {
-        this.staffEditState.fingerNumbers.delete(nk);
-        this.staffEditState.slurs = this.staffEditState.slurs.filter(s => s.from !== nk && s.to !== nk);
-        this.staffEditState.ties = this.staffEditState.ties.filter(t => t.from !== nk && t.to !== nk);
-        this.staffEditState.stemDirections.delete(nk);
-      }
-      this.buildFingerMapFromEditState();
-      this.syncFingerMapToFallingNotes();
-      this.selectedNoteKeys.clear();
-      this.renderAll();
-    }
-  }
 
-  private handleScoreMouseDown(e: MouseEvent): void {
-    // 仅左键，仅编辑模式，仅 original 渲染
-    if (e.button !== 0 || !this.editModeActive || this.getRenderMode() !== 'original') return;
-
-    const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
-    if (hit?.dataset.noteKey) {
-      const nk = hit.dataset.noteKey;
-
-      // 指法工具：左键弹出指法菜单
-      if (this.editTool === 'select') {
-        console.log('[handleScoreMouseDown] select tool, calling handleScoreNoteClick nk:', nk);
-        this.handleScoreNoteClick(nk, hit);
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      // slur / tie 工具：保持原有选择逻辑
-      if (this.editTool === 'slur' || this.editTool === 'tie') {
-        if (e.shiftKey) {
-          if (this.selectedNoteKeys.has(nk)) this.selectedNoteKeys.delete(nk);
-          else this.selectedNoteKeys.add(nk);
-        } else {
-          this.selectedNoteKeys.clear();
-          this.selectedNoteKeys.add(nk);
-        }
-        if (this.selectedNoteKeys.size === 2) {
-          const [a, b] = [...this.selectedNoteKeys];
-          if (this.editTool === 'slur') this.staffEditState.slurs.push({ from: a, to: b });
-          else if (this.editTool === 'tie') this.staffEditState.ties.push({ from: a, to: b });
-          this.selectedNoteKeys.clear();
-        }
-        this.renderAll();
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-
-    // 框选
-    this.selectedNoteKeys.clear();
-    this.renderAll();
-    const rect = this.scoreScrollEl.getBoundingClientRect();
-    this.selDragStart = { x: e.clientX - rect.left + this.scoreScrollEl.scrollLeft, y: e.clientY - rect.top + this.scoreScrollEl.scrollTop };
-    const sel = this.ensureSelRect();
-    sel.style.display = 'block';
-    sel.style.left = `${this.selDragStart.x}px`;
-    sel.style.top = `${this.selDragStart.y}px`;
-    sel.style.width = '0';
-    sel.style.height = '0';
-  }
-
-  private handleScoreMouseMove(e: MouseEvent): void {
-    if (!this.selDragStart || !this.selRectEl) return;
-    e.preventDefault();
-    const rect = this.scoreScrollEl.getBoundingClientRect();
-    const curX = e.clientX - rect.left + this.scoreScrollEl.scrollLeft;
-    const curY = e.clientY - rect.top + this.scoreScrollEl.scrollTop;
-    const l = Math.min(this.selDragStart.x, curX);
-    const t = Math.min(this.selDragStart.y, curY);
-    const w = Math.abs(curX - this.selDragStart.x);
-    const h = Math.abs(curY - this.selDragStart.y);
-    this.selRectEl.style.left = `${l}px`;
-    this.selRectEl.style.top = `${t}px`;
-    this.selRectEl.style.width = `${w}px`;
-    this.selRectEl.style.height = `${h}px`;
-  }
-
-  private handleScoreMouseUp(): void {
-    if (!this.selDragStart || !this.selRectEl) return;
-    if (this.selRectEl.style.display === 'none') { this.selDragStart = null; return; }
-    const rect = this.selRectEl.getBoundingClientRect();
-    const hits = this.scoreScrollEl.querySelectorAll<HTMLElement>('.note-hitarea');
-    this.selectedNoteKeys.clear();
-    for (const h of hits) {
-      const hRect = h.getBoundingClientRect();
-      if (hRect.right > rect.left && hRect.left < rect.right &&
-          hRect.bottom > rect.top && hRect.top < rect.bottom) {
-        if (h.dataset.noteKey) this.selectedNoteKeys.add(h.dataset.noteKey);
-      }
-    }
-    this.removeSelRect();
-    this.selDragStart = null;
-    this.renderAll();
-  }
-
-  private ensureSelRect(): HTMLDivElement {
-    if (!this.selRectEl) {
-      this.selRectEl = document.createElement('div');
-      this.selRectEl.className = 'sel-rect';
-      this.scoreScrollEl.appendChild(this.selRectEl);
-    }
-    return this.selRectEl;
-  }
-
-  private removeSelRect(): void {
-    if (this.selRectEl) { this.selRectEl.style.display = 'none'; this.selRectEl.style.width = '0'; this.selRectEl.style.height = '0'; }
-  }
 
   /* ── 右键指法菜单 ── */
 
-  private createFingerMenu(): HTMLDivElement {
-    const menu = document.createElement('div');
-    menu.className = 'finger-menu';
-    menu.hidden = true;
-    const btns = document.createElement('div');
-    btns.className = 'finger-menu-btns';
-    for (const f of [1,2,3,4,5]) {
-      const btn = document.createElement('button');
-      btn.className = 'finger-menu-btn';
-      btn.dataset.finger = String(f);
-      btn.textContent = String(f);
-      btns.appendChild(btn);
-    }
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'finger-menu-btn finger-menu-btn--clear';
-    clearBtn.dataset.finger = '0';
-    clearBtn.textContent = '✕';
-    btns.appendChild(clearBtn);
-    menu.appendChild(btns);
+  private createFingerMenu(): HTMLDivElement { return createFingerMenu(this); }
 
-    menu.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.finger-menu-btn');
-      if (!btn || !this.fingerMenuNoteKey) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const finger = Number(btn.dataset.finger);
-      const nk = this.fingerMenuNoteKey;
-      console.log('[finger-menu] click finger:', finger, 'noteKey:', nk);
-
-      if (nk.startsWith('_falling:')) {
-        // 下落音符无精确 NoteKey，忽略
-        this.syncFingerMapToFallingNotes();
-      } else {
-        // 五线谱音符：更新 NoteKey → 手指映射
-        if (finger === 0) {
-          this.staffEditState.fingerNumbers.delete(nk);
-        } else {
-          this.staffEditState.fingerNumbers.set(nk, finger);
-        }
-        this.syncFingerMapToFallingNotes();
-      }
-
-      // 播放下不重绘乐谱
-      if (!this.playback?.isPlaying()) {
-        this.renderAll();
-      }
-      this.hideFingerMenu();
-      this.saveFingerEdits();
-    });
-    document.body.appendChild(menu);
-    return menu;
-  }
-
-  private handleScoreContextMenu(e: MouseEvent): void {
-    console.log('[handleScoreContextMenu] renderMode:', this.getRenderMode(), 'editModeActive:', this.editModeActive);
-    if (this.getRenderMode() !== 'original') return;
-    this.hideFingerMenu();
-
-    const hit = (e.target as HTMLElement).closest<HTMLElement>('.note-hitarea');
-    if (!hit || !hit.dataset.noteKey) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    this.fingerMenuNoteKey = hit.dataset.noteKey;
-
-    const menu = this.fingerMenuEl;
-    menu.hidden = false;
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-
-    const currentFinger = this.staffEditState.fingerNumbers.get(this.fingerMenuNoteKey);
-    menu.querySelectorAll<HTMLButtonElement>('.finger-menu-btn').forEach(b => {
-      const f = Number(b.dataset.finger);
-      b.classList.toggle('finger-menu-btn--active', f === currentFinger);
-    });
-  }
+  private handleScoreContextMenu(e: MouseEvent): void { handleScoreContextMenu(this, e); }
 
   /** 五线谱音符左键点击 → 弹出指法菜单 */
-  private handleScoreNoteClick(nk: string, hit: HTMLElement): void {
-    console.log('[handleScoreNoteClick] nk:', nk);
-    this.hideFingerMenu();
-    this.fingerMenuNoteKey = nk;
+  private handleScoreNoteClick(nk: string, hit: HTMLElement): void { handleScoreNoteClick(this, nk, hit); }
 
-    const rect = hit.getBoundingClientRect();
-    const menu = this.fingerMenuEl;
-    menu.hidden = false;
-    menu.style.left = `${rect.left + rect.width / 2}px`;
-    menu.style.top = `${rect.top}px`;
-
-    const currentFinger = this.staffEditState.fingerNumbers.get(nk);
-    menu.querySelectorAll<HTMLButtonElement>('.finger-menu-btn').forEach(b => {
-      const f = Number(b.dataset.finger);
-      b.classList.toggle('finger-menu-btn--active', f === currentFinger);
-    });
-  }
-
-  private hideFingerMenu(): void {
-    this.fingerMenuEl.hidden = true;
-    this.fingerMenuNoteKey = null;
-  }
+  private hideFingerMenu(): void { hideFingerMenu(this); }
 
   /** 下落音符点击 */
-  private handleFallingNoteClick(noteKey: string | null, midi: number): void {
-    const nk = noteKey ?? `_falling:${midi}`;
-
-    this.hideFingerMenu();
-    this.fingerMenuNoteKey = nk;
-
-    const menu = this.fingerMenuEl;
-    menu.hidden = false;
-    menu.style.left = `${Math.min(window.innerWidth - 120, Math.max(60, window.innerWidth / 2))}px`;
-    menu.style.top = `${window.innerHeight / 2}px`;
-
-    let currentFinger: number | undefined;
-    if (noteKey) {
-      currentFinger = this.staffEditState.fingerNumbers.get(noteKey);
-    }
-    menu.querySelectorAll<HTMLButtonElement>('.finger-menu-btn').forEach(b => {
-      const f = Number(b.dataset.finger);
-      b.classList.toggle('finger-menu-btn--active', f === currentFinger);
-    });
-  }
+  private handleFallingNoteClick(noteKey: string | null, midi: number): void { handleFallingNoteClick(this, noteKey, midi); }
 
   private handlePracticeStartChange(newVal: number): void {
     this.practice.handleStartChange(newVal);
@@ -1455,13 +1102,17 @@ export class PianoPage {
     this.restartPracticeLoop();
   }
 
-  /** 加载历史记录并做全曲分析（进入练习模式时调用） */
-  private loadHistoryAnalysis(): void {
-    if (!this.currentMidi || !this.currentSongFile) return;
+  /** 计算每小节的错误统计 */
+  private computeMeasureStats(includeCurrentRound: boolean): {
+    measureTotalNotes: Map<number, number>;
+    measureStats: Map<number, { missCount: number; badCount: number; wrongCount: number }>;
+    totalMeasures: number;
+  } | null {
+    if (!this.currentMidi || !this.currentSongFile) return null;
     const midi = this.currentMidi;
     const ctx = getMeasureContext(midi);
     const ticksPerMeasure = ctx.ticksPerMeasure;
-    if (ticksPerMeasure <= 0) return;
+    if (ticksPerMeasure <= 0) return null;
     const totalMeasures = measureCount(midi, ctx);
 
     // 统计全曲各小节音符数
@@ -1499,18 +1150,52 @@ export class PianoPage {
       }
     }
 
-    // 构建排序列表（按 groupSize 合并）
+    // 当前轮记录（NoteResult.time 是 loop-relative）
+    if (includeCurrentRound) {
+      const startTimeSec = this.practiceLoopStartTimeSec;
+      for (const record of this.practice.records) {
+        for (const nr of record.noteResults) {
+          const originalTime = startTimeSec + nr.time;
+          const tick = midi.header.secondsToTicks(originalTime);
+          const mIdx = Math.floor(tick / ticksPerMeasure);
+          if (mIdx >= 0 && mIdx < totalMeasures) {
+            const s = initM(mIdx);
+            if (nr.judgement === 'MISS') s.missCount++;
+            else if (nr.judgement === 'BAD') s.badCount++;
+          }
+        }
+        for (const wr of record.wrongKeyRecords) {
+          const originalTime = startTimeSec + wr.timeSec;
+          const tick = midi.header.secondsToTicks(originalTime);
+          const mIdx = Math.floor(tick / ticksPerMeasure);
+          if (mIdx >= 0 && mIdx < totalMeasures) {
+            initM(mIdx).wrongCount++;
+          }
+        }
+      }
+    }
+
+    return { measureTotalNotes, measureStats, totalMeasures };
+  }
+
+  /** 将小节统计合并、分组、排序 */
+  private buildMeasureErrorsFromStats(stats: {
+    measureTotalNotes: Map<number, number>;
+    measureStats: Map<number, { missCount: number; badCount: number; wrongCount: number }>;
+    totalMeasures: number;
+  }): MeasureErrorInfo[] {
+    const { measureTotalNotes, measureStats, totalMeasures } = stats;
     const groupSize = this.practice.measureGroupSize || 1;
     const errors: MeasureErrorInfo[] = [];
     for (let gStart = 0; gStart < totalMeasures; gStart += groupSize) {
       const gEnd = Math.min(gStart + groupSize - 1, totalMeasures - 1);
       let missCount = 0, badCount = 0, wrongCount = 0, totalNotes = 0;
       for (let i = gStart; i <= gEnd; i++) {
-        const stats = measureStats.get(i);
-        if (stats) {
-          missCount += stats.missCount;
-          badCount += stats.badCount;
-          wrongCount += stats.wrongCount;
+        const s = measureStats.get(i);
+        if (s) {
+          missCount += s.missCount;
+          badCount += s.badCount;
+          wrongCount += s.wrongCount;
         }
         totalNotes += measureTotalNotes.get(i) ?? 0;
       }
@@ -1529,108 +1214,21 @@ export class PianoPage {
       }
     }
     errors.sort((a, b) => b.errorCount - a.errorCount);
-    this.practice.setMeasureErrors(errors);
+    return errors;
+  }
+
+  /** 加载历史记录并做全曲分析（进入练习模式时调用） */
+  private loadHistoryAnalysis(): void {
+    const stats = this.computeMeasureStats(false);
+    if (!stats) return;
+    this.practice.setMeasureErrors(this.buildMeasureErrorsFromStats(stats));
   }
 
   /** 分析所有练习轮记录，计算各小节错误数并更新左侧面板 */
   private updateMeasureErrors(): void {
-    if (!this.currentMidi || !this.currentSongFile) return;
-    if (!this.currentMidi) return;
-    const midi = this.currentMidi;
-    const ctx = getMeasureContext(midi);
-    const ticksPerMeasure = ctx.ticksPerMeasure;
-    if (ticksPerMeasure <= 0) return;
-    const totalMeasures = measureCount(midi, ctx);
-    const startTimeSec = this.practiceLoopStartTimeSec;
-
-    // 重新调用 loadHistoryAnalysis 获得历史基准，然后叠加当前轮数据
-    // 注：当前轮的 NoteResult.time 是 loop-relative
-    const measureTotalNotes = new Map<number, number>();
-    for (const n of this.flatNotes) {
-      const mIdx = Math.floor(n.ticks / ticksPerMeasure);
-      measureTotalNotes.set(mIdx, (measureTotalNotes.get(mIdx) ?? 0) + 1);
-    }
-
-    const measureStats = new Map<number, { missCount: number; badCount: number; wrongCount: number }>();
-    const initM = (idx: number) => {
-      if (!measureStats.has(idx)) measureStats.set(idx, { missCount: 0, badCount: 0, wrongCount: 0 });
-      return measureStats.get(idx)!;
-    };
-
-    // 1) 历史记录
-    const historyEntries = getHistoryForSong(this.currentSongFile ?? '');
-    for (const entry of historyEntries) {
-      for (const nr of entry.noteResults ?? []) {
-        const tick = midi.header.secondsToTicks(nr.time);
-        const mIdx = Math.floor(tick / ticksPerMeasure);
-        if (mIdx >= 0 && mIdx < totalMeasures) {
-          const s = initM(mIdx);
-          if (nr.judgement === 'MISS') s.missCount++;
-          else if (nr.judgement === 'BAD') s.badCount++;
-        }
-      }
-      for (const wr of entry.wrongKeyRecords ?? []) {
-        const tick = midi.header.secondsToTicks(wr.timeSec);
-        const mIdx = Math.floor(tick / ticksPerMeasure);
-        if (mIdx >= 0 && mIdx < totalMeasures) {
-          initM(mIdx).wrongCount++;
-        }
-      }
-    }
-
-    // 2) 当前轮记录（NoteResult.time 是 loop-relative）
-    for (const record of this.practice.records) {
-      for (const nr of record.noteResults) {
-        const originalTime = startTimeSec + nr.time;
-        const tick = midi.header.secondsToTicks(originalTime);
-        const mIdx = Math.floor(tick / ticksPerMeasure);
-        if (mIdx >= 0 && mIdx < totalMeasures) {
-          const s = initM(mIdx);
-          if (nr.judgement === 'MISS') s.missCount++;
-          else if (nr.judgement === 'BAD') s.badCount++;
-        }
-      }
-      for (const wr of record.wrongKeyRecords) {
-        const originalTime = startTimeSec + wr.timeSec;
-        const tick = midi.header.secondsToTicks(originalTime);
-        const mIdx = Math.floor(tick / ticksPerMeasure);
-        if (mIdx >= 0 && mIdx < totalMeasures) {
-          initM(mIdx).wrongCount++;
-        }
-      }
-    }
-
-    // 构建排序列表（按 groupSize 合并）
-    const groupSize = this.practice.measureGroupSize || 1;
-    const errors: MeasureErrorInfo[] = [];
-    for (let gStart = 0; gStart < totalMeasures; gStart += groupSize) {
-      const gEnd = Math.min(gStart + groupSize - 1, totalMeasures - 1);
-      let missCount = 0, badCount = 0, wrongCount = 0, totalNotes = 0;
-      for (let i = gStart; i <= gEnd; i++) {
-        const stats = measureStats.get(i);
-        if (stats) {
-          missCount += stats.missCount;
-          badCount += stats.badCount;
-          wrongCount += stats.wrongCount;
-        }
-        totalNotes += measureTotalNotes.get(i) ?? 0;
-      }
-      const ec = missCount + badCount + wrongCount;
-      if (ec > 0) {
-        errors.push({
-          measureIndex: gStart,
-          measureNumber: gStart + 1,
-          measureEndIndex: gEnd,
-          errorCount: ec,
-          missCount,
-          badCount,
-          wrongCount,
-          totalNotes,
-        });
-      }
-    }
-    errors.sort((a, b) => b.errorCount - a.errorCount);
-    this.practice.setMeasureErrors(errors);
+    const stats = this.computeMeasureStats(true);
+    if (!stats) return;
+    this.practice.setMeasureErrors(this.buildMeasureErrorsFromStats(stats));
   }
 
   restartPracticeLoop(): void {
@@ -1670,379 +1268,65 @@ export class PianoPage {
     return { valueEl: this.scoreValueEl, accuEl: this.scoreAccuEl, comboEl: this.scoreComboEl, judgeEl: this.scoreJudgeEl, wrongEl: this.scoreWrongEl, centerJudgeEl: this.centerJudgeEl };
   }
 
+  private buildHistoryEntry(score: number, accuracy: number, maxCombo: number, mode: string): PlayHistoryEntry {
+    const curSettings = loadSettings();
+    return {
+      songFile: this.currentSongFile ?? '',
+      songName: this.currentSongName,
+      score,
+      accuracy,
+      maxCombo,
+      mode,
+      date: new Date().toISOString(),
+      settings: { fallingSpeed: curSettings.fallingSpeed, playbackSpeed: curSettings.playbackSpeed, difficulty: curSettings.difficulty, offsetAdjustMs: curSettings.offsetAdjustMs },
+      noteResults: this.scoringEngine.noteResults,
+      wrongKeyRecords: this.scoringEngine.wrongKeyRecords,
+      wallTimeSec: this.finalWallTimeSec || undefined,
+      originalDurationSec: this.totalDurationSec || undefined,
+      recordedEvents: this.lastRecordedEvents.length > 0
+        ? this.lastRecordedEvents.map(e => ({ data: Array.from(e.data), wallTimeSec: e.wallTimeSec }))
+        : undefined,
+      timeRatioPoints: this.liveTimeRatioPoints.length > 0 ? [...this.liveTimeRatioPoints] : undefined,
+    };
+  }
+
+  private onScoreTick(): void {
+    updateScoreUI(this.scoringEngine.getState(), this.scoreElements());
+    this.updateTimingDots();
+    this.updateLiveAccuracyFromEngine();
+  }
+
   /** 已推入预览线的最新结果索引 */
-  private lastPushedResultIdx = 0;
+  lastPushedResultIdx = 0;
 
   /** 更新预览线命中标记 */
   private updateTimingDots(): void {
-    const results = this.scoringEngine.noteResults;
-
-    // 推送新命中到预览线（应用偏移补偿，使位置反映实际判定）
-    const wallSec = performance.now() / 1000;
-    for (let i = this.lastPushedResultIdx; i < results.length; i++) {
-      const nr = results[i];
-      if (nr.judgement === 'MISS') continue;
-      const adjustedMs = nr.offsetMs - this.scoringEngine.offsetAdjustMs;
-      this.fallingNotes.pushTimingMarker(adjustedMs, nr.judgement as 'PERFECT' | 'OK' | 'BAD');
-    }
-    this.lastPushedResultIdx = results.length;
-    this.fallingNotes.tickMarkerTime(wallSec);
+    updateTimingDots(this);
   }
 
   /** 从计分引擎同步所有实时图表 */
   private updateLiveAccuracyFromEngine(): void {
-    this.renderLiveTimelineChart();
-    this.renderLiveErrorChart();
-
-    // 准度曲线需要额外计算数据点
-    const results = this.scoringEngine.noteResults;
-    if (results.length === 0) return;
-
-    // 按时间升序排列，计算每个位置的累计准度
-    const sorted = [...results].sort((a, b) => a.time - b.time);
-
-    const ACCU_WEIGHT: Record<string, number> = {
-      PERFECT: 320, OK: 150, BAD: 50, MISS: 0,
-    };
-
-    const points: Array<{ timeSec: number; accuracy: number }> = [];
-    let achieved = 0;
-
-    for (let i = 0; i < sorted.length; i++) {
-      const n = sorted[i];
-      achieved += ACCU_WEIGHT[n.judgement] ?? 0;
-      const acc = achieved / (320 * (i + 1));
-      points.push({ timeSec: n.time, accuracy: acc });
-    }
-
-    this.liveAccuracyPoints = points;
-    this.renderLiveAccuracyChart();
-  }
-
-  /** 读取当前主题配色（适配亮/暗模式） */
-  private getChartTheme() {
-    const s = getComputedStyle(document.body);
-    return {
-      bg: s.getPropertyValue('--bg-secondary').trim() || '#f1f3f6',
-      surface: s.getPropertyValue('--surface').trim() || '#ffffff',
-      border: s.getPropertyValue('--border').trim() || '#e5e3ed',
-      text: s.getPropertyValue('--text').trim() || '#1c1b22',
-      muted: s.getPropertyValue('--muted').trim() || '#6b6978',
-      accent: s.getPropertyValue('--accent').trim() || '#4f6ef7',
-    };
+    updateLiveAccuracyFromEngine(this);
   }
 
   /** 绘制实时准度曲线到左侧面板 Canvas */
   private renderLiveAccuracyChart(): void {
-    const canvas = this.liveAccuracyCanvas;
-    const points = this.liveAccuracyPoints;
-    const dpr = window.devicePixelRatio || 1;
-    const t = this.getChartTheme();
-
-    const containerW = this.liveAccuracyPanel.clientWidth - 28;
-    const h = 138;
-    canvas.style.width = `${containerW}px`;
-    canvas.style.height = `${h}px`;
-    canvas.width = containerW * dpr;
-    canvas.height = h * dpr;
-    const ctx = canvas.getContext('2d')!;
-    ctx.scale(dpr, dpr);
-
-    // 背景
-    ctx.fillStyle = t.surface;
-    ctx.fillRect(0, 0, containerW, h);
-
-    if (points.length === 0) {
-      ctx.fillStyle = t.muted;
-      ctx.font = '11px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText('等待弹奏...', containerW / 2, h / 2);
-      ctx.textAlign = 'start';
-      return;
-    }
-
-    const padding = { top: 8, right: 10, bottom: 16, left: 28 };
-    const plotW = containerW - padding.left - padding.right;
-    const plotH = h - padding.top - padding.bottom;
-
-    let minAcc = 1, maxAcc = 0;
-    for (const p of points) { if (p.accuracy < minAcc) minAcc = p.accuracy; if (p.accuracy > maxAcc) maxAcc = p.accuracy; }
-    const yMin = Math.max(0, Math.floor((minAcc * 100 - 5) / 10) * 10);
-    const effectiveYRange = Math.max(10, 100 - yMin);
-
-    const maxTime = points[points.length - 1].timeSec;
-    const duration = Math.max(maxTime + 1, 1);
-    const timeToX = (v: number) => padding.left + (v / duration) * plotW;
-    const accToY = (a: number) => padding.top + (1 - (a * 100 - yMin) / effectiveYRange) * plotH;
-
-    // 网格
-    ctx.strokeStyle = t.border;
-    ctx.lineWidth = 0.5;
-    const gridSteps = 4;
-    for (let i = 0; i <= gridSteps; i++) {
-      const y = accToY((yMin + (i / gridSteps) * effectiveYRange) / 100);
-      ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + plotW, y); ctx.stroke();
-    }
-
-    // 100% 虚线
-    ctx.strokeStyle = t.muted;
-    ctx.setLineDash([3, 3]);
-    const y100 = accToY(1);
-    if (y100 >= padding.top) { ctx.beginPath(); ctx.moveTo(padding.left, y100); ctx.lineTo(padding.left + plotW, y100); ctx.stroke(); }
-    ctx.setLineDash([]);
-
-    // 填充
-    if (points.length > 1) {
-      const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotH);
-      grad.addColorStop(0, t.accent + '26');
-      grad.addColorStop(1, t.accent + '05');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(timeToX(points[0].timeSec), padding.top + plotH);
-      for (const p of points) ctx.lineTo(timeToX(p.timeSec), accToY(p.accuracy));
-      ctx.lineTo(timeToX(points[points.length - 1].timeSec), padding.top + plotH);
-      ctx.closePath(); ctx.fill();
-    }
-
-    // 曲线
-    if (points.length > 1) {
-      ctx.strokeStyle = t.accent;
-      ctx.lineWidth = 1.4;
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(timeToX(points[0].timeSec), accToY(points[0].accuracy));
-      for (const p of points) ctx.lineTo(timeToX(p.timeSec), accToY(p.accuracy));
-      ctx.stroke();
-    }
-
-    // Y 标签
-    ctx.fillStyle = t.muted;
-    ctx.font = '8px system-ui';
-    ctx.textAlign = 'right';
-    for (let i = 0; i <= gridSteps; i++) {
-      const pct = yMin + (i / gridSteps) * effectiveYRange;
-      ctx.fillText(`${Math.round(pct)}%`, padding.left - 3, accToY(pct / 100) + 3);
-    }
-    ctx.textAlign = 'start';
-
-    // 低于 90% 警告
-    if (minAcc < 0.9) {
-      ctx.fillStyle = 'rgba(239,68,68,0.07)';
-      ctx.fillRect(padding.left, accToY(0.9), plotW, padding.top + plotH - accToY(0.9));
-    }
+    renderLiveAccuracyChart(this);
   }
 
   /** 绘制实时判定时间线 */
   private renderLiveTimelineChart(): void {
-    const canvas = this.liveTimelineCanvas;
-    const notes = this.scoringEngine.noteResults;
-    const wrongs = this.scoringEngine.wrongKeyRecords;
-    const dpr = window.devicePixelRatio || 1;
-    const t = this.getChartTheme();
+    renderLiveTimelineChart(this);
+  }
 
-    const containerW = this.liveAccuracyPanel.clientWidth - 28;
-    const h = 118;
-    canvas.style.width = `${containerW}px`;
-    canvas.style.height = `${h}px`;
-    canvas.width = containerW * dpr;
-    canvas.height = h * dpr;
-    const ctx = canvas.getContext('2d')!;
-    ctx.scale(dpr, dpr);
-
-    ctx.fillStyle = t.surface;
-    ctx.fillRect(0, 0, containerW, h);
-
-    if (notes.length === 0 && wrongs.length === 0) {
-      ctx.fillStyle = t.muted;
-      ctx.font = '11px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText('等待弹奏...', containerW / 2, h / 2);
-      ctx.textAlign = 'start';
-      return;
-    }
-
-    let maxTime = 0;
-    for (const n of notes) maxTime = Math.max(maxTime, n.time);
-    for (const w of wrongs) maxTime = Math.max(maxTime, w.timeSec);
-    if (maxTime <= 0) maxTime = 10;
-    const duration = maxTime + 2;
-
-    const padding = { top: 6, right: 4, bottom: 2, left: 4 };
-    const plotW = containerW - padding.left - padding.right;
-    const plotH = h - padding.top - padding.bottom;
-    const timeToX = (v: number) => padding.left + (v / duration) * plotW;
-
-    const midiMin = 21, midiMax = 108;
-    const midiToY = (midi: number) => padding.top + (1 - (midi - midiMin) / (midiMax - midiMin)) * plotH;
-
-    const barH = Math.max(1.2, plotH / 88);
-    const barW = Math.max(1.5, containerW / 200);
-    for (const n of notes) {
-      const x = timeToX(n.time);
-      const y = midiToY(n.midi) - barH / 2;
-      ctx.fillStyle = n.judgement === 'PERFECT' ? '#f59e0b' : n.judgement === 'OK' ? '#8b5cf6' : n.judgement === 'BAD' ? '#f97316' : '#ef4444';
-            ctx.fillRect(x, y, barW, Math.max(1, barH));
-          }
-
-          for (const w of wrongs) {
-            ctx.fillStyle = '#ef4444';
-            ctx.beginPath(); ctx.arc(timeToX(w.timeSec), midiToY(w.midi), 2, 0, Math.PI * 2); ctx.fill();
-          }
-        }
-
-        /** 绘制实时按键偏差散点 */
-        private renderLiveErrorChart(): void {
-          const canvas = this.liveErrorCanvas;
-          const notes = this.scoringEngine.noteResults;
-          const dpr = window.devicePixelRatio || 1;
-          const t = this.getChartTheme();
-
-          const containerW = this.liveAccuracyPanel.clientWidth - 28;
-          const h = 118;
-          canvas.style.width = `${containerW}px`;
-          canvas.style.height = `${h}px`;
-          canvas.width = containerW * dpr;
-          canvas.height = h * dpr;
-          const ctx = canvas.getContext('2d')!;
-          ctx.scale(dpr, dpr);
-
-          ctx.fillStyle = t.surface;
-          ctx.fillRect(0, 0, containerW, h);
-
-          if (notes.length === 0) {
-            ctx.fillStyle = t.muted;
-            ctx.font = '11px system-ui';
-            ctx.textAlign = 'center';
-            ctx.fillText('等待弹奏...', containerW / 2, h / 2);
-            ctx.textAlign = 'start';
-            return;
-          }
-
-          const adjustMs = this.scoringEngine.offsetAdjustMs;
-          const offsets = notes.map(n => n.offsetMs - adjustMs);
-          let maxAbs = 200;
-          for (const o of offsets) maxAbs = Math.max(maxAbs, Math.abs(o));
-          maxAbs = Math.ceil(maxAbs / 50) * 50;
-
-          const padding = { top: 8, right: 6, bottom: 2, left: 26 };
-          const plotW = containerW - padding.left - padding.right;
-          const plotH = h - padding.top - padding.bottom;
-          const yToPx = (o: number) => padding.top + plotH / 2 - (o / maxAbs) * (plotH / 2);
-
-          ctx.strokeStyle = t.muted;
-          ctx.lineWidth = 0.5;
-          ctx.setLineDash([3, 3]);
-          const zeroY = yToPx(0);
-          ctx.beginPath(); ctx.moveTo(padding.left, zeroY); ctx.lineTo(padding.left + plotW, zeroY); ctx.stroke();
-          ctx.setLineDash([]);
-
-          const maxTime = notes[notes.length - 1].time;
-          const duration = Math.max(maxTime + 1, 1);
-          const timeToX = (v: number) => padding.left + (v / duration) * plotW;
-
-          for (const n of notes) {
-            const adjMs = n.offsetMs - adjustMs;
-            ctx.fillStyle = n.judgement === 'PERFECT' ? '#f59e0b' : n.judgement === 'OK' ? '#8b5cf6' : n.judgement === 'BAD' ? '#f97316' : '#ef4444';
-            ctx.beginPath(); ctx.arc(timeToX(n.time), yToPx(adjMs), 2, 0, Math.PI * 2); ctx.fill();
-          }
-
-          // 平均偏差线
-          const avgMs = offsets.length > 0 ? offsets.reduce((a, b) => a + b, 0) / offsets.length : 0;
-          const avgY = yToPx(avgMs);
-          ctx.strokeStyle = t.accent;
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 3]);
-          ctx.beginPath(); ctx.moveTo(padding.left, avgY); ctx.lineTo(padding.left + plotW, avgY); ctx.stroke();
-          ctx.setLineDash([]);
-
-          // Y 标签 (±ms)
-          ctx.fillStyle = t.muted;
-          ctx.font = '7px system-ui';
-          ctx.textAlign = 'right';
-          ctx.fillText(`+${maxAbs}`, padding.left - 3, yToPx(maxAbs) + 3);
-          ctx.fillText('0', padding.left - 3, zeroY + 3);
-          ctx.fillText(`-${maxAbs}`, padding.left - 3, yToPx(-maxAbs) + 3);
-          ctx.textAlign = 'start';
+  /** 绘制实时按键偏差散点 */
+  private renderLiveErrorChart(): void {
+    renderLiveErrorChart(this);
   }
 
   /** 绘制实时用时占比曲线（跟弹模式） */
   private renderLiveTimeRatioChart(): void {
-    const canvas = this.liveTimeRatioCanvas;
-    const points = this.liveTimeRatioPoints;
-    const dpr = window.devicePixelRatio || 1;
-    const t = this.getChartTheme();
-
-    const containerW = this.liveAccuracyPanel.clientWidth - 28;
-    const h = 118;
-    canvas.style.width = `${containerW}px`;
-    canvas.style.height = `${h}px`;
-    canvas.width = containerW * dpr;
-    canvas.height = h * dpr;
-    const ctx = canvas.getContext('2d')!;
-    ctx.scale(dpr, dpr);
-
-    ctx.fillStyle = t.surface;
-    ctx.fillRect(0, 0, containerW, h);
-
-    if (points.length === 0) {
-      ctx.fillStyle = t.muted;
-      ctx.font = '11px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText('等待弹奏...', containerW / 2, h / 2);
-      ctx.textAlign = 'start';
-      return;
-    }
-
-    const padding = { top: 8, right: 6, bottom: 2, left: 26 };
-    const plotW = containerW - padding.left - padding.right;
-    const plotH = h - padding.top - padding.bottom;
-
-    const maxGameSec = points[points.length - 1].gameSec;
-    const maxRatio = Math.max(100, ...points.map(p => p.ratio));
-
-    const timeToX = (v: number) => padding.left + (v / maxGameSec) * plotW;
-    const ratioToY = (r: number) => padding.top + (1 - Math.min(r, maxRatio) / maxRatio) * plotH;
-
-    // 100% 参考线
-    const y100 = ratioToY(100);
-    ctx.strokeStyle = t.muted;
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(padding.left, y100); ctx.lineTo(padding.left + plotW, y100); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // 填充区域
-    if (points.length > 1) {
-      const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotH);
-      const color = maxRatio <= 100 ? t.accent : '#ef4444';
-      grad.addColorStop(0, color + '30');
-      grad.addColorStop(1, color + '05');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(padding.left, padding.top + plotH);
-      for (const p of points) ctx.lineTo(timeToX(p.gameSec), ratioToY(Math.min(p.ratio, maxRatio)));
-      ctx.lineTo(timeToX(points[points.length - 1].gameSec), padding.top + plotH);
-      ctx.closePath(); ctx.fill();
-    }
-
-    // 曲线
-    if (points.length > 1) {
-      ctx.strokeStyle = maxRatio <= 100 ? t.accent : '#ef4444';
-      ctx.lineWidth = 1.2;
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(timeToX(points[0].gameSec), ratioToY(Math.min(points[0].ratio, maxRatio)));
-      for (const p of points) ctx.lineTo(timeToX(p.gameSec), ratioToY(Math.min(p.ratio, maxRatio)));
-      ctx.stroke();
-    }
-
-    // Y 标签
-    ctx.fillStyle = t.muted;
-    ctx.font = '7px system-ui';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${Math.round(maxRatio)}%`, padding.left - 3, ratioToY(maxRatio) + 3);
-    ctx.fillText('100%', padding.left - 3, y100 + 3);
-    ctx.textAlign = 'start';
+    renderLiveTimeRatioChart(this);
   }
 
   private renderStaffImage(stripEl: HTMLElement, midi: Midi, measureWidth: number): void {
@@ -2156,12 +1440,6 @@ export class PianoPage {
       ph.classList.add('is-visible');
     }
   }
-}
-
-function formatTime(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function noteRange(notes: FlatNote[]): { min: number; max: number } {

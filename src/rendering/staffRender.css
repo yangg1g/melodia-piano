@@ -1,0 +1,167 @@
+/* ── 框选矩形 ── */
+.sel-rect {
+  position: absolute;
+  z-index: 50;
+  background: rgba(79, 110, 247, 0.15);
+  border: 1.5px solid rgba(79, 110, 247, 0.7);
+  pointer-events: none;
+  display: none;
+  box-sizing: border-box;
+}
+
+/* ── 固定判定线 ── */
+.judgment-line {
+  position: absolute;
+  left: 25%;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--danger);
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(239, 83, 80, 0.5);
+}
+
+.score-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 0;
+  flex-shrink: 0;
+}
+
+.score-page-info {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  min-width: 7em;
+  text-align: center;
+}
+
+
+.score-page {
+  background: var(--score-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.score-page-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.score-page-measures {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.score-measure {
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 6px;
+}
+
+.score-measure:last-child {
+  border-bottom: none;
+}
+
+.score-measure-wrap {
+  position: relative;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  opacity: 0.92;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: 0 0 10px rgba(79, 110, 247, 0.5);
+  display: none;
+}
+
+.playhead.is-visible {
+  display: block;
+}
+
+/* 五线谱以 <img> 形式渲染，确保按原始尺寸显示（与播放头 overlay 对齐） */
+.score-row-host img {
+  display: block;
+  background: var(--score-bg);
+}
+
+/* 原始五线谱模式：行式布局 */
+.score-measure-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* ── 倒计时 ── */
+.countdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  font-size: 8rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  animation: countdown-pop 0.45s ease-out;
+}
+
+@keyframes countdown-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  50%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.keyboard-section {
+  padding: 14px 0 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.keyboard-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.falling-lane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  padding: 8px 6px 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg) 100%);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  box-sizing: border-box;
+}

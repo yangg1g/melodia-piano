@@ -1,0 +1,499 @@
+/* ── 练习模式 ── */
+.practice-controls-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 22px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.practice-controls-bar[hidden] {
+  display: none;
+}
+
+.practice-measure-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.practice-measure-label,
+.practice-measure-input {
+  color: var(--text);
+  font-weight: 700;
+  min-width: 1.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-measure-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  width: 3.5em;
+  color: var(--text);
+  font-weight: 700;
+  -moz-appearance: textfield;
+  transition: border-color 0.2s ease;
+}
+
+.practice-measure-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(79, 110, 247, 0.15);
+}
+.practice-measure-input::-webkit-inner-spin-button,
+.practice-measure-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.practice-loop-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  padding: 3px 12px;
+  background: var(--accent-dim);
+  border-radius: 8px;
+}
+
+.practice-loop-counter {
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-loop-best {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.practice-group-size {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.practice-group-size-label {
+  font-size: 0.75rem;
+}
+
+.practice-btn-sm {
+  padding: 2px 8px !important;
+  font-size: 0.7rem !important;
+  border-radius: 4px !important;
+  line-height: 1.4;
+  min-width: 26px;
+}
+
+.practice-loop-scores-panel {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow-x: auto;
+  max-width: 320px;
+}
+
+.practice-loop-score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  min-width: 56px;
+}
+
+.practice-loop-score-round {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.practice-loop-score-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-loop-score-acc {
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-loop-score-item.practice-loop-score-item--best {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.practice-loop-score-item.practice-loop-score-item--best .practice-loop-score-value {
+  color: var(--gold);
+}
+
+/* ── 练习模式右侧面板内的成绩条 ── */
+.score-display--side {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-display--side .score-display-score {
+  font-size: 1.5rem;
+  text-align: center;
+  min-width: unset;
+}
+
+.score-display--side .score-display-accu {
+  font-size: 1rem;
+  text-align: center;
+}
+
+.score-display--side .score-display-combo {
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.score-display--side .score-display-judge {
+  display: none;
+}
+
+.score-display--side .score-display-wrong {
+  font-size: 0.85rem;
+  margin-left: 0;
+  text-align: center;
+}
+
+/* ── 练习模式右侧面板 ── */
+.practice-side-panel {
+  position: fixed;
+  right: 16px;
+  top: 124px;
+  width: 200px;
+  max-height: calc(100% - 150px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.practice-side-panel[hidden] {
+  display: none !important;
+}
+
+.practice-side-panel-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.practice-side-scores {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.practice-side-empty {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 20px 4px;
+}
+
+.practice-side-score-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.practice-side-score-item--best {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.practice-side-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.practice-side-score-round {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-side-score-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-side-score-acc {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-side-score-time {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1100px) {
+  .practice-side-panel {
+    display: none;
+  }
+  .practice-left-panel {
+    display: none;
+  }
+  .live-accuracy-panel {
+    display: none;
+  }
+}
+
+/* ── 练习模式：左侧错误分析面板 ── */
+.practice-left-panel {
+  position: fixed;
+  left: 16px;
+  top: 120px;
+  max-height: calc(100% - 150px);
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.practice-left-panel[hidden] {
+  display: none !important;
+}
+
+.practice-left-panel-header {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--warning);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+.practice-left-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── 实时图表面板（左侧）── */
+.live-accuracy-panel {
+  position: fixed;
+  left: 0;
+  top: 120px;
+  width: calc(50vw - 490px);
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px 10px;
+  box-shadow: var(--shadow-lg);
+  z-index: 19;
+  overflow-y: auto;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.live-accuracy-panel[hidden] {
+  display: none !important;
+}
+
+.live-accuracy-panel-header {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.live-accuracy-canvas {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.live-chart-section {
+  margin-bottom: 10px;
+}
+
+.live-chart-section:last-child {
+  margin-bottom: 0;
+}
+
+.live-chart-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+  padding-left: 2px;
+  letter-spacing: 0.01em;
+}
+
+.practice-left-empty {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 20px 4px;
+}
+
+.practice-measure-error-item {
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
+}
+
+.practice-measure-error-item:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  transform: translateX(-2px);
+}
+
+.practice-measure-error-item:active {
+  transform: scale(0.98);
+}
+
+.practice-measure-error-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.practice-measure-error-measure {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.practice-measure-error-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-measure-error-detail {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.practice-measure-error-detail-item {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail--miss {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.detail--bad {
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.detail--wrong {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.detail--notes {
+  color: var(--muted);
+  background: transparent;
+}
+
+.practice-measure-error-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.practice-measure-error-bar-fill {
+  height: 100%;
+  background: var(--danger);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}

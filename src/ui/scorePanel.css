@@ -1,0 +1,176 @@
+/* ── 计分显示 ── */
+.score-display {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 18px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-sm);
+}
+
+.score-display-score {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text);
+  min-width: 5em;
+}
+
+.score-display-combo {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.score-display-accu {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.score-display-judge {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-left: auto;
+  color: #f59e0b;
+  animation: judge-pop 0.4s ease-out forwards;
+}
+
+.score-display-wrong {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--danger);
+  margin-left: 8px;
+}
+
+.score-display-judge.judge--perfect,
+.judge--perfect { color: #f59e0b; }
+.score-display-judge.judge--ok,
+.judge--ok      { color: #8b5cf6; }
+.score-display-judge.judge--bad,
+.judge--bad     { color: #f97316; }
+.score-display-judge.judge--miss,
+.judge--miss    { color: var(--danger); }
+.score-display-judge.judge--wrong,
+.judge--wrong   { color: #ef4444; }
+
+@keyframes judge-pop {
+  0%   { transform: scale(0.8); opacity: 1; }
+  40%  { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.hint {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── 和弦显示（toolbar 内） ── */
+.chord-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.chord-display[hidden] {
+  display: none;
+}
+
+.chord-display-notes {
+  font-size: 0.8rem;
+  color: var(--toolbar-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.chord-display-chord {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f59e0b;
+  white-space: nowrap;
+  padding: 1px 8px;
+  background: rgba(245, 158, 11, 0.13);
+  border-radius: 4px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.piano-keyboard {
+  overflow-x: auto;
+  padding: 10px 6px 6px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.piano-inner {
+  position: relative;
+  min-width: min-content;
+}
+
+.piano-whites {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  z-index: 1;
+}
+
+.piano-blacks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 72px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.piano-blacks .piano-key {
+  pointer-events: auto;
+}
+
+.piano-key {
+  border: 1px solid #2a2a30;
+  border-radius: 0 0 5px 5px;
+  padding: 0;
+  cursor: default;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.piano-key.white {
+  background: linear-gradient(180deg, #fefefe 0%, #e8e8ee 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.piano-key.black {
+  position: absolute;
+  background: linear-gradient(180deg, #3a3a44 0%, #2e2e36 12%, #0f0f12 100%);
+  border-color: #000;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.piano-key.black::before {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  right: 3px;
+  height: 3px;
+  background: linear-gradient(0deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 100%);
+  border-radius: 2px;
+  z-index: 1;
+  pointer-events: none;
+}

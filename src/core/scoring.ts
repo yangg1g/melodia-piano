@@ -36,7 +36,7 @@ export interface WrongKeyRecord {
 }
 
 /** 判定对应的准确度权重（满分 320 制，PERFECT 额外加分） */
-const ACCU_WEIGHT: Record<Judgement, number> = {
+export const ACCU_WEIGHT: Record<Judgement, number> = {
   PERFECT: 320,
   OK: 150,
   BAD: 50,
@@ -65,8 +65,6 @@ export class ScoringEngine {
   achievedWeight = 0;
   /** 运行时累加分数（已含 combo 加成） */
   runningScore = 0;
-  /** hold 累计加分（runningScore 的子集，已含逐帧累分） */
-  holdScoreAccumulated = 0;
   /** hold 浮点累加器，避免逐帧 Math.round 误差累积 */
   private holdScoreFloat = 0;
   /** 含 hold 的音符数（duration > 0），用于计算理论最高分 */
@@ -180,13 +178,6 @@ export class ScoringEngine {
   }
 
   /**
-   * 结算总分数 = 运行时累加分（已含 tap + combo + hold，同一尺度）
-   */
-  getTotalScore(): number {
-    return this.getScore();
-  }
-
-  /**
    * 理论最高分 = 全部 PERFECT + 最大实时 combo + 所有 hold 满分
    * 与 runningScore 同尺度：每音符 MAX_SCORE/totalNotes × combo加成 × hold奖励
    */
@@ -265,7 +256,6 @@ export class ScoringEngine {
     this.totalWeight = 0;
     this.achievedWeight = 0;
     this.runningScore = 0;
-    this.holdScoreAccumulated = 0;
     this.holdScoreFloat = 0;
     this.lastJudgement = null;
     this.counts = { PERFECT: 0, OK: 0, BAD: 0, MISS: 0 };

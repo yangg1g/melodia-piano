@@ -3,19 +3,8 @@
  */
 import type { PlayHistoryEntry } from '../core/types';
 import { formatTime } from './progressBar';
-
-/** 渲染辅助：读取当前主题配色 */
-function getChartTheme() {
-  const s = getComputedStyle(document.body);
-  return {
-    bg: s.getPropertyValue('--bg-secondary').trim() || '#f1f3f6',
-    surface: s.getPropertyValue('--surface').trim() || '#ffffff',
-    border: s.getPropertyValue('--border').trim() || '#e5e3ed',
-    text: s.getPropertyValue('--text').trim() || '#1c1b22',
-    muted: s.getPropertyValue('--muted').trim() || '#6b6978',
-    accent: s.getPropertyValue('--accent').trim() || '#4f6ef7',
-  };
-}
+import { getChartTheme } from './pianoCharts';
+import { ACCU_WEIGHT } from '../core/scoring';
 
 export interface ResultPageElements {
   page: HTMLElement;
@@ -284,8 +273,6 @@ function renderAccuracyCurveToCanvas(
 
   const sorted = [...notes].sort((a, b) => a.time - b.time);
   const t = getChartTheme();
-  const ACCU_WEIGHT: Record<string, number> = { PERFECT: 320, OK: 150, BAD: 50, MISS: 0 };
-
   const points: Array<{ time: number; accuracy: number }> = [];
   let achieved = 0, minAcc = 1;
   for (let i = 0; i < sorted.length; i++) {
