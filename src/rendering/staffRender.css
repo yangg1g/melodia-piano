@@ -95,10 +95,41 @@
   display: block;
 }
 
-/* 五线谱以 <img> 形式渲染，确保按原始尺寸显示（与播放头 overlay 对齐） */
-.score-row-host img {
+/* 滚动条五线谱：SVG 矢量渲染，按原始尺寸显示 */
+.score-row-host .vf-wrap {
+  line-height: 0;
+}
+
+.score-row-host .vf-wrap svg {
   display: block;
   background: var(--score-bg);
+}
+
+/* 固定谱头：游戏滚动视图中不随乐谱移动（谱号 + 调号 + 拍号） */
+.stave-head-fixed {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  background: var(--score-bg);
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.stave-head-fixed .stave-head {
+  overflow: hidden;
+}
+
+/* 跟弹模式：直接修改 SVG 音符元素的实时按键高亮 */
+/* 按下的正确音符符头：双层光晕，颜色跟随音符音高（--note-glow，默认蓝） */
+.staff-note-pressed text {
+  filter: drop-shadow(0 0 3px var(--note-glow, #4f6ef7)) drop-shadow(0 0 10px var(--note-glow, #4f6ef7));
+}
+
+/* 错键临时红色音符（注入 SVG） */
+.staff-wrong-note {
+  pointer-events: none;
 }
 
 /* 原始五线谱模式：行式布局 */

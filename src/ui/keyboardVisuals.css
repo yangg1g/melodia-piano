@@ -220,7 +220,7 @@
 
 .piano-key.white.finger.hint-lh::after,
 .piano-key.white.finger.active-lh::after {
-  bottom: 6px;
+  bottom: 34px;
   width: 28px;
   height: 28px;
   line-height: 24px;
@@ -229,7 +229,7 @@
 
 .piano-key.white.finger.hint-rh::after,
 .piano-key.white.finger.active-rh::after {
-  bottom: 6px;
+  bottom: 34px;
   width: 28px;
   height: 28px;
   line-height: 24px;
@@ -238,7 +238,7 @@
 
 .piano-key.black.finger.hint-lh::after,
 .piano-key.black.finger.active-lh::after {
-  bottom: 3px;
+  bottom: 24px;
   width: 18px;
   height: 18px;
   font-size: 10px;
@@ -248,7 +248,7 @@
 
 .piano-key.black.finger.hint-rh::after,
 .piano-key.black.finger.active-rh::after {
-  bottom: 3px;
+  bottom: 24px;
   width: 18px;
   height: 18px;
   font-size: 10px;
@@ -258,14 +258,14 @@
 
 .piano-key.white.hint-lh::after,
 .piano-key.white.hint-rh::after {
-  bottom: 6px;
+  bottom: 34px;
   width: 28px;
   height: 28px;
 }
 
 .piano-key.black.hint-lh::after,
 .piano-key.black.hint-rh::after {
-  bottom: 3px;
+  bottom: 24px;
   width: 18px;
   height: 18px;
 }

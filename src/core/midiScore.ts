@@ -32,6 +32,8 @@ export interface MeasureContext {
   ticksPerMeasure: number;
   secPerMeasure: number;
   timeSigStr: string;
+  /** 调号（VexFlow key spec，如 'C'、'G'、'F'、'Bb'、'Am'、'F#m'），无调号时为 'C' */
+  keySignature: string;
 }
 
 export function getMeasureContext(midi: Midi): MeasureContext {
@@ -44,6 +46,8 @@ export function getMeasureContext(midi: Midi): MeasureContext {
   const tAfter = midi.header.ticksToSeconds(ticksPerMeasure);
   const t0 = midi.header.ticksToSeconds(0);
   const secPerMeasure = Math.max(1e-6, tAfter - t0);
+  const keySigs = (midi.header as { keySignatures?: Array<{ key?: string; scale?: string }> }).keySignatures;
+  const keySignature = toVexKeySignature(keySigs?.[0]);
   return {
     bpm,
     timeSig: [ts[0], den],
@@ -51,7 +55,31 @@ export function getMeasureContext(midi: Midi): MeasureContext {
     ticksPerMeasure,
     secPerMeasure,
     timeSigStr: `${ts[0]}/${den}`,
+    keySignature,
   };
+}
+
+/**
+ * 将 @tonejs/midi 的调号条目（{@link https://github.com/Tonejs/Midi | keySignatures}）转为 VexFlow key spec。
+ * key 为对应升降号数的大调名（如 'C'、'G'、'Bb'、'F#'），scale 为 'major' | 'minor'。
+ * 小调取其关系小调名（如 G 大调 → E 小调）；未知值回退 'C'（无升降号）。
+ */
+export function toVexKeySignature(ks?: { key?: string; scale?: string }): string {
+  if (!ks?.key) return 'C';
+  // 与 @tonejs/midi Header.keySignatureKeys 一致：按五度圈排列（7 降 → 7 升）
+  const MAJOR = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
+  const idx = MAJOR.indexOf(ks.key);
+  if (idx < 0) return 'C';
+  if (ks.scale === 'minor') {
+    const sf = idx - 7; // 升降号数：负=降号，正=升号
+    if (sf <= 0) {
+      const FLAT_MINOR = ['Am', 'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm', 'Abm']; // sf: 0 → -7
+      return FLAT_MINOR[Math.min(7, -sf)] ?? 'C';
+    }
+    const SHARP_MINOR = ['Em', 'Bm', 'F#m', 'C#m', 'G#m', 'D#m', 'A#m']; // sf: 1 → 7
+    return SHARP_MINOR[Math.min(7, sf) - 1] ?? 'C';
+  }
+  return MAJOR[idx];
 }
 
 /**
@@ -303,10 +331,16 @@ export function assignNoteKeys(flatNotes: FlatNote[], midi: Midi, ctx: MeasureCo
         if (atom.rest) continue;
         for (let ki = 0; ki < atom.keys.length; ki++) {
           const vexKey = atom.keys[ki];
+          // 与 buildAtomsForHand 一致，用 tick 划分小节边界（秒划分在变拍/弱起时会产生漂移）
+          const measureStartTick = mi * ctx.ticksPerMeasure;
+          const measureEndTick = (mi + 1) * ctx.ticksPerMeasure;
           const measureStartSec = mi * ctx.secPerMeasure;
           const measureEndSec = (mi + 1) * ctx.secPerMeasure;
           for (const fn of flatNotes) {
-            if (fn.vexKey === vexKey && fn.time >= measureStartSec && fn.time < measureEndSec
+            const inMeasure = Number.isFinite(fn.ticks)
+              ? fn.ticks >= measureStartTick && fn.ticks < measureEndTick
+              : fn.time >= measureStartSec && fn.time < measureEndSec;
+            if (fn.vexKey === vexKey && inMeasure
               && assignHandForNote(fn, midi) === hand && !fn.noteKey) {
               fn.noteKey = `${mi}:${hand}:${ai}:${ki}`;
               break;
@@ -335,6 +369,11 @@ export function createMidiFromJson(json: import('../core/types').SongDataJson): 
         ticks: ts.ticks,
         timeSignature: ts.timeSignature,
         measures: ts.measures,
+      })),
+      keySignatures: (json.header.keySignatures ?? []).map(ks => ({
+        ticks: ks.ticks,
+        key: ks.key,
+        scale: ks.scale,
       })),
       ticksToSeconds(ticks: number): number {
         const tempo = tempos[0]?.bpm ?? 120;

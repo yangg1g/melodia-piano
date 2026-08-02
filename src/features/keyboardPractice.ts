@@ -1,6 +1,6 @@
 import type { Midi } from '@tonejs/midi';
 import type { KeyboardFallingState } from '../rendering/fallingNotes';
-import { assignHandForNote, type FlatNote } from '../core/midiScore';
+import { assignHandForNote, type FlatNote, type Hand } from '../core/midiScore';
 import { applyKeyVisuals } from '../rendering/pianoKeyboard';
 import type { PlaybackController, MidiEventRecord } from './playback';
 import { playPianoMidi, releaseAllPiano, startPianoNote, releasePianoNote } from '../audio/salamanderPiano';
@@ -86,6 +86,9 @@ export function startKeyboardPractice(
   onChordUpdate?: (pressed: Set<number>) => void,
   initialGameTimeSec?: number,
   midiFingerMap?: Map<number, number>,
+  onVisualState?: (expected: Map<number, Hand>, pressed: Set<number>) => void,
+  /** 引擎判定为错键时回调（仅真正错按触发，命中后按住不算错键） */
+  onWrongNote?: (midi: number) => void,
 ): PlaybackController {
   // 每次弹奏创建新的日志文件
   resetLogFile();
@@ -114,11 +117,13 @@ export function startKeyboardPractice(
     },
     onWrongKey(midi, velocity) {
       playPianoMidi(midi, 0.3, velocity);
+      onWrongNote?.(midi);
     },
 
     onVisualUpdate(expected, pressed, expectedFingers) {
       applyKeyVisuals(keyEls, { expected, active: undefined, pressed, expectedFingers });
       onChordUpdate?.(pressed);
+      onVisualState?.(expected, pressed);
     },
     onPaintState(notes, effectiveTimeSec) {
       onPracticePaint?.({ notes, currentTimeSec: effectiveTimeSec });

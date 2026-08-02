@@ -10,8 +10,10 @@ import {
   measureCount,
   assignNoteKeys,
   type FlatNote,
+  type Hand,
 } from '../core/midiScore';
-import { playheadXInMeasureOverlay, renderGrandStaffRow, renderGrandStaffRowSVG, type GrandStaffColumn } from '../rendering/renderScore';
+import { playheadXInMeasureOverlay, renderGrandStaffRow, renderGrandStaffRowSVG, renderStaveHead, staffNoteY, type GrandStaffColumn } from '../rendering/renderScore';
+import { NOTE_COLORS } from '../core/pitchUtil';
 import { applyKeyVisuals, createPianoKeyboard, isWhiteKey } from '../rendering/pianoKeyboard';
 import { autoAssignFingers } from '../core/fingerAssigner';
 import { detectChord } from '../core/chordDetector';
@@ -20,6 +22,7 @@ import { playNotes, type PlaybackController } from '../features/playback';
 import { startKeyboardPractice } from '../features/keyboardPractice';
 import { createStaffEditState, type EditTool } from '../features/staffEditor';
 import { ScoringEngine } from '../core/scoring';
+import type { NoteState } from '../core/midiMatchEngine';
 import { ensurePiano } from '../audio/salamanderPiano';
 import type { PlayMode, PlayHistoryEntry } from '../core/types';
 import { loadSettings } from './settings';
@@ -56,6 +59,14 @@ interface ScorePagerState {
   midi: Midi;
   nMeas: number;
   measureWidth: number;
+  /** 谱线起点（高音谱表 y），仅 image 模式有值 */
+  y0?: number;
+  /** 乐谱画布高度，仅 image 模式有值 */
+  canvasHeight?: number;
+  /** 自动缩放比例（<1 表示缩小以适配容器高度），仅 image 模式有值 */
+  scaleY?: number;
+  /** 垂直居中平移（px），仅 image 模式有值；屏幕 y = 原始 y * scaleY + yOffset */
+  yOffset?: number;
 }
 
 /* ── Piano 页状态 ── */
@@ -118,6 +129,35 @@ export class PianoPage {
   scorePagerState: ScorePagerState | null = null;
   staffEditState = createStaffEditState();
   editModeActive = false;
+
+  /** 跟弹模式：五线谱实时按键高亮（直接修改 SVG 音符元素，无叠加图片） */
+  private staffLivePressed = new Set<number>();
+  private staffLiveNotes: NoteState[] = [];
+  private staffLiveTimeSec = 0;
+  /** 全曲音符时间线（时间 → 滚动条内 x，按时间排序去重），供滚动精确对齐 */
+  private staffNoteTimeline: Array<{ t: number; x: number }> = [];
+  /** atom 键（小节:手:atom）→ SVG 音符组元素 */
+  private staffAtomEls = new Map<string, SVGElement>();
+  /** 当前被高亮的音符元素 */
+  private staffHighlightedEls: SVGElement[] = [];
+  /** 引擎判定的错键集合（按住期间保持红色） */
+  private staffWrongMidis = new Set<number>();
+  /** 临时错键红色音符元素 */
+  private staffWrongNoteEls: Element[] = [];
+  /** 自动缩放：五线谱 SVG / 固定谱头 SVG 与内容包围盒（供窗口高度变化时重新适配） */
+  private scoreFitSvg: SVGSVGElement | null = null;
+  private scoreFitHeadSvg: SVGSVGElement | null = null;
+  private scoreFitBB: { y: number; height: number } | null = null;
+  /** 自适应缩放：逐音符 y 范围（按 x 升序），供按当前视图计算目标缩放 */
+  private staffFitAtoms: Array<{ x: number; top: number; bottom: number }> = [];
+  /** 平滑后的当前状态（指数平滑，保证缩放/位移衔接光滑） */
+  private staffFitSmooth = { s: 1, top: 0, h: 0, lastTx: Number.NEGATIVE_INFINITY };
+  /** 谱表本身的范围（任何视图都含谱表，作为并集下限） */
+  private staffFitStaveTop = 0;
+  private staffFitStaveBottom = 0;
+  private staffFitRaf = 0;
+  private staffFitLastT = 0;
+  private staffFitHeadW = 0;
   editTool: EditTool = 'select';
   selectedNoteKeys = new Set<string>();
   selDragStart: { x: number; y: number } | null = null;
@@ -283,6 +323,8 @@ export class PianoPage {
       this.restartPracticeLoop();
     };
     this.initEvents();
+    // 窗口高度变化时（28vh 容器随之变化）重新计算五线谱缩放，保持音符完整可见
+    window.addEventListener('resize', () => this.handleScoreResize());
   }
 
   /* ── 事件绑定 ── */
@@ -592,13 +634,17 @@ export class PianoPage {
     if (mode === 'image') {
       this.scoreEl.style.cssText = 'position:relative;will-change:transform';
       this.scoreScrollEl.style.cssText = 'overflow:hidden;position:relative';
+      this.removeFixedStaveHead();
+      this.resetStaffLiveHighlight();
       this.renderStaffImage(this.scoreEl, m, measureWidth);
       this.addJudgmentLine();
-      this.scoreEl.style.transform = `translateX(${this.getJudgeX()}px)`;
+      this.scrollStaffToProgress(0);
     } else {
       this.scoreEl.style.cssText = '';
       this.scoreScrollEl.style.cssText = 'overflow:auto;position:relative';
       this.scoreScrollEl.querySelector('.judgment-line')?.remove();
+      this.removeFixedStaveHead();
+      this.resetStaffLiveHighlight();
       this.renderStaffOriginal(this.scoreEl, m, measureWidth);
       this.hideScorePlayhead();
     }
@@ -963,7 +1009,7 @@ export class PianoPage {
             const loopMeasure = Math.max(0, Math.min(currentMeasure - this.practice.measureStart, this.practice.measureEnd - this.practice.measureStart));
             this.updateMeasureInfo(loopMeasure, this.practice.measureEnd - this.practice.measureStart + 1);
           },
-          (s) => this.fallingNotes.updateKeyboardPractice(s),
+          (s) => this.handlePracticePaint(s),
           this.scoringEngine,
           () => this.onScoreTick(),
           false,
@@ -972,6 +1018,8 @@ export class PianoPage {
           (pressed) => this.updateChordDisplay(pressed),
           undefined,
           this.currentFingerMap,
+          (expected, pressed) => this.handleVisualState(expected, pressed),
+          (midi) => { this.staffWrongMidis.add(midi); },
         );
       };
 
@@ -999,7 +1047,7 @@ export class PianoPage {
           this.updateScorePlayhead(t);
           updateProgressBar(this.progressBar, this.progressTime, t, this.totalDurationSec, this.seeking);
         },
-        (s) => this.fallingNotes.updateKeyboardPractice(s),
+        (s) => this.handlePracticePaint(s),
         this.scoringEngine,
         () => this.onScoreTick(),
         true,
@@ -1008,6 +1056,8 @@ export class PianoPage {
         (pressed) => this.updateChordDisplay(pressed),
         undefined,
         this.currentFingerMap,
+        (expected, pressed) => this.handleVisualState(expected, pressed),
+        (midi) => { this.staffWrongMidis.add(midi); },
       );
       return;
     }
@@ -1036,7 +1086,7 @@ export class PianoPage {
           updateProgressBar(this.progressBar, this.progressTime, t, this.totalDurationSec, this.seeking);
           lastGameTimeSec = t;
         },
-        (s) => this.fallingNotes.updateKeyboardPractice(s),
+        (s) => this.handlePracticePaint(s),
         this.scoringEngine,
         () => this.onScoreTick(),
         false,
@@ -1056,6 +1106,8 @@ export class PianoPage {
         (pressed) => this.updateChordDisplay(pressed),
         undefined,
         this.currentFingerMap,
+        (expected, pressed) => this.handleVisualState(expected, pressed),
+        (midi) => { this.staffWrongMidis.add(midi); },
       );
       return;
     }
@@ -1085,6 +1137,7 @@ export class PianoPage {
   }
 
   hideScorePlayhead(): void {
+    this.clearStaffLiveHighlight();
     if (this.getRenderMode() === 'image') {
       this.resetStaffScroll();
     } else {
@@ -1373,16 +1426,213 @@ export class PianoPage {
     const columns: GrandStaffColumn[] = [];
     for (let i = 0; i < nMeas; i++) {
       columns.push({
+        // 谱头（谱号/调号/拍号）已由固定元素 {@link renderStaveHead} 呈现，滚动条内不再重复绘制
         measureIndex: i, trebleAtoms: buildAtomsForHand(this.flatNotes, midi, 'treble', ctx, i),
-        bassAtoms: buildAtomsForHand(this.flatNotes, midi, 'bass', ctx, i), showStaffHeader: i === 0,
+        bassAtoms: buildAtomsForHand(this.flatNotes, midi, 'bass', ctx, i), showStaffHeader: false,
       });
     }
-    const { height: stripHeight } = renderGrandStaffRow(
+    // 可用显示高度：以容器实际高度为准（28vh，窗口变化时由 handleScoreResize 重新适配）
+    const clientH = this.scoreScrollEl.clientHeight;
+    const fitHeight = Math.max(140, (clientH > 0 ? clientH : Math.round(window.innerHeight * 0.28)) - 2);
+    const { height: stripHeight, y0, canvasHeight, scaleY, yOffset, noteXByAtom } = renderGrandStaffRow(
       stripEl, columns, ctx, measureWidth, true,
       this.staffEditState, this.editModeActive ? this.selectedNoteKeys : undefined,
+      fitHeight,
     );
-    this.scorePagerState = { ctx, midi, nMeas, measureWidth };
+    // 依据音符实际渲染 x 建立「时间 → x」全曲时间线（用于滚动对齐与错键音符定位）。
+    // x 为原始坐标；滚动定位时换算屏幕坐标（x * scaleY）。
+    this.staffAtomEls.clear();
+    const timeline: Array<{ t: number; x: number }> = [];
+    const fitAtoms: Array<{ x: number; top: number; bottom: number }> = [];
+    for (const fn of this.flatNotes) {
+      if (!fn.noteKey) continue;
+      const [mStr, hand, aStr] = fn.noteKey.split(':');
+      const info = noteXByAtom.get(`${mStr}:${hand}:${aStr}`);
+      if (!info) continue;
+      if (info.el) this.staffAtomEls.set(`${mStr}:${hand}:${aStr}`, info.el);
+      timeline.push({ t: fn.time, x: info.x });
+    }
+    // 自适应缩放数据：直接遍历全部渲染原子（不依赖 noteKey 匹配，避免部分音符缺失）
+    for (const [, info] of noteXByAtom) {
+      if (info.top !== undefined && info.bottom !== undefined) {
+        fitAtoms.push({ x: info.x, top: info.top, bottom: info.bottom });
+      }
+    }
+    // 按时间排序，相邻同时间（和弦）去重保留首项（同 System 内同时间音符共享同一 x）
+    timeline.sort((a, b) => a.t - b.t);
+    this.staffNoteTimeline = timeline.filter((v, i) => i === 0 || Math.abs(v.t - timeline[i - 1].t) > 1e-6);
+    // 按 x 升序，供自适应缩放二分查询
+    fitAtoms.sort((a, b) => a.x - b.x);
+    this.staffFitAtoms = fitAtoms;
+    // 固定谱头：不随乐谱滚动，始终显示调号等谱表头部信息
+    const headEl = document.createElement('div');
+    headEl.className = 'stave-head-fixed';
+    headEl.style.height = `${canvasHeight}px`;
+    this.scoreScrollEl.appendChild(headEl);
+    const headWidth = renderStaveHead(headEl, ctx, y0, canvasHeight);
+    const s = scaleY ?? 1;
+    // 自适应缩放的最大比例可达 1（不放大），谱头宽度按原始尺寸留足，避免缩放变化时被裁切
+    headEl.style.width = `${Math.max(1, Math.ceil(headWidth))}px`;
+    // 谱头与音符条应用相同的缩放/居中变换，保证谱线完全对齐
+    const headSvg = headEl.querySelector<SVGSVGElement>('svg');
+    if (headSvg && (s !== 1 || (yOffset ?? 0) !== 0)) {
+      headSvg.style.transformOrigin = '0 0';
+      headSvg.style.transform = `translate(0, ${(yOffset ?? 0).toFixed(2)}px) scale(${s.toFixed(4)})`;
+      this.scoreFitHeadSvg = headSvg;
+    }
+    this.scorePagerState = { ctx, midi, nMeas, measureWidth, y0, canvasHeight, scaleY: s, yOffset: yOffset ?? 0 };
+    // 记录缩放上下文，供自适应缩放循环使用
+    this.scoreFitSvg = stripEl.querySelector<SVGSVGElement>('.score-row-host .vf-wrap svg');
+    try {
+      const bb = this.scoreFitSvg?.getBBox();
+      this.scoreFitBB = bb && bb.height > 0 ? { y: bb.y, height: bb.height } : null;
+    } catch {
+      this.scoreFitBB = null;
+    }
+    // 自适应缩放：初始状态为整曲适配结果，随后由循环按当前视图平滑过渡
+    this.staffFitSmooth = {
+      s: s,
+      top: this.scoreFitBB?.y ?? y0 + 8,
+      h: this.scoreFitBB?.height ?? 140,
+      lastTx: Number.NEGATIVE_INFINITY,
+    };
+    this.staffFitStaveTop = y0 + 8;
+    this.staffFitStaveBottom = y0 + 148;
+    this.staffFitHeadW = headWidth;
     stripEl.style.minHeight = `${stripHeight}px`;
+    this.startStaffFitLoop();
+  }
+
+  /** 移除固定谱头（切换渲染模式/重新渲染时调用） */
+  private removeFixedStaveHead(): void {
+    this.stopStaffFitLoop();
+    this.scoreScrollEl.querySelector('.stave-head-fixed')?.remove();
+    this.scoreFitSvg = null;
+    this.scoreFitHeadSvg = null;
+    this.scoreFitBB = null;
+    this.staffFitAtoms = [];
+  }
+
+  /** 重置实时按键高亮状态（切换渲染模式/重新渲染时调用） */
+  private resetStaffLiveHighlight(): void {
+    this.clearStaffLiveHighlight();
+    this.staffLivePressed.clear();
+    this.staffLiveNotes = [];
+    this.staffLiveTimeSec = 0;
+    this.staffNoteTimeline = [];
+    this.staffAtomEls.clear();
+    this.staffWrongMidis.clear();
+  }
+
+  /** 清空高亮：移除音符样式类与临时错键音符（停止/结束时调用） */
+  private clearStaffLiveHighlight(): void {
+    for (const el of this.staffHighlightedEls) {
+      el.classList.remove('staff-note-pressed');
+      el.style.removeProperty('--note-glow');
+    }
+    this.staffHighlightedEls = [];
+    for (const el of this.staffWrongNoteEls) {
+      el.remove();
+    }
+    this.staffWrongNoteEls = [];
+  }
+
+  /** 跟弹/普通模式：接收绘制状态并更新逐音符高亮 */
+  private handlePracticePaint(s: import('../rendering/fallingNotes').KeyboardFallingState | null): void {
+    this.fallingNotes.updateKeyboardPractice(s);
+    if (s) {
+      this.staffLiveNotes = s.notes as unknown as NoteState[];
+      this.staffLiveTimeSec = s.currentTimeSec;
+      this.updateStaffLiveHighlight();
+    }
+  }
+
+  /** 跟弹/普通模式：接收期望/按下状态并更新逐音符高亮 */
+  private handleVisualState(_expected: Map<number, Hand>, pressed: Set<number>): void {
+    // 同步错键集合：已松开的键不再标红
+    for (const m of this.staffWrongMidis) {
+      if (!pressed.has(m)) this.staffWrongMidis.delete(m);
+    }
+    this.staffLivePressed = pressed;
+    this.updateStaffLiveHighlight();
+  }
+
+  /**
+   * 直接修改当前音符元素实现高亮（不叠加图片）：
+   * - 按下的正确音符 → 光晕高亮；
+   * - 错键（引擎判定）→ 在当前位置注入临时红色空心音符。
+   * 当前需要按的期望音符不做任何高亮。
+   */
+  private updateStaffLiveHighlight(): void {
+    this.clearStaffLiveHighlight();
+    const st = this.scorePagerState;
+    if (!st || st.y0 === undefined) return;
+    const svg = this.scoreEl.querySelector<Element>('.score-row-host .vf-wrap svg');
+    if (!svg) return;
+
+    // 当前时间附近待匹配/刚命中/正在延音的音符 → 其 SVG 音符组与符头索引（最近优先）
+    const elByMidi = new Map<number, { el: SVGElement; keyIdx: number; d: number }>();
+    for (const ns of this.staffLiveNotes) {
+      if (!ns.note.noteKey) continue;
+      const t = ns.note.time;
+      const end = t + Math.max(0, ns.note.duration);
+      // 含已命中音符：正确按键命中后按住期间仍保持高亮
+      if (this.staffLiveTimeSec < t - 0.3 || this.staffLiveTimeSec > end + 0.4) continue;
+      const parts = ns.note.noteKey.split(':');
+      const atomKey = parts.slice(0, 3).join(':');
+      const keyIdx = Number(parts[3]) || 0;
+      const el = this.staffAtomEls.get(atomKey);
+      if (!el) continue;
+      const d = Math.abs(t - this.staffLiveTimeSec);
+      const cur = elByMidi.get(ns.note.midi);
+      if (!cur || d < cur.d) elByMidi.set(ns.note.midi, { el, keyIdx, d });
+    }
+
+    // 按下的键：错键（引擎判定）→ 红色空心音符；正确 → 只高亮对应符头（颜色跟随音高）
+    for (const midi of this.staffLivePressed) {
+      if (this.staffWrongMidis.has(midi)) {
+        const wrong = this.createStaffWrongNote(svg, midi, st.y0);
+        if (wrong) this.staffWrongNoteEls.push(wrong);
+        continue;
+      }
+      const ent = elByMidi.get(midi);
+      if (ent) {
+        const head = ent.el.querySelectorAll<SVGElement>('.vf-notehead')[ent.keyIdx];
+        if (!head) continue;
+        head.classList.add('staff-note-pressed');
+        // 高亮颜色跟随音符音高（与下落音符/符头同色系）
+        const pc = ((midi % 12) + 12) % 12;
+        const letter = ['c', 'c', 'd', 'd', 'e', 'f', 'f', 'g', 'g', 'a', 'a', 'b'][pc] ?? 'c';
+        head.style.setProperty('--note-glow', NOTE_COLORS[letter] ?? '#4f6ef7');
+        this.staffHighlightedEls.push(head);
+      }
+    }
+  }
+
+  /** 创建错键红色音符（SVG 元素，随乐谱滚动） */
+  private createStaffWrongNote(svg: Element, midi: number, y0: number): Element | null {
+    const x = this.staffXForTime(this.staffLiveTimeSec);
+    if (x === null) return null;
+    const hand: Hand = midi >= 60 ? 'treble' : 'bass';
+    const y = staffNoteY(midi, hand, y0);
+    const NS = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'staff-wrong-note');
+    const inner = document.createElementNS(NS, 'g');
+    inner.setAttribute('transform', `translate(${x}, ${y}) rotate(-20)`);
+    const head = document.createElementNS(NS, 'ellipse');
+    head.setAttribute('cx', '0');
+    head.setAttribute('cy', '0');
+    head.setAttribute('rx', '5');
+    head.setAttribute('ry', '3.6');
+    // 红色空心（描边、内部透明）
+    head.setAttribute('fill', 'none');
+    head.setAttribute('stroke', '#e53935');
+    head.setAttribute('stroke-width', '2');
+    inner.appendChild(head);
+    g.appendChild(inner);
+    svg.appendChild(g);
+    return g;
   }
 
   private renderStaffOriginal(parent: HTMLElement, midi: Midi, measureWidth: number): void {
@@ -1420,18 +1670,156 @@ export class PianoPage {
     this.scoreScrollEl.appendChild(line);
   }
 
+  /**
+   * 计算某时间在滚动条中的 x（基于全曲音符实际渲染位置，相邻音符间线性插值）。
+   * 使用全曲统一时间线，避免跨小节边界时的位置突跳。
+   * @returns null 表示暂无位置数据
+   */
+  private staffXForTime(timeSec: number): number | null {
+    const tl = this.staffNoteTimeline;
+    if (tl.length === 0) return null;
+    const first = tl[0];
+    const last = tl[tl.length - 1];
+    if (timeSec <= first.t) return first.x;
+    if (timeSec >= last.t) return last.x;
+    for (let k = 1; k < tl.length; k++) {
+      if (timeSec <= tl[k].t) {
+        const a = tl[k - 1];
+        const b = tl[k];
+        const f = Math.min(1, Math.max(0, (timeSec - a.t) / Math.max(1e-6, b.t - a.t)));
+        return a.x + f * (b.x - a.x);
+      }
+    }
+    return last.x;
+  }
+
   private resetStaffScroll(): void {
-    this.scoreEl.style.transform = `translateX(${this.getJudgeX()}px)`;
+    this.scrollStaffToProgress(0);
   }
 
   private getJudgeX(): number {
     return Math.max(80, Math.floor(this.scoreScrollEl.clientWidth * 0.25));
   }
 
+  /** 滚动乐谱，使当前时间对应的音符精确对齐判定线（基于音符实际渲染 x） */
   private scrollStaffToProgress(progress01: number): void {
     const st = this.scorePagerState;
     if (!st) return;
-    this.scoreEl.style.transform = `translateX(${this.getJudgeX() - progress01 * st.nMeas * st.measureWidth}px)`;
+    this.scrollStaffToTime(progress01 * st.midi.duration);
+  }
+
+  private scrollStaffToTime(timeSec: number): void {
+    const st = this.scorePagerState;
+    if (!st) return;
+    const x = this.staffXForTime(timeSec);
+    const judgeX = this.getJudgeX();
+    // 五线谱自动缩放后，音符实际渲染位置 = 原始 x * scaleY
+    const s = st.scaleY ?? 1;
+    this.scoreEl.style.transform = x === null
+      ? `translateX(${judgeX}px)`
+      : `translateX(${judgeX - x * s}px)`;
+  }
+
+  /** 窗口高度变化时（28vh 容器随之变化）自适应缩放循环会读取最新容器高度，确保循环在运行即可 */
+  private handleScoreResize(): void {
+    this.startStaffFitLoop();
+  }
+
+  /** 启动自适应缩放循环（rAF，幂等） */
+  private startStaffFitLoop(): void {
+    if (this.staffFitRaf) return;
+    const loop = () => {
+      this.staffFitRaf = requestAnimationFrame(loop);
+      this.updateStaffFit();
+    };
+    this.staffFitRaf = requestAnimationFrame(loop);
+  }
+
+  /** 停止自适应缩放循环（切换渲染模式/重新渲染时调用） */
+  private stopStaffFitLoop(): void {
+    if (this.staffFitRaf) {
+      cancelAnimationFrame(this.staffFitRaf);
+      this.staffFitRaf = 0;
+    }
+  }
+
+  /** 读取当前滚动 translateX（屏幕坐标） */
+  private parseScoreTranslateX(): number {
+    const m = this.scoreEl.style.transform.match(/translateX\((-?[\d.]+)px\)/);
+    return m ? parseFloat(m[1]) : 0;
+  }
+
+  /**
+   * 按当前视图自适应缩放：以「可见 x 窗口内音符的 y 并集」为目标范围，
+   * 用指数平滑让缩放比例与垂直位置缓慢衔接，避免突变。
+   * 缩放后：屏幕 x = 原始 x * s；屏幕 y = 原始 y * s + oy。
+   */
+  private updateStaffFit(): void {
+    const st = this.scorePagerState;
+    if (!st || st.y0 === undefined || !this.scoreFitSvg) return;
+    const clientH = this.scoreScrollEl.clientHeight;
+    const clientW = this.scoreScrollEl.clientWidth;
+    if (clientH <= 0 || clientW <= 0) return;
+
+    const sm = this.staffFitSmooth;
+    const tx = this.parseScoreTranslateX();
+    const sCur = sm.s;
+    // 可见原始 x 窗口（谱头覆盖区域不算可视）
+    const viewLeft = (this.staffFitHeadW - tx) / sCur;
+    const viewRight = (clientW - tx) / sCur;
+    // 窗口内音符 y 并集（含谱表本身范围作为下限）
+    let top = this.staffFitStaveTop;
+    let bottom = this.staffFitStaveBottom;
+    if (viewRight > viewLeft && this.staffFitAtoms.length > 0) {
+      let a = 0;
+      let b = this.staffFitAtoms.length;
+      while (a < b) {
+        const m = (a + b) >> 1;
+        if (this.staffFitAtoms[m].x < viewLeft) a = m + 1;
+        else b = m;
+      }
+      for (let i = a; i < this.staffFitAtoms.length; i++) {
+        const at = this.staffFitAtoms[i];
+        if (at.x > viewRight) break;
+        if (at.top < top) top = at.top;
+        if (at.bottom > bottom) bottom = at.bottom;
+      }
+    }
+    const hRaw = Math.max(1, bottom - top);
+    const fitH = Math.max(140, clientH - 2);
+    const sRaw = Math.min(1, fitH / hRaw);
+    // 指数平滑（时间常数 ≈ 140ms），衔接光滑
+    const now = performance.now();
+    const dt = Math.min(64, Math.max(0, now - this.staffFitLastT));
+    this.staffFitLastT = now;
+    const k = 1 - Math.exp(-dt / 140);
+    const sNew = sm.s + (sRaw - sm.s) * k;
+    const topNew = sm.top + (top - sm.top) * k;
+    const hNew = sm.h + (hRaw - sm.h) * k;
+    const changed = Math.abs(sNew - sCur) > 0.0003
+      || Math.abs(topNew - sm.top) > 0.3
+      || Math.abs(hNew - sm.h) > 0.3;
+    if (!changed && Math.abs(tx - sm.lastTx) < 0.5) return; // 视图与目标均未变化
+    sm.s = sNew;
+    sm.top = topNew;
+    sm.h = hNew;
+    sm.lastTx = tx;
+    const oy = (fitH - hNew * sNew) / 2 - topNew * sNew;
+    const tf = `translate(0, ${oy.toFixed(2)}px) scale(${sNew.toFixed(4)})`;
+    this.scoreFitSvg.style.transformOrigin = '0 0';
+    this.scoreFitSvg.style.transform = tf;
+    if (this.scoreFitHeadSvg) {
+      this.scoreFitHeadSvg.style.transformOrigin = '0 0';
+      this.scoreFitHeadSvg.style.transform = tf;
+    }
+    st.scaleY = sNew;
+    st.yOffset = oy;
+    // 缩放变化会改变音符屏幕 x；空闲时（非播放中）重新对齐判定线
+    if (Math.abs(sNew - sCur) > 0.0003 && !this.playback) {
+      const total = st.midi.duration;
+      const progress01 = total > 0 ? Math.min(1, Math.max(0, Number(this.progressBar.value) / 1000)) : 0;
+      this.scrollStaffToProgress(progress01);
+    }
   }
 
   private updateMeasureInfo(current: number, total: number): void {
@@ -1474,7 +1862,7 @@ export class PianoPage {
       const midx = Number(row.dataset.measureIndex);
       if (midx !== m) { ph.classList.remove('is-visible'); continue; }
       const hasHeader = row.dataset.hasStaffHeader === '1';
-      ph.style.left = `${playheadXInMeasureOverlay(measuresPerRow, st.measureWidth, colInRow, hasHeader, progress)}px`;
+      ph.style.left = `${playheadXInMeasureOverlay(measuresPerRow, st.measureWidth, colInRow, hasHeader, progress, st.ctx.keySignature)}px`;
       ph.classList.add('is-visible');
     }
   }

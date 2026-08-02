@@ -81,6 +81,8 @@ export async function saveToJson(page: PianoPage): Promise<void> {
         timeSignatures: page.currentMidi.header.timeSignatures.map(ts => ({
           ticks: ts.ticks, timeSignature: ts.timeSignature, measures: ts.measures,
         })),
+        keySignatures: (page.currentMidi.header as { keySignatures?: Array<{ ticks: number; key: string; scale: string }> })
+          .keySignatures?.map(ks => ({ ticks: ks.ticks, key: ks.key, scale: ks.scale })) ?? [],
         ppq: page.currentMidi.header.ppq,
       },
       trackCount: page.currentMidi.tracks.length,

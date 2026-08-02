@@ -52,6 +52,11 @@ function convertMidiToJson(midiPath, outputPath) {
         timeSignature: ts.timeSignature,
         measures: ts.measures,
       })),
+      keySignatures: (midi.header.keySignatures || []).map(ks => ({
+        ticks: ks.ticks,
+        key: ks.key,
+        scale: ks.scale,
+      })),
       ppq: midi.header.ppq,
     },
     trackCount: midi.tracks.length,

@@ -28,6 +28,18 @@
         "measures": 0
       }
     ],
+    "keySignatures": [
+      {
+        "ticks": 0,
+        "key": "B",
+        "scale": "major"
+      },
+      {
+        "ticks": 0,
+        "key": "B",
+        "scale": "major"
+      }
+    ],
     "ppq": 120
   },
   "trackCount": 2,

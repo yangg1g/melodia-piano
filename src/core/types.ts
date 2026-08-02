@@ -79,6 +79,8 @@ export interface SongDataJson {
     tempos: Array<{ bpm: number; ticks: number }>;
     timeSignatures: Array<{ ticks: number; timeSignature: [number, number]; measures: number }>;
     ppq: number;
+    /** 调号（来自 MIDI key signature 事件，如 { key: 'G', scale: 'major' }），可选，兼容旧 JSON */
+    keySignatures?: Array<{ ticks: number; key: string; scale: 'major' | 'minor' }>;
   };
   trackCount: number;
   tracksWithNotes: number[];
