@@ -99,15 +99,16 @@ function diatonicOf(midi: number): number {
 
 /**
  * MIDI 音高在五线谱上的 y（相对乐谱容器顶部）。
- * 与 VexFlow 实际渲染几何一致（已用 DOM 谱线位置核对）：
- * - 谱线 y = 谱表 y + spaceAboveStaffLn(0.75)×线距(10) + 线号×10；底部线为第 4 线 → 谱表 y + 47.5
+ * 与 VexFlow 5 实际渲染几何一致（已用 DOM 谱线位置核对）：
+ * - VexFlow 5 默认 spaceAboveStaffLn=4、线距 10 → 顶部线 = 谱表 y + 4×10 + 0.5(线宽对齐)；
+ *   底部线为第 4 线 → 谱表 y + 80（线与音符均以 80 为几何中心，0.5 为描边像素校正）
  * - 高音谱底部线 = E4（音级 30），低音谱底部线 = G2（音级 18）
  * - 相邻线/间 = 1 音级 = 5px
  */
 export function staffNoteY(midi: number, hand: Hand, y0: number): number {
   const base = hand === 'treble' ? 30 : 18;
   const staveY = hand === 'treble' ? y0 : y0 + 100;
-  return staveY + 47.5 - (diatonicOf(midi) - base) * 5;
+  return staveY + 80 - (diatonicOf(midi) - base) * 5;
 }
 
 /** 根据音符八度估算上下留白，避免加线音符被 canvas 裁切 */

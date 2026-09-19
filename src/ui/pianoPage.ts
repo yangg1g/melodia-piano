@@ -1609,11 +1609,33 @@ export class PianoPage {
     }
   }
 
+  /**
+   * 错键音符应绘制在哪条谱表：与乐谱实际分谱一致（多轨按轨、单轨按音高）。
+   * 同一音高在两谱表都出现时，取当前时间最近的一次，贴近实际演奏位置。
+   */
+  private handForWrongMidi(midi: number, timeSec: number): Hand {
+    const file = this.currentMidi;
+    if (file) {
+      let best: FlatNote | null = null;
+      let bestD = Infinity;
+      for (const fn of this.flatNotes) {
+        if (fn.midi !== midi) continue;
+        const d = Math.abs(fn.time - timeSec);
+        if (d < bestD) {
+          bestD = d;
+          best = fn;
+        }
+      }
+      if (best) return assignHandForNote(best, file);
+    }
+    return midi >= 60 ? 'treble' : 'bass';
+  }
+
   /** 创建错键红色音符（SVG 元素，随乐谱滚动） */
   private createStaffWrongNote(svg: Element, midi: number, y0: number): Element | null {
     const x = this.staffXForTime(this.staffLiveTimeSec);
     if (x === null) return null;
-    const hand: Hand = midi >= 60 ? 'treble' : 'bass';
+    const hand = this.handForWrongMidi(midi, this.staffLiveTimeSec);
     const y = staffNoteY(midi, hand, y0);
     const NS = 'http://www.w3.org/2000/svg';
     const g = document.createElementNS(NS, 'g');
